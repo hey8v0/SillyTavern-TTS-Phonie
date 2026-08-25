@@ -1,0 +1,14 @@
+{
+    "chat": "Messages",
+    "call": "Call",
+    "settings": "Settings",
+    "open": "Open Phoen",
+    "close": "Close Phoen",
+    "send": "Send",
+    "sendVoice": "Send voice message",
+    "emptyChat": "This private channel has no messages yet",
+    "generating": "Composing a reply",
+    "connected": "Connected",
+    "dialing": "Dialing",
+    "ended": "Call ended"
+}

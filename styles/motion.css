@@ -1,0 +1,103 @@
+.phoen-phone {
+    transition:
+        transform 240ms var(--phoen-ease-drawer),
+        opacity 180ms var(--phoen-ease-out),
+        visibility 0ms linear 240ms;
+}
+
+#phoen-root[data-open="true"] .phoen-phone {
+    transition:
+        transform 240ms var(--phoen-ease-drawer),
+        opacity 180ms var(--phoen-ease-out),
+        visibility 0ms linear 0ms;
+}
+
+.phoen-scrim {
+    transition: opacity 180ms var(--phoen-ease-out);
+}
+
+.phoen-orb,
+.phoen-button,
+.phoen-icon-button,
+.phoen-inline-button,
+.phoen-tab,
+.phoen-voice-action {
+    transition:
+        transform 120ms var(--phoen-ease-out),
+        background-color 160ms ease,
+        color 160ms ease,
+        border-color 160ms ease,
+        opacity 160ms ease;
+}
+
+.phoen-orb:active,
+.phoen-button:active,
+.phoen-icon-button:active,
+.phoen-inline-button:active,
+.phoen-tab:active,
+.phoen-voice-action:active {
+    transform: scale(0.97);
+}
+
+.phoen-screen {
+    transition:
+        transform 160ms var(--phoen-ease-out),
+        opacity 140ms var(--phoen-ease-out),
+        visibility 0ms linear 160ms;
+}
+
+.phoen-screen[data-active="true"] {
+    transition:
+        transform 160ms var(--phoen-ease-out),
+        opacity 140ms var(--phoen-ease-out),
+        visibility 0ms linear 0ms;
+}
+
+#phoen-root[data-audio-state="speaking"] .phoen-voice-seam::after,
+#phoen-root[data-audio-state="generating"] .phoen-voice-seam::after {
+    animation: phoen-seam-trace 1.3s linear infinite;
+    opacity: 1;
+}
+
+#phoen-root[data-audio-state="generating"] .phoen-voice-seam::after {
+    animation-duration: 0.72s;
+}
+
+@keyframes phoen-seam-trace {
+    from { transform: translateY(-70%); }
+    to { transform: translateY(70%); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .phoen-icon-button:hover,
+    .phoen-tab:hover,
+    .phoen-inline-button:hover {
+        background-color: var(--phoen-surface-muted);
+        color: var(--phoen-signal);
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phoen-phone,
+    .phoen-screen,
+    .phoen-scrim,
+    .phoen-orb,
+    .phoen-button,
+    .phoen-icon-button,
+    .phoen-inline-button,
+    .phoen-tab,
+    .phoen-voice-action {
+        transition-duration: 1ms;
+    }
+
+    .phoen-phone,
+    #phoen-root[data-dock="left"] .phoen-phone {
+        transform: none;
+    }
+
+    #phoen-root[data-audio-state] .phoen-voice-seam::after {
+        animation: none;
+        transform: none;
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "display_name": "Phoen Voice Phone",
+    "loading_order": 110,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Phoen",
+    "version": "0.1.0",
+    "homePage": "https://github.com/hey8v0/SillyTavern-TTS-Phoen",
+    "auto_update": true,
+    "hooks": {
+        "activate": "init"
+    }
+}

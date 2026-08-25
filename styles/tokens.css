@@ -1,0 +1,73 @@
+#phoen-root {
+    --phoen-font-ui: "Avenir Next", "Nunito Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+    --phoen-font-reading: "Yu Mincho", "Hiragino Mincho ProN", "Source Han Serif SC", serif;
+    --phoen-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --phoen-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --phoen-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --phoen-radius-frame: 42px;
+    --phoen-radius-panel: 24px;
+    --phoen-radius-control: 16px;
+    --phoen-space-1: 4px;
+    --phoen-space-2: 8px;
+    --phoen-space-3: 12px;
+    --phoen-space-4: 16px;
+    --phoen-space-5: 20px;
+    --phoen-space-6: 24px;
+}
+
+#phoen-root[data-theme="day"] {
+    color-scheme: light;
+    --phoen-canvas: #d7cbb9;
+    --phoen-surface: #f4eee4;
+    --phoen-surface-raised: #fffaf1;
+    --phoen-surface-muted: #e9dfd1;
+    --phoen-ink: #28231f;
+    --phoen-ink-muted: #70665c;
+    --phoen-border: rgba(70, 58, 47, 0.16);
+    --phoen-accent: #b84d3a;
+    --phoen-accent-ink: #fff8f2;
+    --phoen-signal: #287a70;
+    --phoen-danger: #9f3e36;
+    --phoen-shadow: rgba(55, 43, 33, 0.32);
+    --phoen-glint: rgba(255, 255, 255, 0.72);
+    --phoen-user-bubble: #2f6f68;
+    --phoen-user-ink: #f8fffc;
+}
+
+#phoen-root[data-theme="night"] {
+    color-scheme: dark;
+    --phoen-canvas: #080d10;
+    --phoen-surface: #121a1e;
+    --phoen-surface-raised: #1a2428;
+    --phoen-surface-muted: #202c30;
+    --phoen-ink: #eee8dc;
+    --phoen-ink-muted: #a9aaa3;
+    --phoen-border: rgba(221, 231, 227, 0.14);
+    --phoen-accent: #d46a52;
+    --phoen-accent-ink: #fff8f2;
+    --phoen-signal: #70bdb0;
+    --phoen-danger: #e0786d;
+    --phoen-shadow: rgba(0, 0, 0, 0.62);
+    --phoen-glint: rgba(255, 255, 255, 0.12);
+    --phoen-user-bubble: #2e6f68;
+    --phoen-user-ink: #f3fffb;
+}
+
+#phoen-root[data-theme="tavern"] {
+    color-scheme: normal;
+    --phoen-canvas: var(--SmartThemeBlurTintColor, #18181d);
+    --phoen-surface: var(--SmartThemeBlurTintColor, #222229);
+    --phoen-surface-raised: var(--SmartThemeBotMesBlurTintColor, #303038);
+    --phoen-surface-muted: var(--SmartThemeUserMesBlurTintColor, #383841);
+    --phoen-ink: var(--SmartThemeBodyColor, #f2eee8);
+    --phoen-ink-muted: var(--SmartThemeQuoteColor, #b8b2aa);
+    --phoen-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    --phoen-accent: var(--SmartThemeEmColor, #d36850);
+    --phoen-accent-ink: #fffaf4;
+    --phoen-signal: var(--SmartThemeQuoteColor, #75b9ae);
+    --phoen-danger: #d56d63;
+    --phoen-shadow: var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.52));
+    --phoen-glint: rgba(255, 255, 255, 0.15);
+    --phoen-user-bubble: var(--SmartThemeQuoteColor, #356f68);
+    --phoen-user-ink: var(--SmartThemeBlurTintColor, #ffffff);
+}
