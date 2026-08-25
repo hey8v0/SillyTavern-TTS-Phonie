@@ -9,8 +9,12 @@ export const THEMES = Object.freeze({
 });
 
 export const SCREENS = Object.freeze({
+    HOME: 'home',
     CHAT: 'chat',
     CALL: 'call',
+    VOICE: 'voice',
+    TRACE: 'trace',
+    CHARACTER: 'character',
     SETTINGS: 'settings',
 });
 

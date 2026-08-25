@@ -36,7 +36,7 @@ export async function createPhoenApp() {
 
     const store = createStore({
         open: false,
-        screen: SCREENS.CHAT,
+        screen: SCREENS.HOME,
         settings: { ...settings },
         contact: bridge.getContact(),
         messages: metadata.messages,

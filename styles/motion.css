@@ -101,3 +101,85 @@
         transform: none;
     }
 }
+
+
+.phoen-dynamic-island {
+    transition:
+        width 260ms var(--phoen-ease-drawer),
+        box-shadow 180ms ease;
+}
+
+.phoen-app-tile,
+.phoen-dock-button,
+.phoen-service-card,
+.phoen-record-card__play {
+    transition:
+        transform 130ms var(--phoen-ease-out),
+        background-color 160ms ease,
+        color 160ms ease,
+        box-shadow 180ms ease;
+}
+
+.phoen-app-tile:active,
+.phoen-dock-button:active,
+.phoen-service-card:active,
+.phoen-record-card__play:active {
+    transform: scale(0.96);
+}
+
+#phoen-root[data-open="true"][data-screen="home"] .phoen-home-screen[data-active="true"] .phoen-time-widget {
+    animation: phoen-home-rise 280ms var(--phoen-ease-drawer) both;
+}
+
+#phoen-root[data-open="true"][data-screen="home"] .phoen-home-screen[data-active="true"] .phoen-app-tile {
+    animation: phoen-home-rise 300ms var(--phoen-ease-drawer) both;
+}
+
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(1) { animation-delay: 52ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(2) { animation-delay: 74ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(3) { animation-delay: 96ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(4) { animation-delay: 118ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(5) { animation-delay: 140ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(6) { animation-delay: 162ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(7) { animation-delay: 184ms; }
+#phoen-root[data-open="true"][data-screen="home"] .phoen-app-tile:nth-child(8) { animation-delay: 206ms; }
+
+#phoen-root[data-open="true"][data-screen="home"] .phoen-service-card {
+    animation: phoen-home-rise 320ms var(--phoen-ease-drawer) 190ms both;
+}
+
+@keyframes phoen-home-rise {
+    from {
+        opacity: 0;
+        transform: translateY(9px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .phoen-app-tile:hover .phoen-app-tile__icon {
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.72), 0 12px 24px rgba(18, 24, 28, 0.24);
+        transform: translateY(-2px);
+    }
+
+    .phoen-dock-button:hover,
+    .phoen-service-card:hover {
+        background-color: color-mix(in srgb, var(--phoen-surface-muted) 78%, transparent);
+        color: var(--phoen-signal);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phoen-dynamic-island,
+    .phoen-app-tile,
+    .phoen-app-tile__icon,
+    .phoen-dock-button,
+    .phoen-service-card,
+    .phoen-record-card__play {
+        animation: none !important;
+        transition-duration: 1ms;
+    }
+}

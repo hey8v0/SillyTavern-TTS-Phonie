@@ -11,7 +11,10 @@ const required = [
     'src/app.js',
     'src/integrations/sillytavern.js',
     'src/ui/phone-view.js',
+    'src/ui/phone-home.js',
+    'src/ui/orb-gesture.js',
     'src/ui/inline-player.js',
+    'styles/home.css',
     'assets/icons/sprite.svg',
 ];
 

@@ -46,6 +46,11 @@
     pointer-events: auto;
     touch-action: none;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.phoen-orb:active {
+    cursor: grabbing;
 }
 
 #phoen-root[data-dock="left"] .phoen-orb {

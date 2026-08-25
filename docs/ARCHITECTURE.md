@@ -2,7 +2,7 @@
 
 ## Boundaries
 
-`src/dialogue` contains pure parsing and prompt logic. `src/phone` owns the call state machine and per-chat phone records. `src/tts` defines provider-neutral contracts. `src/integrations` is the only layer allowed to import SillyTavern modules. `src/ui` owns DOM rendering and interaction.
+`src/dialogue` contains pure parsing and prompt logic. `src/phone` owns the call state machine and per-chat phone records. `src/tts` defines provider-neutral contracts. `src/integrations` is the only layer allowed to import SillyTavern modules. `src/ui` owns DOM rendering and interaction. `phone-home.js` declares the app map and phone shell markup; `orb-gesture.js` keeps touch classification pure and testable.
 
 ## Persistence
 

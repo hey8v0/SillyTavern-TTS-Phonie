@@ -62,8 +62,12 @@ export class SillyTavernBridge {
 
     getContact() {
         const context = this.context;
-        const name = String(context?.name2 || context?.characterName || 'Character');
-        return { name };
+        const character = context?.characters?.[context?.characterId];
+        const name = String(character?.name || context?.name2 || context?.characterName || 'Character');
+        const avatarUrl = character?.avatar
+            ? `/characters/${encodeURIComponent(character.avatar)}`
+            : '';
+        return { name, avatarUrl };
     }
 
     getUserName() {

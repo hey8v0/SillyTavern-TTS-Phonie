@@ -1,5 +1,7 @@
 import { CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from '../core/constants.js';
 import { clamp, escapeHtml, formatClock, icon, initials } from './dom.js';
+import { auxiliaryScreensMarkup, dockMarkup, homeScreenMarkup } from './phone-home.js';
+import { isOrbTap, updateOrbDrag } from './orb-gesture.js';
 
 const ACTIVE_CALL_STATES = new Set([
     CALL_STATES.DIALING,
@@ -8,6 +10,45 @@ const ACTIVE_CALL_STATES = new Set([
     CALL_STATES.GENERATING,
     CALL_STATES.SPEAKING,
 ]);
+
+const SCREEN_COPY = Object.freeze({
+    [SCREENS.HOME]: { title: 'Phoen', eyebrow: 'Resonance OS' },
+    [SCREENS.CHAT]: { title: '', eyebrow: '私人频道' },
+    [SCREENS.CALL]: { title: '电话', eyebrow: '实时声线' },
+    [SCREENS.VOICE]: { title: '声线', eyebrow: '语音资料库' },
+    [SCREENS.TRACE]: { title: '轨迹', eyebrow: '通话记录' },
+    [SCREENS.CHARACTER]: { title: '角色', eyebrow: '声线路由' },
+    [SCREENS.SETTINGS]: { title: '设置', eyebrow: '手机与编排' },
+});
+
+function setBackgroundImage(element, url) {
+    if (!(element instanceof HTMLElement)) return;
+    if (!url) {
+        element.style.removeProperty('background-image');
+        element.dataset.hasImage = 'false';
+        return;
+    }
+    element.style.backgroundImage = `url(${JSON.stringify(String(url))})`;
+    element.dataset.hasImage = 'true';
+}
+
+function formatRecordDate(timestamp) {
+    if (!timestamp) return '时间未知';
+    return new Intl.DateTimeFormat('zh-CN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(timestamp));
+}
+
+function formatDuration(startedAt, endedAt) {
+    if (!startedAt || !endedAt) return '--:--';
+    const total = Math.max(0, Math.floor((endedAt - startedAt) / 1000));
+    const minutes = Math.floor(total / 60).toString().padStart(2, '0');
+    const seconds = (total % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+}
 
 function messageTime(timestamp) {
     return formatClock(timestamp);
@@ -95,13 +136,19 @@ export class PhoneView {
                 <span class="phoen-orb__seam" aria-hidden="true"></span>
                 <span class="phoen-orb__unread" data-role="unread" hidden></span>
             </button>
-            <section class="phoen-phone" id="phoen-phone" aria-label="Phoen 语音手机" aria-hidden="true">
+            <section class="phoen-phone" id="phoen-phone" aria-label="Phoen 声纹手机" aria-hidden="true">
+                <span class="phoen-hardware-key phoen-hardware-key--volume" aria-hidden="true"></span>
+                <span class="phoen-hardware-key phoen-hardware-key--power" aria-hidden="true"></span>
                 <div class="phoen-frame">
+                    <div class="phoen-wallpaper" data-role="wallpaper" aria-hidden="true"></div>
+                    <div class="phoen-wallpaper-veil" aria-hidden="true"></div>
                     <span class="phoen-voice-seam" aria-hidden="true"></span>
                     <header class="phoen-status">
                         <time class="phoen-status__time" data-role="clock"></time>
-                        <span class="phoen-status__speaker" aria-hidden="true"></span>
-                        <span class="phoen-status__provider" data-role="provider"></span>
+                        <span class="phoen-dynamic-island" aria-hidden="true"><i></i><b></b></span>
+                        <span class="phoen-status__signals" aria-label="网络与电量">
+                            <span>4G</span>${icon('wifi')}<span>80%</span>${icon('battery')}
+                        </span>
                     </header>
                     <div class="phoen-header">
                         <div>
@@ -109,7 +156,10 @@ export class PhoneView {
                             <h1 class="phoen-header__title" data-role="title">Phoen</h1>
                         </div>
                         <div class="phoen-header__actions">
-                            <button class="phoen-icon-button phoen-icon-button--raised" type="button" data-action="start-call" aria-label="拨打电话">
+                            <button class="phoen-icon-button phoen-icon-button--raised phoen-back-button" type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">
+                                ${icon('back')}
+                            </button>
+                            <button class="phoen-icon-button phoen-icon-button--raised phoen-header-call" type="button" data-action="start-call" aria-label="拨打电话">
                                 ${icon('phone')}
                             </button>
                             <button class="phoen-icon-button" type="button" data-action="close" aria-label="收起 Phoen">
@@ -118,6 +168,7 @@ export class PhoneView {
                         </div>
                     </div>
                     <main class="phoen-screen-stack">
+                        ${homeScreenMarkup()}
                         <section class="phoen-screen" data-screen="chat" aria-label="私人消息">
                             <div class="phoen-chat-list" data-role="message-list"></div>
                             <div class="phoen-generating" data-role="generating" hidden>
@@ -163,21 +214,12 @@ export class PhoneView {
                                 </button>
                             </div>
                         </section>
+                        ${auxiliaryScreensMarkup()}
                         <section class="phoen-screen" data-screen="settings" aria-label="设置">
                             ${this.#settingsMarkup()}
                         </section>
                     </main>
-                    <nav class="phoen-tabbar" aria-label="Phoen 主导航">
-                        <button class="phoen-tab" type="button" data-action="navigate" data-target-screen="chat" role="tab">
-                            ${icon('message')}<span>消息</span>
-                        </button>
-                        <button class="phoen-tab" type="button" data-action="navigate" data-target-screen="call" role="tab">
-                            ${icon('phone')}<span>通话</span>
-                        </button>
-                        <button class="phoen-tab" type="button" data-action="navigate" data-target-screen="settings" role="tab">
-                            ${icon('settings')}<span>设置</span>
-                        </button>
-                    </nav>
+                    ${dockMarkup()}
                     <div class="phoen-home-indicator" aria-hidden="true"></div>
                     <div class="phoen-toast" data-role="toast" role="status" aria-live="polite"></div>
                 </div>
@@ -306,12 +348,17 @@ export class PhoneView {
 
     #bindEvents() {
         this.#root.addEventListener('click', (event) => {
-            const target = event.target.closest('[data-action]');
+            const eventTarget = event.target;
+            if (!(eventTarget instanceof Element)) return;
+            const target = eventTarget.closest('[data-action]');
             if (!(target instanceof HTMLElement)) return;
             const action = target.dataset.action;
 
             if (action === 'open') {
-                if (this.#suppressOrbClick) return;
+                if (this.#suppressOrbClick) {
+                    event.preventDefault();
+                    return;
+                }
                 this.#actions.open?.();
             } else if (action === 'close') {
                 this.#actions.close?.();
@@ -360,10 +407,14 @@ export class PhoneView {
     }
 
     #startOrbDrag(event) {
-        if (event.button !== 0) return;
+        if (event.button !== 0 || event.isPrimary === false) return;
         const orb = event.currentTarget;
         if (!(orb instanceof HTMLElement)) return;
-        orb.setPointerCapture(event.pointerId);
+        try {
+            orb.setPointerCapture?.(event.pointerId);
+        } catch (error) {
+            console.debug('[Phoen] Pointer capture unavailable; continuing with click fallback.', error);
+        }
         this.#drag = {
             pointerId: event.pointerId,
             startX: event.clientX,
@@ -384,8 +435,7 @@ export class PhoneView {
 
     #moveOrb(event) {
         if (!this.#drag || this.#drag.pointerId !== event.pointerId) return;
-        const distance = Math.hypot(event.clientX - this.#drag.startX, event.clientY - this.#drag.startY);
-        if (distance > 5) this.#drag.moved = true;
+        this.#drag = updateOrbDrag(this.#drag, event.clientX, event.clientY);
         if (!this.#drag.moved) return;
         const y = clamp(event.clientY / window.innerHeight, 0.07, 0.9);
         this.#root.style.setProperty('--phoen-orb-y', `${y * 100}%`);
@@ -393,7 +443,9 @@ export class PhoneView {
 
     #endOrbDrag(event) {
         if (!this.#drag) return;
-        if (this.#drag.moved) {
+        const drag = this.#drag;
+        const shouldOpen = isOrbTap(drag, event.type);
+        if (drag.moved && event.type === 'pointerup') {
             const dockSide = event.clientX < window.innerWidth / 2 ? 'left' : 'right';
             const dockY = clamp(event.clientY / window.innerHeight, 0.07, 0.9);
             this.#suppressOrbClick = true;
@@ -401,6 +453,11 @@ export class PhoneView {
             this.#actions.updateDock?.({ dockSide, dockY });
         }
         this.#drag = null;
+        if (shouldOpen) {
+            this.#suppressOrbClick = true;
+            this.#actions.open?.();
+            window.setTimeout(() => { this.#suppressOrbClick = false; }, 0);
+        }
     }
 
     #submitChat(kind) {
@@ -426,20 +483,24 @@ export class PhoneView {
         this.#root.dataset.theme = state.settings.theme;
         this.#root.dataset.open = String(Boolean(state.open));
         this.#root.dataset.dock = state.settings.dockSide;
+        this.#root.dataset.screen = state.screen;
         this.#root.dataset.audioState = state.audioState || 'idle';
         this.#root.style.setProperty('--phoen-orb-y', `${clamp(state.settings.dockY, 0.07, 0.9) * 100}%`);
 
         const phone = this.#root.querySelector('.phoen-phone');
         phone?.setAttribute('aria-hidden', String(!state.open));
+        const orb = this.#root.querySelector('.phoen-orb');
+        orb?.setAttribute('aria-expanded', String(Boolean(state.open)));
         this.#setText('[data-role="provider"]', state.providerLabel);
         this.#setText('[data-role="provider-chip"]', state.providerLabel);
-        this.#setText('[data-role="title"]', state.screen === SCREENS.CHAT ? state.contact.name : state.screen === SCREENS.CALL ? '电话' : 'Phoen');
-        this.#setText('[data-role="eyebrow"]', state.screen === SCREENS.SETTINGS ? 'Voice system' : 'Private channel');
+        const screenCopy = SCREEN_COPY[state.screen] || SCREEN_COPY[SCREENS.HOME];
+        this.#setText('[data-role="title"]', state.screen === SCREENS.CHAT ? state.contact.name : screenCopy.title);
+        this.#setText('[data-role="eyebrow"]', screenCopy.eyebrow);
 
         for (const screen of this.#root.querySelectorAll('[data-screen]')) {
             screen.dataset.active = String(screen.dataset.screen === state.screen);
         }
-        for (const tab of this.#root.querySelectorAll('[data-target-screen]')) {
+        for (const tab of this.#root.querySelectorAll('.phoen-dock-button[data-target-screen]')) {
             tab.setAttribute('aria-selected', String(tab.dataset.targetScreen === state.screen));
         }
 
@@ -451,6 +512,10 @@ export class PhoneView {
 
         this.#renderMessages(state);
         this.#renderCall(state);
+        this.#renderHome(state);
+        this.#renderVoiceLibrary(state);
+        this.#renderTrace(state);
+        this.#renderCharacter(state);
         this.#renderSettings(state);
         this.#renderClocks();
         this.#renderToast(state.toast);
@@ -503,6 +568,64 @@ export class PhoneView {
         }
     }
 
+    #renderHome(state) {
+        const voiceCount = state.messages.filter((message) => message.kind === MESSAGE_KINDS.VOICE).length;
+        this.#setText('[data-role="home-contact"]', state.contact.name);
+        this.#setText('[data-role="home-contact-service"]', state.contact.name);
+        this.#setText('[data-role="home-provider"]', state.providerLabel);
+        this.#setText('[data-role="home-message-summary"]', `${state.messages.length} 条手机消息`);
+        this.#setText('[data-role="home-chat-count"]', `${state.messages.length} 条`);
+        this.#setText('[data-role="home-call-count"]', `${state.calls.length} 通`);
+        this.#setText('[data-role="home-voice-count"]', `${voiceCount} 条`);
+        this.#setText('[data-role="home-trace-count"]', `${state.calls.length} 段`);
+        setBackgroundImage(this.#root.querySelector('[data-role="wallpaper"]'), state.contact.avatarUrl);
+        this.#root.dataset.hasWallpaper = String(Boolean(state.contact.avatarUrl));
+    }
+
+    #renderVoiceLibrary(state) {
+        this.#setText('[data-role="voice-provider"]', state.providerLabel);
+        this.#setText('[data-role="voice-language"]', state.settings.sourceLanguage);
+        const list = this.#root.querySelector('[data-role="voice-library"]');
+        if (!list) return;
+        const voices = state.messages.filter((message) => message.kind === MESSAGE_KINDS.VOICE).slice(-8).reverse();
+        if (!voices.length) {
+            list.innerHTML = '<div class="phoen-record-empty">发送或播放语音后，声线片段会出现在这里。</div>';
+            return;
+        }
+        list.innerHTML = voices.map((message) => `
+            <article class="phoen-record-card">
+                <button class="phoen-record-card__play" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放语音片段">${icon(message.isPlaying ? 'pause' : 'play')}</button>
+                <span class="phoen-record-card__copy"><strong>${escapeHtml(message.author)}</strong><small>${escapeHtml(message.originalText.slice(0, 54) || '无文字片段')}</small></span>
+                <time>${escapeHtml(message.durationLabel || formatRecordDate(message.createdAt))}</time>
+            </article>`).join('');
+    }
+
+    #renderTrace(state) {
+        const list = this.#root.querySelector('[data-role="trace-list"]');
+        if (!list) return;
+        const records = state.calls.slice(-8).reverse();
+        if (!records.length) {
+            list.innerHTML = '<div class="phoen-record-empty">接通第一通电话后，这里会留下时间、时长和简短摘要。</div>';
+            return;
+        }
+        list.innerHTML = records.map((record) => `
+            <article class="phoen-record-card phoen-record-card--call">
+                <span class="phoen-record-card__play" aria-hidden="true">${icon('phone')}</span>
+                <span class="phoen-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${escapeHtml(record.summary || '通话已结束')}</small></span>
+                <time>${escapeHtml(formatDuration(record.startedAt, record.endedAt))}<br>${escapeHtml(formatRecordDate(record.startedAt))}</time>
+            </article>`).join('');
+    }
+
+    #renderCharacter(state) {
+        this.#setText('[data-role="character-initials"]', initials(state.contact.name));
+        this.#setText('[data-role="character-name"]', state.contact.name);
+        this.#setText('[data-role="character-provider"]', state.providerLabel);
+        this.#setText('[data-role="character-source-language"]', state.settings.sourceLanguage);
+        this.#setText('[data-role="character-target-language"]', state.settings.targetLanguage);
+        this.#setText('[data-role="character-continuity"]', state.settings.injectContinuity ? '开启' : '关闭');
+        setBackgroundImage(this.#root.querySelector('[data-role="character-portrait"]'), state.contact.avatarUrl);
+    }
+
     #renderSettings(state) {
         for (const control of this.#root.querySelectorAll('[data-setting]')) {
             const value = state.settings[control.dataset.setting];
@@ -515,7 +638,15 @@ export class PhoneView {
     }
 
     #renderClocks() {
-        this.#setText('[data-role="clock"]', formatClock());
+        const now = new Date();
+        const clock = formatClock(now.getTime());
+        this.#setText('[data-role="clock"]', clock);
+        this.#setText('[data-role="home-clock"]', clock);
+        this.#setText('[data-role="home-date"]', new Intl.DateTimeFormat('zh-CN', {
+            month: 'long',
+            day: 'numeric',
+            weekday: 'short',
+        }).format(now));
         const state = this.#store.getState();
         if (state && ACTIVE_CALL_STATES.has(state.callState)) {
             this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt)));
