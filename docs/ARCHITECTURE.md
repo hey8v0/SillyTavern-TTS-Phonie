@@ -2,20 +2,22 @@
 
 ## Boundaries
 
-`src/dialogue` contains pure parsing and prompt logic. `src/phone` owns the call state machine and per-chat phone records. `src/tts` defines provider-neutral contracts. `src/integrations` is the only layer allowed to import SillyTavern modules. `src/ui` owns DOM rendering and interaction. `phone-home.js` declares the app map and phone shell markup; `orb-gesture.js` keeps touch classification pure and testable.
+`src/dialogue` contains pure parsing, prompt-preset normalization, variable resolution, and message assembly. `src/phone` owns the call state machine and per-chat phone records. `src/tts` defines provider-neutral contracts. `src/integrations` is the only layer allowed to import SillyTavern modules. `src/ui` owns DOM rendering and interaction. `phone-home.js` declares the application map, `system-settings.js` declares model and prompt system apps, and `orb-gesture.js` keeps touch classification pure and testable.
 
 ## Persistence
 
-- `extension_settings.phoen`: global display, language, and playback preferences.
+- `extension_settings.phoen`: global display, language, model profile, phone prompt preset, and playback preferences.
 - `chatMetadata.phoen`: private messages and call summaries for the active SillyTavern chat.
 - `message.extra.phoen`: reserved for source-message speech metadata.
 - IndexedDB `phoen-audio`: generated audio blobs keyed by chat, message, text, and provider.
 
-Audio is not embedded into chat JSON.
+Audio and API secrets are not embedded in extension settings or chat JSON. Connection Manager profile IDs are stored, while the corresponding endpoint and secret remain under SillyTavern control.
 
 ## Generation
 
-Phone replies use `generateQuietPrompt` with a JSON schema. The visible main reply is never required to emit hidden Phoen tags. A compact, bounded summary of recent phone activity is injected into the main prompt for continuity.
+Phone replies compile the enabled preset entries into real chat-completion messages without flattening their `system`, `user`, or `assistant` roles. The preset block is inserted at the configured depth in recent phone history. Generation follows SillyTavern by default or uses a selected Connection Manager profile, with the same JSON schema in either path.
+
+The response parser accepts direct structured objects, fenced JSON, `choices[].message.content`, and `messages` wrappers. A compact, bounded summary of recent phone activity can still be injected into the main prompt for story continuity.
 
 ## Audio focus
 

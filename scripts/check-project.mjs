@@ -12,9 +12,12 @@ const required = [
     'src/integrations/sillytavern.js',
     'src/ui/phone-view.js',
     'src/ui/phone-home.js',
+    'src/ui/system-settings.js',
     'src/ui/orb-gesture.js',
     'src/ui/inline-player.js',
     'styles/home.css',
+    'styles/system.css',
+    'src/dialogue/prompt-preset.js',
     'assets/icons/sprite.svg',
 ];
 
@@ -22,7 +25,7 @@ async function walk(directory) {
     const entries = await readdir(directory, { withFileTypes: true });
     const files = [];
     for (const entry of entries) {
-        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('PHOEN_ORIGINAL_HANDOFF_')) continue;
         const fullPath = path.join(directory, entry.name);
         if (entry.isDirectory()) files.push(...await walk(fullPath));
         else files.push(fullPath);

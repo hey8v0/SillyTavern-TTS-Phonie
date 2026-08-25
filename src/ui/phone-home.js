@@ -6,9 +6,9 @@ export const HOME_APPS = Object.freeze([
     { id: 'call', label: '电话', detailRole: 'home-call-count', screen: SCREENS.CALL, icon: 'phone', tone: 'verdant' },
     { id: 'voice', label: '声线', detailRole: 'home-voice-count', screen: SCREENS.VOICE, icon: 'wave', tone: 'amber' },
     { id: 'trace', label: '轨迹', detailRole: 'home-trace-count', screen: SCREENS.TRACE, icon: 'headphones', tone: 'violet' },
-    { id: 'engine', label: '引擎', detail: '语音服务', screen: SCREENS.SETTINGS, icon: 'spark', tone: 'blue' },
+    { id: 'engine', label: '模型', detail: '生成连接', screen: SCREENS.MODEL, icon: 'spark', tone: 'blue' },
     { id: 'character', label: '角色', detail: '声线路由', screen: SCREENS.CHARACTER, icon: 'person', tone: 'rose' },
-    { id: 'format', label: '格式', detail: '正文 TTS', screen: SCREENS.SETTINGS, icon: 'layers', tone: 'silver' },
+    { id: 'format', label: '预设', detail: '提示词编排', screen: SCREENS.PROMPTS, icon: 'layers', tone: 'silver' },
     { id: 'settings', label: '设置', detail: '手机与编排', screen: SCREENS.SETTINGS, icon: 'settings', tone: 'graphite' },
 ]);
 

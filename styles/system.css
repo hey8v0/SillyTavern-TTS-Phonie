@@ -1,0 +1,434 @@
+.phoen-system-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overscroll-behavior: contain;
+}
+
+.phoen-model-hero,
+.phoen-route-note {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--phoen-border) 82%, transparent);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--phoen-surface-raised) 88%, transparent);
+    box-shadow: inset 0 1px 0 var(--phoen-glint);
+}
+
+.phoen-model-hero__mark,
+.phoen-profile-card__mark {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--phoen-signal) 28%, var(--phoen-surface)), color-mix(in srgb, var(--phoen-accent) 14%, var(--phoen-surface)));
+    color: var(--phoen-signal);
+}
+
+.phoen-model-hero__mark .phoen-icon,
+.phoen-profile-card__mark .phoen-icon {
+    width: 23px;
+    height: 23px;
+}
+
+.phoen-model-hero > span:last-child,
+.phoen-model-hero small,
+.phoen-model-hero strong,
+.phoen-model-hero i,
+.phoen-route-note p,
+.phoen-route-note strong,
+.phoen-route-note span,
+.phoen-profile-card > span:nth-child(2),
+.phoen-profile-card strong,
+.phoen-profile-card small {
+    display: block;
+    min-width: 0;
+}
+
+.phoen-model-hero small,
+.phoen-route-note span,
+.phoen-profile-card small,
+.phoen-control-field small,
+.phoen-pane-heading small {
+    color: var(--phoen-ink-muted);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.phoen-model-hero strong {
+    margin-top: 2px;
+    overflow: hidden;
+    font-size: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phoen-model-hero i {
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--phoen-ink-muted);
+    font-size: 10px;
+    font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phoen-control-card,
+.phoen-preset-toolbar,
+.phoen-prompt-entry {
+    border: 1px solid color-mix(in srgb, var(--phoen-border) 82%, transparent);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--phoen-surface-raised) 91%, transparent);
+    box-shadow: inset 0 1px 0 var(--phoen-glint);
+}
+
+.phoen-control-field {
+    display: grid;
+    min-height: 66px;
+    padding: 10px 12px;
+    grid-template-columns: minmax(0, 1fr) minmax(108px, 42%);
+    gap: 10px;
+    align-items: center;
+}
+
+.phoen-control-field + .phoen-control-field {
+    border-top: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+}
+
+.phoen-control-field > span,
+.phoen-control-field strong,
+.phoen-control-field small {
+    display: block;
+    min-width: 0;
+}
+
+.phoen-control-field select,
+.phoen-control-field input,
+.phoen-preset-toolbar input,
+.phoen-prompt-entry input,
+.phoen-prompt-entry select,
+.phoen-prompt-entry textarea {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    border: 1px solid var(--phoen-border);
+    border-radius: 12px;
+    background: var(--phoen-surface-muted);
+    color: var(--phoen-ink);
+    font: inherit;
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--phoen-shadow) 18%, transparent);
+}
+
+.phoen-control-field select,
+.phoen-control-field input,
+.phoen-preset-toolbar input,
+.phoen-prompt-entry input,
+.phoen-prompt-entry select {
+    min-height: 44px;
+    padding: 0 11px;
+}
+
+.phoen-control-field select,
+.phoen-prompt-entry select {
+    resize: none;
+}
+
+.phoen-control-field select:focus-visible,
+.phoen-control-field input:focus-visible,
+.phoen-preset-toolbar input:focus-visible,
+.phoen-prompt-entry input:focus-visible,
+.phoen-prompt-entry select:focus-visible,
+.phoen-prompt-entry textarea:focus-visible,
+.phoen-preset-actions button:focus-visible,
+.phoen-profile-card:focus-visible,
+.phoen-prompt-entry__buttons button:focus-visible {
+    outline: 2px solid var(--phoen-signal);
+    outline-offset: 2px;
+}
+
+.phoen-pane-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 2px 0;
+}
+
+.phoen-pane-heading > span {
+    font-weight: 750;
+}
+
+.phoen-profile-list,
+.phoen-prompt-entry-list {
+    display: grid;
+    gap: 9px;
+}
+
+.phoen-profile-card {
+    display: grid;
+    width: 100%;
+    min-height: 66px;
+    margin: 0;
+    padding: 9px 10px;
+    border: 1px solid color-mix(in srgb, var(--phoen-border) 78%, transparent);
+    border-radius: 18px;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    background: color-mix(in srgb, var(--phoen-surface-raised) 86%, transparent);
+    color: var(--phoen-ink);
+    text-align: left;
+    cursor: pointer;
+}
+
+.phoen-profile-card__mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+}
+
+.phoen-profile-card strong,
+.phoen-profile-card small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phoen-profile-card b {
+    color: var(--phoen-ink-muted);
+    font-size: 10px;
+}
+
+.phoen-profile-card.is-current {
+    border-color: color-mix(in srgb, var(--phoen-signal) 58%, var(--phoen-border));
+    background: color-mix(in srgb, var(--phoen-signal) 10%, var(--phoen-surface-raised));
+}
+
+.phoen-profile-card.is-current b {
+    color: var(--phoen-signal);
+}
+
+.phoen-route-note {
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 11px 13px;
+    border-radius: 18px;
+}
+
+.phoen-route-note > .phoen-icon {
+    width: 22px;
+    height: 22px;
+    color: var(--phoen-signal);
+}
+
+.phoen-route-note p,
+.phoen-prompt-intro,
+.phoen-prompt-autosave {
+    margin: 0;
+}
+
+.phoen-prompt-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    overscroll-behavior: contain;
+}
+
+.phoen-prompt-intro,
+.phoen-prompt-autosave {
+    color: var(--phoen-ink-muted);
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+.phoen-preset-toolbar {
+    display: grid;
+    padding: 12px;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 10px;
+}
+
+.phoen-preset-toolbar label > span,
+.phoen-prompt-entry__controls label > span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--phoen-ink-muted);
+    font-size: 10px;
+}
+
+.phoen-preset-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.phoen-preset-actions button,
+.phoen-prompt-entry__buttons button {
+    display: inline-flex;
+    min-height: 44px;
+    margin: 0;
+    border: 1px solid var(--phoen-border);
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: var(--phoen-surface-muted);
+    color: var(--phoen-ink);
+    cursor: pointer;
+}
+
+.phoen-preset-actions button {
+    border-radius: 13px;
+}
+
+.phoen-preset-actions .phoen-icon,
+.phoen-prompt-entry__buttons .phoen-icon {
+    width: 17px;
+    height: 17px;
+}
+
+.phoen-variable-bank {
+    display: flex;
+    padding: 9px;
+    overflow-x: auto;
+    gap: 6px;
+    border: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+    border-radius: 15px;
+    background: color-mix(in srgb, var(--phoen-surface) 78%, transparent);
+    scrollbar-width: none;
+}
+
+.phoen-variable-bank::-webkit-scrollbar {
+    display: none;
+}
+
+.phoen-variable-bank span {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--phoen-signal) 12%, var(--phoen-surface-raised));
+    color: var(--phoen-signal);
+    font-family: var(--phoen-font-mono);
+    font-size: 10px;
+}
+
+.phoen-prompt-entry {
+    padding: 11px;
+}
+
+.phoen-prompt-entry > header {
+    display: grid;
+    grid-template-columns: 22px 22px minmax(0, 1fr) 42px;
+    gap: 6px;
+    align-items: center;
+}
+
+.phoen-prompt-entry__grip {
+    display: grid;
+    place-items: center;
+    color: var(--phoen-ink-muted);
+}
+
+.phoen-prompt-entry__grip .phoen-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.phoen-prompt-entry > header > b {
+    color: var(--phoen-signal);
+    font-size: 11px;
+    text-align: center;
+}
+
+.phoen-prompt-entry > header input {
+    min-height: 40px;
+}
+
+.phoen-prompt-entry__controls {
+    display: flex;
+    margin-top: 9px;
+    align-items: end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.phoen-prompt-entry__controls > label {
+    width: min(132px, 46%);
+    flex: 1 1 110px;
+}
+
+.phoen-prompt-entry__buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.phoen-prompt-entry__buttons button {
+    width: 44px;
+    padding: 0;
+    border-radius: 12px;
+}
+
+.phoen-prompt-entry__buttons button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.phoen-prompt-entry__buttons button:nth-child(1) .phoen-icon {
+    transform: rotate(-90deg);
+}
+
+.phoen-prompt-entry__buttons button:nth-child(2) .phoen-icon {
+    transform: rotate(90deg);
+}
+
+.phoen-prompt-entry__buttons button:last-child {
+    color: var(--phoen-danger, #c85f67);
+}
+
+.phoen-prompt-entry__content {
+    display: block;
+    margin-top: 9px;
+}
+
+.phoen-prompt-entry textarea {
+    min-height: 132px;
+    padding: 11px;
+    resize: none;
+    font-family: var(--phoen-font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.phoen-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .phoen-profile-card:hover,
+    .phoen-preset-actions button:hover,
+    .phoen-prompt-entry__buttons button:hover:not(:disabled) {
+        border-color: color-mix(in srgb, var(--phoen-signal) 42%, var(--phoen-border));
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .phoen-control-field select,
+    .phoen-control-field input,
+    .phoen-preset-toolbar input,
+    .phoen-prompt-entry input,
+    .phoen-prompt-entry select,
+    .phoen-prompt-entry textarea {
+        font-size: 16px;
+    }
+}

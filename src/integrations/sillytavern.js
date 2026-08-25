@@ -4,23 +4,30 @@ import {
     event_types,
     extension_prompt_roles,
     extension_prompt_types,
-    generateQuietPrompt,
+    generateRaw,
     getCurrentChatId,
+    getGeneratingApi,
+    getGeneratingModel,
     saveChatConditional,
     saveSettingsDebounced,
     setExtensionPrompt,
 } from '/script.js';
 import { extension_settings, getContext } from '/scripts/extensions.js';
 import { executeSlashCommandsWithOptions } from '/scripts/slash-commands.js';
+import { ConnectionManagerRequestService } from '/scripts/extensions/shared.js';
 
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
-import { buildContinuityPrompt, buildPhoneReplyPrompt, parsePhoneReply } from '../dialogue/prompt-service.js';
+import { normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
+import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
 import { createPhoneMetadata } from '../phone/chat-records.js';
 
 const PROMPT_KEY = 'phoen_private_channel';
 
 function mergeSettings(value = {}) {
-    return { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
+    const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
+    merged.phoneResponseLength = Math.min(1200, Math.max(80, Math.round(Number(merged.phoneResponseLength) || 420)));
+    merged.promptPreset = normalizePhonePromptPreset(value.promptPreset);
+    return merged;
 }
 
 function safeSlashValue(value) {
@@ -51,9 +58,9 @@ export class SillyTavernBridge {
 
     updateSettings(patch) {
         const settings = this.getSettings();
-        Object.assign(settings, patch);
+        extension_settings[MODULE_ID] = mergeSettings({ ...settings, ...patch });
         saveSettingsDebounced();
-        return settings;
+        return extension_settings[MODULE_ID];
     }
 
     getChatId() {
@@ -104,21 +111,62 @@ export class SillyTavernBridge {
         return String(extension_settings.tts?.currentProvider || 'TTS 未配置');
     }
 
+    getGenerationProfiles() {
+        try {
+            return ConnectionManagerRequestService.getSupportedProfiles().map((profile) => ({
+                id: String(profile.id),
+                name: String(profile.name || profile.model || '未命名连接'),
+                api: String(profile.api || ''),
+                model: String(profile.model || '默认模型'),
+            }));
+        } catch (error) {
+            console.debug('[Phoen] Connection Manager profiles are unavailable.', error);
+            return [];
+        }
+    }
+
+    getGenerationTarget(settings = this.getSettings()) {
+        const selected = this.getGenerationProfiles().find((profile) => profile.id === settings.generationProfileId);
+        if (selected) return selected;
+        return {
+            id: '',
+            name: '跟随酒馆',
+            api: String(getGeneratingApi() || this.context?.mainApi || 'current'),
+            model: String(getGeneratingModel() || '当前模型'),
+        };
+    }
+
     async generatePhoneReply({ history, callMode = false }) {
         const settings = this.getSettings();
-        const prompt = buildPhoneReplyPrompt({
+        const prompt = buildPhoneReplyMessages({
             contactName: this.getContact().name,
+            userName: this.getUserName(),
             sourceLanguage: settings.sourceLanguage,
             targetLanguage: settings.targetLanguage,
             history,
             callMode,
+            preset: settings.promptPreset,
         });
-        const result = await generateQuietPrompt({
-            quietPrompt: prompt,
-            jsonSchema: PHONE_REPLY_SCHEMA,
-            responseLength: callMode ? 260 : 420,
-            trimToSentence: false,
-        });
+
+        let result;
+        if (settings.generationProfileId) {
+            const preparedPrompt = ConnectionManagerRequestService.constructPrompt(prompt, settings.generationProfileId);
+            const response = await ConnectionManagerRequestService.sendRequest(
+                settings.generationProfileId,
+                preparedPrompt,
+                settings.phoneResponseLength,
+                { stream: false, extractData: true, includePreset: true, includeInstruct: true },
+                { json_schema: PHONE_REPLY_SCHEMA },
+            );
+            result = response?.content || '';
+        } else {
+            result = await generateRaw({
+                prompt,
+                responseLength: settings.phoneResponseLength,
+                jsonSchema: PHONE_REPLY_SCHEMA,
+                trimNames: false,
+            });
+        }
         return parsePhoneReply(result, { targetLanguage: settings.targetLanguage });
     }
 

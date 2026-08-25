@@ -42,6 +42,8 @@ export async function createPhoenApp() {
         messages: metadata.messages,
         calls: metadata.calls,
         providerLabel: bridge.getProviderLabel(),
+        generationProfiles: bridge.getGenerationProfiles(),
+        generationTarget: bridge.getGenerationTarget(settings),
         generating: false,
         callState: CALL_STATES.IDLE,
         callStartedAt: null,
@@ -260,7 +262,15 @@ export async function createPhoenApp() {
 
     const actions = {
         open() {
-            updateState({ open: true, unread: 0, providerLabel: bridge.getProviderLabel() });
+            const currentSettings = bridge.getSettings();
+            updateState({
+                open: true,
+                unread: 0,
+                settings: { ...currentSettings },
+                providerLabel: bridge.getProviderLabel(),
+                generationProfiles: bridge.getGenerationProfiles(),
+                generationTarget: bridge.getGenerationTarget(currentSettings),
+            });
         },
         close() {
             updateState({ open: false });
@@ -275,10 +285,18 @@ export async function createPhoenApp() {
         playPhoneAudio,
         updateSetting(key, value) {
             const nextSettings = bridge.updateSettings({ [key]: value });
-            updateState({ settings: { ...nextSettings } });
+            updateState({
+                settings: { ...nextSettings },
+                generationProfiles: bridge.getGenerationProfiles(),
+                generationTarget: bridge.getGenerationTarget(nextSettings),
+            });
             inlinePlayers.updateSettings(nextSettings);
             if (key === 'autoDecorateMessages' && value) inlinePlayers.decorateAll();
             if (key === 'injectContinuity') persistPhoneState();
+        },
+        updatePromptPreset(promptPreset) {
+            const nextSettings = bridge.updateSettings({ promptPreset });
+            updateState({ settings: { ...nextSettings } });
         },
         updateDock({ dockSide, dockY }) {
             const nextSettings = bridge.updateSettings({ dockSide, dockY });
@@ -387,6 +405,8 @@ export async function createPhoenApp() {
             calls: nextMetadata.calls,
             settings: { ...nextSettings },
             providerLabel: bridge.getProviderLabel(),
+            generationProfiles: bridge.getGenerationProfiles(),
+            generationTarget: bridge.getGenerationTarget(nextSettings),
             generating: false,
             callCaption: { source: '', translation: '' },
             audioState: 'idle',

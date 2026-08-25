@@ -72,4 +72,12 @@
   <symbol id="phoen-back" viewBox="0 0 24 24">
     <path d="m14.5 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>
-</svg>
+  <symbol id="phoen-plus" viewBox="0 0 24 24">
+    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="phoen-reset" viewBox="0 0 24 24">
+    <path d="M5.2 8.2A8 8 0 1 1 4 14M5.2 8.2V4.5M5.2 8.2h3.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="phoen-drag" viewBox="0 0 24 24">
+    <circle cx="8" cy="6" r="1.2" fill="currentColor"/><circle cx="16" cy="6" r="1.2" fill="currentColor"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="16" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="18" r="1.2" fill="currentColor"/><circle cx="16" cy="18" r="1.2" fill="currentColor"/>
+  </symbol></svg>

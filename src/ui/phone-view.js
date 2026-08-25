@@ -1,7 +1,16 @@
 import { CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from '../core/constants.js';
+import {
+    DEFAULT_PHONE_PROMPT_PRESET,
+    addPhonePromptEntry,
+    movePhonePromptEntry,
+    normalizePhonePromptPreset,
+    removePhonePromptEntry,
+    updatePhonePromptEntry,
+} from '../dialogue/prompt-preset.js';
 import { clamp, escapeHtml, formatClock, icon, initials } from './dom.js';
 import { auxiliaryScreensMarkup, dockMarkup, homeScreenMarkup } from './phone-home.js';
 import { isOrbTap, updateOrbDrag } from './orb-gesture.js';
+import { promptEntryMarkup, systemSettingsScreensMarkup } from './system-settings.js';
 
 const ACTIVE_CALL_STATES = new Set([
     CALL_STATES.DIALING,
@@ -18,6 +27,8 @@ const SCREEN_COPY = Object.freeze({
     [SCREENS.VOICE]: { title: '声线', eyebrow: '语音资料库' },
     [SCREENS.TRACE]: { title: '轨迹', eyebrow: '通话记录' },
     [SCREENS.CHARACTER]: { title: '角色', eyebrow: '声线路由' },
+    [SCREENS.MODEL]: { title: '模型', eyebrow: '生成连接' },
+    [SCREENS.PROMPTS]: { title: '提示词', eyebrow: '消息编排' },
     [SCREENS.SETTINGS]: { title: '设置', eyebrow: '手机与编排' },
 });
 
@@ -142,6 +153,9 @@ export class PhoneView {
                 <div class="phoen-frame">
                     <div class="phoen-wallpaper" data-role="wallpaper" aria-hidden="true"></div>
                     <div class="phoen-wallpaper-veil" aria-hidden="true"></div>
+                    <div class="phoen-rain-curtain" aria-hidden="true">
+                        <i style="--rain-index:0;--rain-x:5%;--rain-delay:-0.1s"></i><i style="--rain-index:1;--rain-x:14%;--rain-delay:-1.7s"></i><i style="--rain-index:2;--rain-x:23%;--rain-delay:-3.1s"></i><i style="--rain-index:3;--rain-x:32%;--rain-delay:-0.9s"></i><i style="--rain-index:4;--rain-x:41%;--rain-delay:-4.2s"></i><i style="--rain-index:5;--rain-x:50%;--rain-delay:-2.4s"></i><i style="--rain-index:6;--rain-x:59%;--rain-delay:-0.5s"></i><i style="--rain-index:7;--rain-x:68%;--rain-delay:-3.6s"></i><i style="--rain-index:8;--rain-x:77%;--rain-delay:-1.2s"></i><i style="--rain-index:9;--rain-x:86%;--rain-delay:-4.6s"></i><i style="--rain-index:10;--rain-x:93%;--rain-delay:-2.8s"></i><i style="--rain-index:11;--rain-x:97%;--rain-delay:-0.3s"></i>
+                    </div>
                     <span class="phoen-voice-seam" aria-hidden="true"></span>
                     <header class="phoen-status">
                         <time class="phoen-status__time" data-role="clock"></time>
@@ -215,6 +229,7 @@ export class PhoneView {
                             </div>
                         </section>
                         ${auxiliaryScreensMarkup()}
+                        ${systemSettingsScreensMarkup()}
                         <section class="phoen-screen" data-screen="settings" aria-label="设置">
                             ${this.#settingsMarkup()}
                         </section>
@@ -374,6 +389,18 @@ export class PhoneView {
                 this.#actions.clearCache?.();
             } else if (action === 'play-phone-audio') {
                 this.#actions.playPhoneAudio?.(target.dataset.messageId);
+            } else if (action === 'set-generation-profile') {
+                this.#actions.updateSetting?.('generationProfileId', target.dataset.profileId || '');
+            } else if (action === 'reset-prompt-preset') {
+                this.#actions.updatePromptPreset?.(normalizePhonePromptPreset(DEFAULT_PHONE_PROMPT_PRESET));
+            } else if (action === 'add-prompt-entry') {
+                this.#actions.updatePromptPreset?.(addPhonePromptEntry(this.#store.getState().settings.promptPreset));
+            } else if (action === 'move-prompt-entry') {
+                const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
+                if (entryId) this.#actions.updatePromptPreset?.(movePhonePromptEntry(this.#store.getState().settings.promptPreset, entryId, target.dataset.direction));
+            } else if (action === 'delete-prompt-entry') {
+                const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
+                if (entryId) this.#actions.updatePromptPreset?.(removePhonePromptEntry(this.#store.getState().settings.promptPreset, entryId));
             }
         });
 
@@ -395,11 +422,25 @@ export class PhoneView {
 
         this.#root.addEventListener('change', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
-            const key = target.dataset.setting;
-            if (!key) return;
+            if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
             const value = target instanceof HTMLInputElement && target.type === 'checkbox' ? target.checked : target.value;
-            this.#actions.updateSetting?.(key, value);
+            const presetField = target.dataset.promptPresetField;
+            if (presetField) {
+                const preset = normalizePhonePromptPreset(this.#store.getState().settings.promptPreset);
+                this.#actions.updatePromptPreset?.(normalizePhonePromptPreset({ ...preset, [presetField]: value }));
+                return;
+            }
+            const entryField = target.dataset.promptEntryField;
+            if (entryField) {
+                const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
+                if (entryId) {
+                    const preset = updatePhonePromptEntry(this.#store.getState().settings.promptPreset, entryId, { [entryField]: value });
+                    this.#actions.updatePromptPreset?.(preset);
+                }
+                return;
+            }
+            const key = target.dataset.setting;
+            if (key) this.#actions.updateSetting?.(key, value);
         });
 
         const orb = this.#root.querySelector('.phoen-orb');
@@ -516,6 +557,8 @@ export class PhoneView {
         this.#renderVoiceLibrary(state);
         this.#renderTrace(state);
         this.#renderCharacter(state);
+        this.#renderModelSettings(state);
+        this.#renderPromptPreset(state);
         this.#renderSettings(state);
         this.#renderClocks();
         this.#renderToast(state.toast);
@@ -626,13 +669,53 @@ export class PhoneView {
         setBackgroundImage(this.#root.querySelector('[data-role="character-portrait"]'), state.contact.avatarUrl);
     }
 
+    #renderModelSettings(state) {
+        const target = state.generationTarget || { name: '跟随酒馆', model: '当前模型', api: 'current' };
+        this.#setText('[data-role="generation-target"]', target.name);
+        this.#setText('[data-role="generation-model"]', `${target.model || '当前模型'} · ${target.api || 'current'}`);
+        this.#setText('[data-role="model-tts-provider"]', state.providerLabel);
+
+        const select = this.#root.querySelector('[data-role="generation-profile-select"]');
+        const profiles = Array.isArray(state.generationProfiles) ? state.generationProfiles : [];
+        if (select instanceof HTMLSelectElement) {
+            select.innerHTML = [
+                '<option value="">跟随酒馆当前连接</option>',
+                ...profiles.map((profile) => `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.name)} · ${escapeHtml(profile.model)}</option>`),
+            ].join('');
+            select.value = state.settings.generationProfileId || '';
+        }
+
+        const list = this.#root.querySelector('[data-role="generation-profile-list"]');
+        if (!list) return;
+        const choices = [{ id: '', name: '跟随酒馆', model: '自动使用当前模型', api: 'current' }, ...profiles];
+        list.innerHTML = choices.map((profile) => {
+            const current = (state.settings.generationProfileId || '') === profile.id;
+            return `<button class="phoen-profile-card${current ? ' is-current' : ''}" type="button" data-action="set-generation-profile" data-profile-id="${escapeHtml(profile.id)}" aria-pressed="${current}">
+                <span class="phoen-profile-card__mark">${icon('signal')}</span>
+                <span><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(profile.model || '当前模型')} · ${escapeHtml(profile.api || 'current')}</small></span>
+                <b>${current ? '当前' : '选择'}</b>
+            </button>`;
+        }).join('');
+    }
+
+    #renderPromptPreset(state) {
+        const preset = normalizePhonePromptPreset(state.settings.promptPreset);
+        const name = this.#root.querySelector('[data-prompt-preset-field="name"]');
+        const depth = this.#root.querySelector('[data-prompt-preset-field="insertionDepth"]');
+        if (name instanceof HTMLInputElement) name.value = preset.name;
+        if (depth instanceof HTMLInputElement) depth.value = String(preset.insertionDepth);
+        const list = this.#root.querySelector('[data-role="prompt-entry-list"]');
+        if (list) list.innerHTML = preset.entries.map((entry, index) => promptEntryMarkup(entry, index, preset.entries.length)).join('');
+    }
     #renderSettings(state) {
         for (const control of this.#root.querySelectorAll('[data-setting]')) {
             const value = state.settings[control.dataset.setting];
             if (control instanceof HTMLInputElement && control.type === 'checkbox') {
                 control.checked = Boolean(value);
             } else if (control instanceof HTMLSelectElement) {
-                control.value = String(value);
+                control.value = String(value ?? '');
+            } else if (control instanceof HTMLInputElement) {
+                control.value = String(value ?? '');
             }
         }
     }

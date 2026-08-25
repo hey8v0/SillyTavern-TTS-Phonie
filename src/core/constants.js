@@ -1,5 +1,5 @@
 export const MODULE_ID = 'phoen';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const EXTENSION_BASE = '/scripts/extensions/third-party/SillyTavern-TTS-Phoen';
 
 export const THEMES = Object.freeze({
@@ -15,6 +15,8 @@ export const SCREENS = Object.freeze({
     VOICE: 'voice',
     TRACE: 'trace',
     CHARACTER: 'character',
+    MODEL: 'model',
+    PROMPTS: 'prompts',
     SETTINGS: 'settings',
 });
 
@@ -45,6 +47,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     autoPlayPhoneReplies: true,
     injectContinuity: true,
     showTranslation: true,
+    generationProfileId: '',
+    phoneResponseLength: 420,
     dockSide: 'right',
     dockY: 0.48,
 });

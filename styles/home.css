@@ -792,3 +792,141 @@ button.phoen-record-card__play {
     outline: 2px solid var(--phoen-signal);
     outline-offset: 3px;
 }
+
+/* Phoen physical handset mobile contract */
+.phoen-wallpaper[data-has-image="true"] {
+    background-position: center 18%;
+}
+
+#phoen-root[data-screen="home"] .phoen-wallpaper[data-has-image="true"] {
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 58%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.3) 88%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 58%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.3) 88%, transparent 100%);
+}
+
+.phoen-rain-curtain {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#phoen-root[data-screen="home"] .phoen-rain-curtain {
+    opacity: 0.38;
+}
+
+.phoen-rain-curtain i {
+    position: absolute;
+    top: 10%;
+    bottom: 18%;
+    left: var(--rain-x);
+    width: 1px;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--phoen-signal) 18%, transparent) 34%, color-mix(in srgb, var(--phoen-ink) 12%, transparent) 72%, transparent);
+    opacity: 0.24;
+}
+
+.phoen-rain-curtain i::after {
+    position: absolute;
+    top: -28px;
+    left: -1px;
+    width: 3px;
+    height: 22px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--phoen-signal) 64%, transparent));
+    content: '';
+    opacity: 0;
+    transform: translate3d(0, -12vh, 0);
+    animation: phoen-resonance-drop 4.6s linear var(--rain-delay) infinite paused;
+}
+
+#phoen-root[data-screen="home"][data-audio-state="idle"] .phoen-rain-curtain i::after {
+    animation-play-state: running;
+}
+
+@keyframes phoen-resonance-drop {
+    0% { opacity: 0; transform: translate3d(0, -12vh, 0); }
+    12% { opacity: 0.52; }
+    72% { opacity: 0.26; }
+    100% { opacity: 0; transform: translate3d(0, 72vh, 0); }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 1000px), (max-width: 560px), (max-height: 650px) {
+    .phoen-phone,
+    #phoen-root[data-dock="left"] .phoen-phone {
+        inset:
+            max(8px, env(safe-area-inset-top))
+            max(8px, env(safe-area-inset-right))
+            max(8px, env(safe-area-inset-bottom))
+            max(8px, env(safe-area-inset-left));
+        width: auto;
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+        border: 0;
+        border-radius: 46px;
+        background: transparent;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46), 0 5px 18px rgba(0, 0, 0, 0.24);
+        transform: translate3d(0, 14px, 0) scale(0.985);
+        transform-origin: center bottom;
+    }
+
+    #phoen-root[data-open="true"] .phoen-phone,
+    #phoen-root[data-dock="left"][data-open="true"] .phoen-phone {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    .phoen-frame {
+        overflow: hidden;
+        border: 6px solid color-mix(in srgb, var(--phoen-canvas) 78%, #050708 22%);
+        border-radius: 46px;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--phoen-glint) 34%, transparent);
+    }
+
+    .phoen-frame::before {
+        display: block;
+        inset: 2px;
+        border-radius: 38px;
+    }
+
+    .phoen-hardware-key {
+        display: block;
+    }
+
+    .phoen-status {
+        min-height: 38px;
+        padding-top: 9px;
+    }
+
+    .phoen-dock {
+        margin-bottom: 7px;
+    }
+
+    .phoen-home-indicator {
+        bottom: 8px;
+    }
+}
+
+@media (max-width: 380px) {
+    .phoen-phone,
+    #phoen-root[data-dock="left"] .phoen-phone {
+        left: max(5px, env(safe-area-inset-left));
+        right: max(5px, env(safe-area-inset-right));
+        border-radius: 40px;
+    }
+
+    .phoen-frame {
+        border-width: 5px;
+        border-radius: 40px;
+    }
+
+    .phoen-frame::before {
+        border-radius: 33px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phoen-rain-curtain {
+        display: none;
+    }
+}
