@@ -21,7 +21,7 @@ const ACTIVE_CALL_STATES = new Set([
 ]);
 
 const SCREEN_COPY = Object.freeze({
-    [SCREENS.HOME]: { title: 'Phoen', eyebrow: 'Resonance OS' },
+    [SCREENS.HOME]: { title: 'Phonie', eyebrow: 'Resonance OS' },
     [SCREENS.CHAT]: { title: '', eyebrow: '私人频道' },
     [SCREENS.CALL]: { title: '电话', eyebrow: '实时声线' },
     [SCREENS.VOICE]: { title: '声线', eyebrow: '语音资料库' },
@@ -80,7 +80,7 @@ function callStatusLabel(state, elapsed = '') {
 }
 
 function makeWaveBars(seed = '') {
-    const text = String(seed || 'phoen');
+    const text = String(seed || 'phonie');
     return Array.from({ length: 18 }, (_, index) => {
         const code = text.charCodeAt(index % text.length) || 80;
         const height = 26 + ((code * (index + 3)) % 68);
@@ -91,28 +91,28 @@ function makeWaveBars(seed = '') {
 function renderMessage(message, showTranslation) {
     const outgoing = message.direction === 'outgoing';
     const translation = showTranslation && message.translationText
-        ? `<p class="phoen-message__translation" lang="zh-CN">${escapeHtml(message.translationText)}</p>`
+        ? `<p class="phonie-message__translation" lang="zh-CN">${escapeHtml(message.translationText)}</p>`
         : '';
     const voice = message.kind === MESSAGE_KINDS.VOICE
         ? `
-            <div class="phoen-message__voice">
-                <button class="phoen-voice-action" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放这条语音消息">
+            <div class="phonie-message__voice">
+                <button class="phonie-voice-action" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放这条语音消息">
                     ${icon(message.isPlaying ? 'pause' : 'play')}
                 </button>
-                <span class="phoen-message__waveform" aria-hidden="true">${makeWaveBars(message.id)}</span>
-                <span class="phoen-message__duration">${escapeHtml(message.durationLabel || '--:--')}</span>
+                <span class="phonie-message__waveform" aria-hidden="true">${makeWaveBars(message.id)}</span>
+                <span class="phonie-message__duration">${escapeHtml(message.durationLabel || '--:--')}</span>
             </div>`
         : '';
 
     return `
-        <article class="phoen-message ${outgoing ? 'phoen-message--outgoing' : ''}" data-phone-message-id="${escapeHtml(message.id)}">
-            <div class="phoen-message__meta">
+        <article class="phonie-message ${outgoing ? 'phonie-message--outgoing' : ''}" data-phone-message-id="${escapeHtml(message.id)}">
+            <div class="phonie-message__meta">
                 <span>${escapeHtml(message.author)}</span>
                 <time datetime="${new Date(message.createdAt).toISOString()}">${messageTime(message.createdAt)}</time>
             </div>
-            <div class="phoen-message__bubble">
+            <div class="phonie-message__bubble">
                 ${voice}
-                <p class="phoen-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>
+                <p class="phonie-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>
                 ${translation}
             </div>
         </article>`;
@@ -135,94 +135,94 @@ export class PhoneView {
     }
 
     mount() {
-        if (document.getElementById('phoen-root')) return;
+        if (document.getElementById('phonie-root')) return;
 
         const root = document.createElement('div');
-        root.id = 'phoen-root';
-        root.className = 'phoen-root';
+        root.id = 'phonie-root';
+        root.className = 'phonie-root';
         root.innerHTML = `
-            <div class="phoen-scrim" data-action="close" aria-hidden="true"></div>
-            <button class="phoen-orb" type="button" data-action="open" aria-label="打开 Phoen" aria-controls="phoen-phone">
+            <div class="phonie-scrim" data-action="close" aria-hidden="true"></div>
+            <button class="phonie-orb" type="button" data-action="open" aria-label="打开 Phonie" aria-controls="phonie-phone">
                 ${icon('wave')}
-                <span class="phoen-orb__seam" aria-hidden="true"></span>
-                <span class="phoen-orb__unread" data-role="unread" hidden></span>
+                <span class="phonie-orb__seam" aria-hidden="true"></span>
+                <span class="phonie-orb__unread" data-role="unread" hidden></span>
             </button>
-            <section class="phoen-phone" id="phoen-phone" aria-label="Phoen 声纹手机" aria-hidden="true">
-                <span class="phoen-hardware-key phoen-hardware-key--volume" aria-hidden="true"></span>
-                <span class="phoen-hardware-key phoen-hardware-key--power" aria-hidden="true"></span>
-                <div class="phoen-frame">
-                    <div class="phoen-wallpaper" data-role="wallpaper" aria-hidden="true"></div>
-                    <div class="phoen-wallpaper-veil" aria-hidden="true"></div>
-                    <div class="phoen-rain-curtain" aria-hidden="true">
+            <section class="phonie-phone" id="phonie-phone" aria-label="Phonie 声纹手机" aria-hidden="true">
+                <span class="phonie-hardware-key phonie-hardware-key--volume" aria-hidden="true"></span>
+                <span class="phonie-hardware-key phonie-hardware-key--power" aria-hidden="true"></span>
+                <div class="phonie-frame">
+                    <div class="phonie-wallpaper" data-role="wallpaper" aria-hidden="true"></div>
+                    <div class="phonie-wallpaper-veil" aria-hidden="true"></div>
+                    <div class="phonie-rain-curtain" aria-hidden="true">
                         <i style="--rain-index:0;--rain-x:5%;--rain-delay:-0.1s"></i><i style="--rain-index:1;--rain-x:14%;--rain-delay:-1.7s"></i><i style="--rain-index:2;--rain-x:23%;--rain-delay:-3.1s"></i><i style="--rain-index:3;--rain-x:32%;--rain-delay:-0.9s"></i><i style="--rain-index:4;--rain-x:41%;--rain-delay:-4.2s"></i><i style="--rain-index:5;--rain-x:50%;--rain-delay:-2.4s"></i><i style="--rain-index:6;--rain-x:59%;--rain-delay:-0.5s"></i><i style="--rain-index:7;--rain-x:68%;--rain-delay:-3.6s"></i><i style="--rain-index:8;--rain-x:77%;--rain-delay:-1.2s"></i><i style="--rain-index:9;--rain-x:86%;--rain-delay:-4.6s"></i><i style="--rain-index:10;--rain-x:93%;--rain-delay:-2.8s"></i><i style="--rain-index:11;--rain-x:97%;--rain-delay:-0.3s"></i>
                     </div>
-                    <span class="phoen-voice-seam" aria-hidden="true"></span>
-                    <header class="phoen-status">
-                        <time class="phoen-status__time" data-role="clock"></time>
-                        <span class="phoen-dynamic-island" aria-hidden="true"><i></i><b></b></span>
-                        <span class="phoen-status__signals" aria-label="网络与电量">
+                    <span class="phonie-voice-seam" aria-hidden="true"></span>
+                    <header class="phonie-status">
+                        <time class="phonie-status__time" data-role="clock"></time>
+                        <span class="phonie-dynamic-island" aria-hidden="true"><i></i><b></b></span>
+                        <span class="phonie-status__signals" aria-label="网络与电量">
                             <span>4G</span>${icon('wifi')}<span>80%</span>${icon('battery')}
                         </span>
                     </header>
-                    <div class="phoen-header">
+                    <div class="phonie-header">
                         <div>
-                            <p class="phoen-header__eyebrow" data-role="eyebrow">Private channel</p>
-                            <h1 class="phoen-header__title" data-role="title">Phoen</h1>
+                            <p class="phonie-header__eyebrow" data-role="eyebrow">Private channel</p>
+                            <h1 class="phonie-header__title" data-role="title">Phonie</h1>
                         </div>
-                        <div class="phoen-header__actions">
-                            <button class="phoen-icon-button phoen-icon-button--raised phoen-back-button" type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">
+                        <div class="phonie-header__actions">
+                            <button class="phonie-icon-button phonie-icon-button--raised phonie-back-button" type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">
                                 ${icon('back')}
                             </button>
-                            <button class="phoen-icon-button phoen-icon-button--raised phoen-header-call" type="button" data-action="start-call" aria-label="拨打电话">
+                            <button class="phonie-icon-button phonie-icon-button--raised phonie-header-call" type="button" data-action="start-call" aria-label="拨打电话">
                                 ${icon('phone')}
                             </button>
-                            <button class="phoen-icon-button" type="button" data-action="close" aria-label="收起 Phoen">
+                            <button class="phonie-icon-button" type="button" data-action="close" aria-label="收起 Phonie">
                                 ${icon('close')}
                             </button>
                         </div>
                     </div>
-                    <main class="phoen-screen-stack">
+                    <main class="phonie-screen-stack">
                         ${homeScreenMarkup()}
-                        <section class="phoen-screen" data-screen="chat" aria-label="私人消息">
-                            <div class="phoen-chat-list" data-role="message-list"></div>
-                            <div class="phoen-generating" data-role="generating" hidden>
-                                <span class="phoen-generating__line" aria-hidden="true"></span>
+                        <section class="phonie-screen" data-screen="chat" aria-label="私人消息">
+                            <div class="phonie-chat-list" data-role="message-list"></div>
+                            <div class="phonie-generating" data-role="generating" hidden>
+                                <span class="phonie-generating__line" aria-hidden="true"></span>
                                 <span>对方正在组织语言</span>
                             </div>
-                            <form class="phoen-composer" data-form="chat">
-                                <button class="phoen-icon-button phoen-icon-button--raised" type="button" data-action="send-voice" aria-label="发送语音消息">
+                            <form class="phonie-composer" data-form="chat">
+                                <button class="phonie-icon-button phonie-icon-button--raised" type="button" data-action="send-voice" aria-label="发送语音消息">
                                     ${icon('wave')}
                                 </button>
                                 <textarea rows="1" maxlength="1600" data-role="chat-input" placeholder="写一条私人消息" aria-label="私人消息内容"></textarea>
-                                <button class="phoen-icon-button phoen-icon-button--raised" type="submit" aria-label="发送消息">
+                                <button class="phonie-icon-button phonie-icon-button--raised" type="submit" aria-label="发送消息">
                                     ${icon('send')}
                                 </button>
                             </form>
                         </section>
-                        <section class="phoen-screen" data-screen="call" aria-label="电话">
-                            <div class="phoen-call-screen">
-                                <div class="phoen-contact-mark" data-role="call-initials">P</div>
-                                <div class="phoen-call-identity">
+                        <section class="phonie-screen" data-screen="call" aria-label="电话">
+                            <div class="phonie-call-screen">
+                                <div class="phonie-contact-mark" data-role="call-initials">P</div>
+                                <div class="phonie-call-identity">
                                     <h2 data-role="call-contact">Character</h2>
-                                    <p class="phoen-call-status" data-role="call-status">等待拨号</p>
+                                    <p class="phonie-call-status" data-role="call-status">等待拨号</p>
                                 </div>
-                                <div class="phoen-call-captions" data-role="call-captions" data-empty="true">
+                                <div class="phonie-call-captions" data-role="call-captions" data-empty="true">
                                     <span data-role="call-empty">接通后，原文和译文会显示在这里</span>
                                     <div data-role="call-caption-content" hidden>
-                                        <p class="phoen-call-caption-source" data-role="call-caption-source"></p>
-                                        <p class="phoen-call-caption-translation" data-role="call-caption-translation"></p>
+                                        <p class="phonie-call-caption-source" data-role="call-caption-source"></p>
+                                        <p class="phonie-call-caption-translation" data-role="call-caption-translation"></p>
                                     </div>
                                 </div>
-                                <div class="phoen-call-idle-action" data-role="call-idle-action">
-                                    <button class="phoen-button" type="button" data-action="start-call">开始通话</button>
+                                <div class="phonie-call-idle-action" data-role="call-idle-action">
+                                    <button class="phonie-button" type="button" data-action="start-call">开始通话</button>
                                 </div>
-                                <form class="phoen-call-controls" data-form="call" hidden>
+                                <form class="phonie-call-controls" data-form="call" hidden>
                                     <input type="text" maxlength="1200" data-role="call-input" placeholder="输入这一轮要说的话" aria-label="通话输入">
-                                    <button class="phoen-call-primary" type="submit" data-action="call-send" aria-label="发送这一轮">
+                                    <button class="phonie-call-primary" type="submit" data-action="call-send" aria-label="发送这一轮">
                                         ${icon('send')}
                                     </button>
                                 </form>
-                                <button class="phoen-call-end" type="button" data-action="end-call" hidden aria-label="挂断电话">
+                                <button class="phonie-call-end" type="button" data-action="end-call" hidden aria-label="挂断电话">
                                     ${icon('end-call')}
                                     <span>挂断</span>
                                 </button>
@@ -230,13 +230,13 @@ export class PhoneView {
                         </section>
                         ${auxiliaryScreensMarkup()}
                         ${systemSettingsScreensMarkup()}
-                        <section class="phoen-screen" data-screen="settings" aria-label="设置">
+                        <section class="phonie-screen" data-screen="settings" aria-label="设置">
                             ${this.#settingsMarkup()}
                         </section>
                     </main>
                     ${dockMarkup()}
-                    <div class="phoen-home-indicator" aria-hidden="true"></div>
-                    <div class="phoen-toast" data-role="toast" role="status" aria-live="polite"></div>
+                    <div class="phonie-home-indicator" aria-hidden="true"></div>
+                    <div class="phonie-toast" data-role="toast" role="status" aria-live="polite"></div>
                 </div>
             </section>`;
 
@@ -251,10 +251,10 @@ export class PhoneView {
 
     #settingsMarkup() {
         return `
-            <div class="phoen-settings-list">
-                <section class="phoen-settings-section">
-                    <h2 class="phoen-settings-section__title">外观</h2>
-                    <div class="phoen-settings-card">
+            <div class="phonie-settings-list">
+                <section class="phonie-settings-section">
+                    <h2 class="phonie-settings-section__title">外观</h2>
+                    <div class="phonie-settings-card">
                         ${this.#selectRow('主题', '日间、夜间或跟随酒馆', 'theme', [
                             [THEMES.DAY, '日间'],
                             [THEMES.NIGHT, '夜间'],
@@ -263,9 +263,9 @@ export class PhoneView {
                         ${this.#switchRow('显示中文译文', '原文始终保留为主文本', 'showTranslation')}
                     </div>
                 </section>
-                <section class="phoen-settings-section">
-                    <h2 class="phoen-settings-section__title">语言</h2>
-                    <div class="phoen-settings-card">
+                <section class="phonie-settings-section">
+                    <h2 class="phonie-settings-section__title">语言</h2>
+                    <div class="phonie-settings-card">
                         ${this.#selectRow('角色语言', '静默回复与语音默认语言', 'sourceLanguage', [
                             ['ja-JP', '日本語'],
                             ['zh-CN', '简体中文'],
@@ -281,30 +281,30 @@ export class PhoneView {
                         ${this.#switchRow('自动翻译', '正文没有译文时调用酒馆翻译模块', 'autoTranslate')}
                     </div>
                 </section>
-                <section class="phoen-settings-section">
-                    <h2 class="phoen-settings-section__title">语音与连续性</h2>
-                    <div class="phoen-settings-card">
-                        <div class="phoen-setting-row">
+                <section class="phonie-settings-section">
+                    <h2 class="phonie-settings-section__title">语音与连续性</h2>
+                    <div class="phonie-settings-card">
+                        <div class="phonie-setting-row">
                             <span>
-                                <span class="phoen-setting-label">当前语音提供商</span>
-                                <span class="phoen-setting-description">第一版跟随酒馆 TTS 与角色声线映射</span>
+                                <span class="phonie-setting-label">当前语音提供商</span>
+                                <span class="phonie-setting-description">第一版跟随酒馆 TTS 与角色声线映射</span>
                             </span>
-                            <span class="phoen-provider-chip" data-role="provider-chip"></span>
+                            <span class="phonie-provider-chip" data-role="provider-chip"></span>
                         </div>
                         ${this.#switchRow('正文播放器', '在角色消息下方附加双语播放器', 'autoDecorateMessages')}
                         ${this.#switchRow('自动播放手机回复', '电话始终自动播放角色语音', 'autoPlayPhoneReplies')}
                         ${this.#switchRow('注入通信连续性', '只注入最近事件的短摘要', 'injectContinuity')}
                     </div>
                 </section>
-                <section class="phoen-settings-section">
-                    <h2 class="phoen-settings-section__title">本地数据</h2>
-                    <div class="phoen-settings-card">
-                        <div class="phoen-setting-row">
+                <section class="phonie-settings-section">
+                    <h2 class="phonie-settings-section__title">本地数据</h2>
+                    <div class="phonie-settings-card">
+                        <div class="phonie-setting-row">
                             <span>
-                                <span class="phoen-setting-label">清除音频缓存</span>
-                                <span class="phoen-setting-description">聊天文字和通话记录不会被删除</span>
+                                <span class="phonie-setting-label">清除音频缓存</span>
+                                <span class="phonie-setting-description">聊天文字和通话记录不会被删除</span>
                             </span>
-                            <button class="phoen-icon-button" type="button" data-action="clear-cache" aria-label="清除音频缓存">${icon('trash')}</button>
+                            <button class="phonie-icon-button" type="button" data-action="clear-cache" aria-label="清除音频缓存">${icon('trash')}</button>
                         </div>
                     </div>
                 </section>
@@ -313,14 +313,14 @@ export class PhoneView {
 
     #switchRow(label, description, key) {
         return `
-            <label class="phoen-setting-row">
+            <label class="phonie-setting-row">
                 <span>
-                    <span class="phoen-setting-label">${escapeHtml(label)}</span>
-                    <span class="phoen-setting-description">${escapeHtml(description)}</span>
+                    <span class="phonie-setting-label">${escapeHtml(label)}</span>
+                    <span class="phonie-setting-description">${escapeHtml(description)}</span>
                 </span>
-                <span class="phoen-switch">
+                <span class="phonie-switch">
                     <input type="checkbox" data-setting="${escapeHtml(key)}">
-                    <span class="phoen-switch__track" aria-hidden="true"></span>
+                    <span class="phonie-switch__track" aria-hidden="true"></span>
                 </span>
             </label>`;
     }
@@ -328,12 +328,12 @@ export class PhoneView {
     #selectRow(label, description, key, values) {
         const options = values.map(([value, text]) => `<option value="${escapeHtml(value)}">${escapeHtml(text)}</option>`).join('');
         return `
-            <label class="phoen-setting-row">
+            <label class="phonie-setting-row">
                 <span>
-                    <span class="phoen-setting-label">${escapeHtml(label)}</span>
-                    <span class="phoen-setting-description">${escapeHtml(description)}</span>
+                    <span class="phonie-setting-label">${escapeHtml(label)}</span>
+                    <span class="phonie-setting-description">${escapeHtml(description)}</span>
                 </span>
-                <select class="phoen-setting-select" data-setting="${escapeHtml(key)}">${options}</select>
+                <select class="phonie-setting-select" data-setting="${escapeHtml(key)}">${options}</select>
             </label>`;
     }
 
@@ -345,13 +345,13 @@ export class PhoneView {
             }, 700);
             return;
         }
-        if (document.getElementById('phoen-settings-launcher')) return;
+        if (document.getElementById('phonie-settings-launcher')) return;
         const launcher = document.createElement('div');
-        launcher.id = 'phoen-settings-launcher';
-        launcher.className = 'phoen-settings-launcher';
+        launcher.id = 'phonie-settings-launcher';
+        launcher.className = 'phonie-settings-launcher';
         launcher.innerHTML = `
-            <p class="phoen-settings-launcher__title">Phoen Voice Phone</p>
-            <p class="phoen-settings-launcher__description">双语正文语音、私人消息与电话。</p>
+            <p class="phonie-settings-launcher__title">Phonie Voice Phone</p>
+            <p class="phonie-settings-launcher__description">双语正文语音、私人消息与电话。</p>
             <button class="menu_button" type="button">打开手机设置</button>`;
         launcher.querySelector('button')?.addEventListener('click', () => {
             this.#actions.open?.();
@@ -443,7 +443,7 @@ export class PhoneView {
             if (key) this.#actions.updateSetting?.(key, value);
         });
 
-        const orb = this.#root.querySelector('.phoen-orb');
+        const orb = this.#root.querySelector('.phonie-orb');
         orb?.addEventListener('pointerdown', (event) => this.#startOrbDrag(event));
     }
 
@@ -454,7 +454,7 @@ export class PhoneView {
         try {
             orb.setPointerCapture?.(event.pointerId);
         } catch (error) {
-            console.debug('[Phoen] Pointer capture unavailable; continuing with click fallback.', error);
+            console.debug('[Phonie] Pointer capture unavailable; continuing with click fallback.', error);
         }
         this.#drag = {
             pointerId: event.pointerId,
@@ -479,7 +479,7 @@ export class PhoneView {
         this.#drag = updateOrbDrag(this.#drag, event.clientX, event.clientY);
         if (!this.#drag.moved) return;
         const y = clamp(event.clientY / window.innerHeight, 0.07, 0.9);
-        this.#root.style.setProperty('--phoen-orb-y', `${y * 100}%`);
+        this.#root.style.setProperty('--phonie-orb-y', `${y * 100}%`);
     }
 
     #endOrbDrag(event) {
@@ -526,11 +526,11 @@ export class PhoneView {
         this.#root.dataset.dock = state.settings.dockSide;
         this.#root.dataset.screen = state.screen;
         this.#root.dataset.audioState = state.audioState || 'idle';
-        this.#root.style.setProperty('--phoen-orb-y', `${clamp(state.settings.dockY, 0.07, 0.9) * 100}%`);
+        this.#root.style.setProperty('--phonie-orb-y', `${clamp(state.settings.dockY, 0.07, 0.9) * 100}%`);
 
-        const phone = this.#root.querySelector('.phoen-phone');
+        const phone = this.#root.querySelector('.phonie-phone');
         phone?.setAttribute('aria-hidden', String(!state.open));
-        const orb = this.#root.querySelector('.phoen-orb');
+        const orb = this.#root.querySelector('.phonie-orb');
         orb?.setAttribute('aria-expanded', String(Boolean(state.open)));
         this.#setText('[data-role="provider"]', state.providerLabel);
         this.#setText('[data-role="provider-chip"]', state.providerLabel);
@@ -541,7 +541,7 @@ export class PhoneView {
         for (const screen of this.#root.querySelectorAll('[data-screen]')) {
             screen.dataset.active = String(screen.dataset.screen === state.screen);
         }
-        for (const tab of this.#root.querySelectorAll('.phoen-dock-button[data-target-screen]')) {
+        for (const tab of this.#root.querySelectorAll('.phonie-dock-button[data-target-screen]')) {
             tab.setAttribute('aria-selected', String(tab.dataset.targetScreen === state.screen));
         }
 
@@ -569,9 +569,9 @@ export class PhoneView {
         if (!list) return;
         if (state.messages.length === 0) {
             list.innerHTML = `
-                <div class="phoen-chat-empty">
-                    <div class="phoen-chat-empty__mark">${icon('message')}</div>
-                    <h2 class="phoen-chat-empty__title">一条安静的私人频道</h2>
+                <div class="phonie-chat-empty">
+                    <div class="phonie-chat-empty__mark">${icon('message')}</div>
+                    <h2 class="phonie-chat-empty__title">一条安静的私人频道</h2>
                     <p>这里的消息属于故事世界，但不会挤进酒馆正文。</p>
                 </div>`;
         } else {
@@ -632,13 +632,13 @@ export class PhoneView {
         if (!list) return;
         const voices = state.messages.filter((message) => message.kind === MESSAGE_KINDS.VOICE).slice(-8).reverse();
         if (!voices.length) {
-            list.innerHTML = '<div class="phoen-record-empty">发送或播放语音后，声线片段会出现在这里。</div>';
+            list.innerHTML = '<div class="phonie-record-empty">发送或播放语音后，声线片段会出现在这里。</div>';
             return;
         }
         list.innerHTML = voices.map((message) => `
-            <article class="phoen-record-card">
-                <button class="phoen-record-card__play" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放语音片段">${icon(message.isPlaying ? 'pause' : 'play')}</button>
-                <span class="phoen-record-card__copy"><strong>${escapeHtml(message.author)}</strong><small>${escapeHtml(message.originalText.slice(0, 54) || '无文字片段')}</small></span>
+            <article class="phonie-record-card">
+                <button class="phonie-record-card__play" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放语音片段">${icon(message.isPlaying ? 'pause' : 'play')}</button>
+                <span class="phonie-record-card__copy"><strong>${escapeHtml(message.author)}</strong><small>${escapeHtml(message.originalText.slice(0, 54) || '无文字片段')}</small></span>
                 <time>${escapeHtml(message.durationLabel || formatRecordDate(message.createdAt))}</time>
             </article>`).join('');
     }
@@ -648,13 +648,13 @@ export class PhoneView {
         if (!list) return;
         const records = state.calls.slice(-8).reverse();
         if (!records.length) {
-            list.innerHTML = '<div class="phoen-record-empty">接通第一通电话后，这里会留下时间、时长和简短摘要。</div>';
+            list.innerHTML = '<div class="phonie-record-empty">接通第一通电话后，这里会留下时间、时长和简短摘要。</div>';
             return;
         }
         list.innerHTML = records.map((record) => `
-            <article class="phoen-record-card phoen-record-card--call">
-                <span class="phoen-record-card__play" aria-hidden="true">${icon('phone')}</span>
-                <span class="phoen-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${escapeHtml(record.summary || '通话已结束')}</small></span>
+            <article class="phonie-record-card phonie-record-card--call">
+                <span class="phonie-record-card__play" aria-hidden="true">${icon('phone')}</span>
+                <span class="phonie-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${escapeHtml(record.summary || '通话已结束')}</small></span>
                 <time>${escapeHtml(formatDuration(record.startedAt, record.endedAt))}<br>${escapeHtml(formatRecordDate(record.startedAt))}</time>
             </article>`).join('');
     }
@@ -690,8 +690,8 @@ export class PhoneView {
         const choices = [{ id: '', name: '跟随酒馆', model: '自动使用当前模型', api: 'current' }, ...profiles];
         list.innerHTML = choices.map((profile) => {
             const current = (state.settings.generationProfileId || '') === profile.id;
-            return `<button class="phoen-profile-card${current ? ' is-current' : ''}" type="button" data-action="set-generation-profile" data-profile-id="${escapeHtml(profile.id)}" aria-pressed="${current}">
-                <span class="phoen-profile-card__mark">${icon('signal')}</span>
+            return `<button class="phonie-profile-card${current ? ' is-current' : ''}" type="button" data-action="set-generation-profile" data-profile-id="${escapeHtml(profile.id)}" aria-pressed="${current}">
+                <span class="phonie-profile-card__mark">${icon('signal')}</span>
                 <span><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(profile.model || '当前模型')} · ${escapeHtml(profile.api || 'current')}</small></span>
                 <b>${current ? '当前' : '选择'}</b>
             </button>`;

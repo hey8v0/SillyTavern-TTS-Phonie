@@ -9,10 +9,10 @@ export function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-export function icon(name, className = 'phoen-icon') {
+export function icon(name, className = 'phonie-icon') {
     const safeName = String(name).replace(/[^a-z-]/g, '');
     const safeClass = String(className).replace(/[^a-zA-Z0-9 _-]/g, '');
-    return `<svg class="${safeClass}" aria-hidden="true" focusable="false"><use href="${EXTENSION_BASE}/assets/icons/sprite.svg#phoen-${safeName}"></use></svg>`;
+    return `<svg class="${safeClass}" aria-hidden="true" focusable="false"><use href="${EXTENSION_BASE}/assets/icons/sprite.svg#phonie-${safeName}"></use></svg>`;
 }
 
 export function clamp(value, minimum, maximum) {

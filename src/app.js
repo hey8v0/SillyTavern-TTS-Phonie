@@ -1,4 +1,4 @@
-import { CALL_STATES, MESSAGE_KINDS, SCREENS } from './core/constants.js';
+import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCREENS } from './core/constants.js';
 import { createStore } from './core/store.js';
 import { SillyTavernBridge } from './integrations/sillytavern.js';
 import { CallMachine } from './phone/call-machine.js';
@@ -20,8 +20,18 @@ function buildCallSummary(messages, contactName) {
     return lines.join(' / ').slice(0, 900);
 }
 
-export async function createPhoenApp() {
-    if (globalThis.__phoenApp?.dispose) return globalThis.__phoenApp;
+export async function createPhonieApp() {
+    const existing = globalThis.__phonieApp;
+    if (existing?.version === APP_VERSION && document.getElementById('phonie-root')) return existing;
+    if (existing?.dispose) {
+        try {
+            existing.dispose();
+        } catch (error) {
+            console.debug('[Phonie] Previous runtime cleanup failed; rebuilding the interface.', error);
+        }
+    }
+    document.getElementById('phonie-root')?.remove();
+    document.getElementById('phonie-settings-launcher')?.remove();
 
     const bridge = new SillyTavernBridge();
     const settings = bridge.getSettings();
@@ -85,7 +95,7 @@ export async function createPhoenApp() {
                 try {
                     await audioFocus.play(`phone:${message.id}`, { owner: 'phone', messageId: message.id });
                 } catch (error) {
-                    console.warn('[Phoen] Browser blocked cached audio autoplay.', error);
+                    console.warn('[Phonie] Browser blocked cached audio autoplay.', error);
                 }
             }
             return true;
@@ -143,7 +153,7 @@ export async function createPhoenApp() {
             try {
                 await preparePhoneAudio(outgoing, bridge.getUserName(), { autoplay: true });
             } catch (error) {
-                console.warn('[Phoen] User voice message synthesis failed.', error);
+                console.warn('[Phonie] User voice message synthesis failed.', error);
                 showToast('语音消息已发送，但暂时无法生成音频');
             }
         }
@@ -179,7 +189,7 @@ export async function createPhoenApp() {
                 try {
                     await preparePhoneAudio(incoming, store.getState().contact.name, { autoplay: true });
                 } catch (error) {
-                    console.warn('[Phoen] Character phone audio synthesis failed.', error);
+                    console.warn('[Phonie] Character phone audio synthesis failed.', error);
                     updateState({ audioState: 'idle' });
                     showToast('回复已收到，但角色语音生成失败');
                     if (callMode && callMachine.state === CALL_STATES.SPEAKING) {
@@ -197,7 +207,7 @@ export async function createPhoenApp() {
                 window.setTimeout(() => endCall(), 400);
             }
         } catch (error) {
-            console.error('[Phoen] Phone reply failed.', error);
+            console.error('[Phonie] Phone reply failed.', error);
             updateState({ generating: false, audioState: 'idle' });
             if (callMode && callMachine.state === CALL_STATES.GENERATING) {
                 callMachine.transition(CALL_STATES.ERROR, { error });
@@ -255,7 +265,7 @@ export async function createPhoenApp() {
         try {
             await preparePhoneAudio(message, message.author, { autoplay: true });
         } catch (error) {
-            console.error('[Phoen] Could not play phone audio.', error);
+            console.error('[Phonie] Could not play phone audio.', error);
             showToast('这条语音暂时无法播放');
         }
     }
@@ -451,6 +461,7 @@ export async function createPhoenApp() {
     }, 0);
 
     const app = {
+        version: APP_VERSION,
         store,
         bridge,
         view,
@@ -461,10 +472,10 @@ export async function createPhoenApp() {
             inlinePlayers.dispose();
             audioFocus.dispose();
             view.dispose();
-            delete globalThis.__phoenApp;
+            delete globalThis.__phonieApp;
         },
     };
-    globalThis.__phoenApp = app;
-    console.info('[Phoen] Voice phone initialized.');
+    globalThis.__phonieApp = app;
+    console.info('[Phonie] Voice phone initialized.');
     return app;
 }

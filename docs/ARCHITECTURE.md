@@ -1,15 +1,19 @@
-# Phoen architecture
+# Phonie architecture
 
 ## Boundaries
 
 `src/dialogue` contains pure parsing, prompt-preset normalization, variable resolution, and message assembly. `src/phone` owns the call state machine and per-chat phone records. `src/tts` defines provider-neutral contracts. `src/integrations` is the only layer allowed to import SillyTavern modules. `src/ui` owns DOM rendering and interaction. `phone-home.js` declares the application map, `system-settings.js` declares model and prompt system apps, and `orb-gesture.js` keeps touch classification pure and testable.
 
+## 0.3.1 namespace reset
+
+The product namespace is now `phonie` throughout settings, chat metadata, message extras, DOM, CSS, prompts, logs, and IndexedDB. This release intentionally does not read or migrate data from any earlier namespace.
+
 ## Persistence
 
-- `extension_settings.phoen`: global display, language, model profile, phone prompt preset, and playback preferences.
-- `chatMetadata.phoen`: private messages and call summaries for the active SillyTavern chat.
-- `message.extra.phoen`: reserved for source-message speech metadata.
-- IndexedDB `phoen-audio`: generated audio blobs keyed by chat, message, text, and provider.
+- `extension_settings.phonie`: global display, language, model profile, phone prompt preset, and playback preferences.
+- `chatMetadata.phonie`: private messages and call summaries for the active SillyTavern chat.
+- `message.extra.phonie`: reserved for source-message speech metadata.
+- IndexedDB `phonie-audio`: generated audio blobs keyed by chat, message, text, and provider.
 
 Audio and API secrets are not embedded in extension settings or chat JSON. Connection Manager profile IDs are stored, while the corresponding endpoint and secret remain under SillyTavern control.
 

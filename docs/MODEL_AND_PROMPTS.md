@@ -2,17 +2,17 @@
 
 ## Phone reply model
 
-The **模型** app controls text generation for Phoen private chat and turn-based calls.
+The **模型** app controls text generation for Phonie private chat and turn-based calls.
 
 - **跟随酒馆** uses SillyTavern's current generation API and model.
 - Other choices come from SillyTavern Connection Manager profiles.
-- Phoen stores only the selected profile ID. API URLs, credentials, presets, and instruct settings remain managed by SillyTavern.
+- Phonie stores only the selected profile ID. API URLs, credentials, presets, and instruct settings remain managed by SillyTavern.
 - **回复上限** accepts 80–1200 tokens for the current phone reply.
 - Voice synthesis remains routed through SillyTavern TTS and is independent of the reply model.
 
 ## Phone prompt preset
 
-The **提示词** app edits the active phone reply preset. Changes save automatically to `extension_settings.phoen`.
+The **提示词** app edits the active phone reply preset. Changes save automatically to `extension_settings.phonie`.
 
 Each entry has:
 

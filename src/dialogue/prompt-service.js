@@ -117,7 +117,7 @@ export function buildContinuityPrompt({ contactName, messages = [], calls = [], 
         : '';
 
     return [
-        '[Phoen private communication continuity]',
+        '[Phonie private communication continuity]',
         `The user and ${contactName} have a private phone channel inside the story.`,
         ...recentMessages,
         recentCall,

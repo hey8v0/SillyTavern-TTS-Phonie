@@ -1,4 +1,4 @@
-export function createId(prefix = 'phoen') {
+export function createId(prefix = 'phonie') {
     if (globalThis.crypto?.randomUUID) {
         return `${prefix}-${globalThis.crypto.randomUUID()}`;
     }

@@ -1,6 +1,7 @@
-export const MODULE_ID = 'phoen';
+export const MODULE_ID = 'phonie';
+export const APP_VERSION = '0.3.1';
 export const SCHEMA_VERSION = 2;
-export const EXTENSION_BASE = '/scripts/extensions/third-party/SillyTavern-TTS-Phoen';
+export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
     DAY: 'day',

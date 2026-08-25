@@ -18,6 +18,7 @@ const required = [
     'styles/home.css',
     'styles/system.css',
     'src/dialogue/prompt-preset.js',
+    'src/integrations/generation-compat.js',
     'assets/icons/sprite.svg',
 ];
 
@@ -25,7 +26,7 @@ async function walk(directory) {
     const entries = await readdir(directory, { withFileTypes: true });
     const files = [];
     for (const entry of entries) {
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('PHOEN_ORIGINAL_HANDOFF_')) continue;
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.includes('_ORIGINAL_HANDOFF_')) continue;
         const fullPath = path.join(directory, entry.name);
         if (entry.isDirectory()) files.push(...await walk(fullPath));
         else files.push(fullPath);
@@ -53,10 +54,12 @@ for (const relativePath of ['manifest.json', 'package.json', 'locales/zh-cn.json
 const files = await walk(root);
 const textFiles = files.filter((file) => /\.(?:js|mjs|css|html|md|json|svg)$/.test(file));
 const emojiPattern = /\p{Extended_Pictographic}/u;
+const retiredBrandPattern = new RegExp(['pho', 'en'].join(''), 'i');
 for (const file of textFiles) {
     const text = await readFile(file, 'utf8');
     const relative = path.relative(root, file);
     if (emojiPattern.test(text)) errors.push(`Emoji found in ${relative}`);
+    if (retiredBrandPattern.test(text)) errors.push(`Retired product name found in ${relative}`);
     if (/\.css$/.test(file) && /transition\s*:\s*all\b/i.test(text)) errors.push(`transition: all found in ${relative}`);
 }
 
@@ -84,4 +87,4 @@ if (errors.length > 0) {
     process.exit(1);
 }
 
-console.log(`Phoen project check passed: ${files.length} files verified.`);
+console.log(`Phonie project check passed: ${files.length} files verified.`);

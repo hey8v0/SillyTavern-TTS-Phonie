@@ -1,65 +1,65 @@
-.phoen-system-pane {
+.phonie-system-pane {
     display: flex;
     flex-direction: column;
     gap: 12px;
     overscroll-behavior: contain;
 }
 
-.phoen-model-hero,
-.phoen-route-note {
+.phonie-model-hero,
+.phonie-route-note {
     display: grid;
     grid-template-columns: 48px minmax(0, 1fr);
     gap: 12px;
     align-items: center;
     padding: 14px;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 82%, transparent);
     border-radius: 20px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 88%, transparent);
-    box-shadow: inset 0 1px 0 var(--phoen-glint);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 88%, transparent);
+    box-shadow: inset 0 1px 0 var(--phonie-glint);
 }
 
-.phoen-model-hero__mark,
-.phoen-profile-card__mark {
+.phonie-model-hero__mark,
+.phonie-profile-card__mark {
     display: grid;
     place-items: center;
     width: 48px;
     height: 48px;
     border-radius: 16px;
-    background: linear-gradient(145deg, color-mix(in srgb, var(--phoen-signal) 28%, var(--phoen-surface)), color-mix(in srgb, var(--phoen-accent) 14%, var(--phoen-surface)));
-    color: var(--phoen-signal);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--phonie-signal) 28%, var(--phonie-surface)), color-mix(in srgb, var(--phonie-accent) 14%, var(--phonie-surface)));
+    color: var(--phonie-signal);
 }
 
-.phoen-model-hero__mark .phoen-icon,
-.phoen-profile-card__mark .phoen-icon {
+.phonie-model-hero__mark .phonie-icon,
+.phonie-profile-card__mark .phonie-icon {
     width: 23px;
     height: 23px;
 }
 
-.phoen-model-hero > span:last-child,
-.phoen-model-hero small,
-.phoen-model-hero strong,
-.phoen-model-hero i,
-.phoen-route-note p,
-.phoen-route-note strong,
-.phoen-route-note span,
-.phoen-profile-card > span:nth-child(2),
-.phoen-profile-card strong,
-.phoen-profile-card small {
+.phonie-model-hero > span:last-child,
+.phonie-model-hero small,
+.phonie-model-hero strong,
+.phonie-model-hero i,
+.phonie-route-note p,
+.phonie-route-note strong,
+.phonie-route-note span,
+.phonie-profile-card > span:nth-child(2),
+.phonie-profile-card strong,
+.phonie-profile-card small {
     display: block;
     min-width: 0;
 }
 
-.phoen-model-hero small,
-.phoen-route-note span,
-.phoen-profile-card small,
-.phoen-control-field small,
-.phoen-pane-heading small {
-    color: var(--phoen-ink-muted);
+.phonie-model-hero small,
+.phonie-route-note span,
+.phonie-profile-card small,
+.phonie-control-field small,
+.phonie-pane-heading small {
+    color: var(--phonie-ink-muted);
     font-size: 10px;
     font-style: normal;
 }
 
-.phoen-model-hero strong {
+.phonie-model-hero strong {
     margin-top: 2px;
     overflow: hidden;
     font-size: 17px;
@@ -67,26 +67,26 @@
     white-space: nowrap;
 }
 
-.phoen-model-hero i {
+.phonie-model-hero i {
     margin-top: 2px;
     overflow: hidden;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     font-size: 10px;
     font-style: normal;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-control-card,
-.phoen-preset-toolbar,
-.phoen-prompt-entry {
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 82%, transparent);
+.phonie-control-card,
+.phonie-preset-toolbar,
+.phonie-prompt-entry {
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 82%, transparent);
     border-radius: 20px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 91%, transparent);
-    box-shadow: inset 0 1px 0 var(--phoen-glint);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 91%, transparent);
+    box-shadow: inset 0 1px 0 var(--phonie-glint);
 }
 
-.phoen-control-field {
+.phonie-control-field {
     display: grid;
     min-height: 66px;
     padding: 10px 12px;
@@ -95,62 +95,62 @@
     align-items: center;
 }
 
-.phoen-control-field + .phoen-control-field {
-    border-top: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+.phonie-control-field + .phonie-control-field {
+    border-top: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
 }
 
-.phoen-control-field > span,
-.phoen-control-field strong,
-.phoen-control-field small {
+.phonie-control-field > span,
+.phonie-control-field strong,
+.phonie-control-field small {
     display: block;
     min-width: 0;
 }
 
-.phoen-control-field select,
-.phoen-control-field input,
-.phoen-preset-toolbar input,
-.phoen-prompt-entry input,
-.phoen-prompt-entry select,
-.phoen-prompt-entry textarea {
+.phonie-control-field select,
+.phonie-control-field input,
+.phonie-preset-toolbar input,
+.phonie-prompt-entry input,
+.phonie-prompt-entry select,
+.phonie-prompt-entry textarea {
     width: 100%;
     min-width: 0;
     margin: 0;
-    border: 1px solid var(--phoen-border);
+    border: 1px solid var(--phonie-border);
     border-radius: 12px;
-    background: var(--phoen-surface-muted);
-    color: var(--phoen-ink);
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
     font: inherit;
-    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--phoen-shadow) 18%, transparent);
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--phonie-shadow) 18%, transparent);
 }
 
-.phoen-control-field select,
-.phoen-control-field input,
-.phoen-preset-toolbar input,
-.phoen-prompt-entry input,
-.phoen-prompt-entry select {
+.phonie-control-field select,
+.phonie-control-field input,
+.phonie-preset-toolbar input,
+.phonie-prompt-entry input,
+.phonie-prompt-entry select {
     min-height: 44px;
     padding: 0 11px;
 }
 
-.phoen-control-field select,
-.phoen-prompt-entry select {
+.phonie-control-field select,
+.phonie-prompt-entry select {
     resize: none;
 }
 
-.phoen-control-field select:focus-visible,
-.phoen-control-field input:focus-visible,
-.phoen-preset-toolbar input:focus-visible,
-.phoen-prompt-entry input:focus-visible,
-.phoen-prompt-entry select:focus-visible,
-.phoen-prompt-entry textarea:focus-visible,
-.phoen-preset-actions button:focus-visible,
-.phoen-profile-card:focus-visible,
-.phoen-prompt-entry__buttons button:focus-visible {
-    outline: 2px solid var(--phoen-signal);
+.phonie-control-field select:focus-visible,
+.phonie-control-field input:focus-visible,
+.phonie-preset-toolbar input:focus-visible,
+.phonie-prompt-entry input:focus-visible,
+.phonie-prompt-entry select:focus-visible,
+.phonie-prompt-entry textarea:focus-visible,
+.phonie-preset-actions button:focus-visible,
+.phonie-profile-card:focus-visible,
+.phonie-prompt-entry__buttons button:focus-visible {
+    outline: 2px solid var(--phonie-signal);
     outline-offset: 2px;
 }
 
-.phoen-pane-heading {
+.phonie-pane-heading {
     display: flex;
     align-items: end;
     justify-content: space-between;
@@ -158,196 +158,196 @@
     padding: 2px 2px 0;
 }
 
-.phoen-pane-heading > span {
+.phonie-pane-heading > span {
     font-weight: 750;
 }
 
-.phoen-profile-list,
-.phoen-prompt-entry-list {
+.phonie-profile-list,
+.phonie-prompt-entry-list {
     display: grid;
     gap: 9px;
 }
 
-.phoen-profile-card {
+.phonie-profile-card {
     display: grid;
     width: 100%;
     min-height: 66px;
     margin: 0;
     padding: 9px 10px;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 78%, transparent);
     border-radius: 18px;
     grid-template-columns: 44px minmax(0, 1fr) auto;
     gap: 10px;
     align-items: center;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 86%, transparent);
-    color: var(--phoen-ink);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 86%, transparent);
+    color: var(--phonie-ink);
     text-align: left;
     cursor: pointer;
 }
 
-.phoen-profile-card__mark {
+.phonie-profile-card__mark {
     width: 44px;
     height: 44px;
     border-radius: 14px;
 }
 
-.phoen-profile-card strong,
-.phoen-profile-card small {
+.phonie-profile-card strong,
+.phonie-profile-card small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-profile-card b {
-    color: var(--phoen-ink-muted);
+.phonie-profile-card b {
+    color: var(--phonie-ink-muted);
     font-size: 10px;
 }
 
-.phoen-profile-card.is-current {
-    border-color: color-mix(in srgb, var(--phoen-signal) 58%, var(--phoen-border));
-    background: color-mix(in srgb, var(--phoen-signal) 10%, var(--phoen-surface-raised));
+.phonie-profile-card.is-current {
+    border-color: color-mix(in srgb, var(--phonie-signal) 58%, var(--phonie-border));
+    background: color-mix(in srgb, var(--phonie-signal) 10%, var(--phonie-surface-raised));
 }
 
-.phoen-profile-card.is-current b {
-    color: var(--phoen-signal);
+.phonie-profile-card.is-current b {
+    color: var(--phonie-signal);
 }
 
-.phoen-route-note {
+.phonie-route-note {
     grid-template-columns: 34px minmax(0, 1fr);
     padding: 11px 13px;
     border-radius: 18px;
 }
 
-.phoen-route-note > .phoen-icon {
+.phonie-route-note > .phonie-icon {
     width: 22px;
     height: 22px;
-    color: var(--phoen-signal);
+    color: var(--phonie-signal);
 }
 
-.phoen-route-note p,
-.phoen-prompt-intro,
-.phoen-prompt-autosave {
+.phonie-route-note p,
+.phonie-prompt-intro,
+.phonie-prompt-autosave {
     margin: 0;
 }
 
-.phoen-prompt-pane {
+.phonie-prompt-pane {
     display: flex;
     flex-direction: column;
     gap: 11px;
     overscroll-behavior: contain;
 }
 
-.phoen-prompt-intro,
-.phoen-prompt-autosave {
-    color: var(--phoen-ink-muted);
+.phonie-prompt-intro,
+.phonie-prompt-autosave {
+    color: var(--phonie-ink-muted);
     font-size: 11px;
     line-height: 1.65;
 }
 
-.phoen-preset-toolbar {
+.phonie-preset-toolbar {
     display: grid;
     padding: 12px;
     grid-template-columns: minmax(0, 1fr) 92px;
     gap: 10px;
 }
 
-.phoen-preset-toolbar label > span,
-.phoen-prompt-entry__controls label > span {
+.phonie-preset-toolbar label > span,
+.phonie-prompt-entry__controls label > span {
     display: block;
     margin-bottom: 5px;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     font-size: 10px;
 }
 
-.phoen-preset-actions {
+.phonie-preset-actions {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
 }
 
-.phoen-preset-actions button,
-.phoen-prompt-entry__buttons button {
+.phonie-preset-actions button,
+.phonie-prompt-entry__buttons button {
     display: inline-flex;
     min-height: 44px;
     margin: 0;
-    border: 1px solid var(--phoen-border);
+    border: 1px solid var(--phonie-border);
     align-items: center;
     justify-content: center;
     gap: 7px;
-    background: var(--phoen-surface-muted);
-    color: var(--phoen-ink);
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
     cursor: pointer;
 }
 
-.phoen-preset-actions button {
+.phonie-preset-actions button {
     border-radius: 13px;
 }
 
-.phoen-preset-actions .phoen-icon,
-.phoen-prompt-entry__buttons .phoen-icon {
+.phonie-preset-actions .phonie-icon,
+.phonie-prompt-entry__buttons .phonie-icon {
     width: 17px;
     height: 17px;
 }
 
-.phoen-variable-bank {
+.phonie-variable-bank {
     display: flex;
     padding: 9px;
     overflow-x: auto;
     gap: 6px;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
     border-radius: 15px;
-    background: color-mix(in srgb, var(--phoen-surface) 78%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface) 78%, transparent);
     scrollbar-width: none;
 }
 
-.phoen-variable-bank::-webkit-scrollbar {
+.phonie-variable-bank::-webkit-scrollbar {
     display: none;
 }
 
-.phoen-variable-bank span {
+.phonie-variable-bank span {
     flex: 0 0 auto;
     padding: 5px 8px;
     border-radius: 9px;
-    background: color-mix(in srgb, var(--phoen-signal) 12%, var(--phoen-surface-raised));
-    color: var(--phoen-signal);
-    font-family: var(--phoen-font-mono);
+    background: color-mix(in srgb, var(--phonie-signal) 12%, var(--phonie-surface-raised));
+    color: var(--phonie-signal);
+    font-family: var(--phonie-font-mono);
     font-size: 10px;
 }
 
-.phoen-prompt-entry {
+.phonie-prompt-entry {
     padding: 11px;
 }
 
-.phoen-prompt-entry > header {
+.phonie-prompt-entry > header {
     display: grid;
     grid-template-columns: 22px 22px minmax(0, 1fr) 42px;
     gap: 6px;
     align-items: center;
 }
 
-.phoen-prompt-entry__grip {
+.phonie-prompt-entry__grip {
     display: grid;
     place-items: center;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
 }
 
-.phoen-prompt-entry__grip .phoen-icon {
+.phonie-prompt-entry__grip .phonie-icon {
     width: 18px;
     height: 18px;
 }
 
-.phoen-prompt-entry > header > b {
-    color: var(--phoen-signal);
+.phonie-prompt-entry > header > b {
+    color: var(--phonie-signal);
     font-size: 11px;
     text-align: center;
 }
 
-.phoen-prompt-entry > header input {
+.phonie-prompt-entry > header input {
     min-height: 40px;
 }
 
-.phoen-prompt-entry__controls {
+.phonie-prompt-entry__controls {
     display: flex;
     margin-top: 9px;
     align-items: end;
@@ -356,54 +356,54 @@
     gap: 9px;
 }
 
-.phoen-prompt-entry__controls > label {
+.phonie-prompt-entry__controls > label {
     width: min(132px, 46%);
     flex: 1 1 110px;
 }
 
-.phoen-prompt-entry__buttons {
+.phonie-prompt-entry__buttons {
     display: flex;
     gap: 5px;
 }
 
-.phoen-prompt-entry__buttons button {
+.phonie-prompt-entry__buttons button {
     width: 44px;
     padding: 0;
     border-radius: 12px;
 }
 
-.phoen-prompt-entry__buttons button:disabled {
+.phonie-prompt-entry__buttons button:disabled {
     opacity: 0.35;
     cursor: default;
 }
 
-.phoen-prompt-entry__buttons button:nth-child(1) .phoen-icon {
+.phonie-prompt-entry__buttons button:nth-child(1) .phonie-icon {
     transform: rotate(-90deg);
 }
 
-.phoen-prompt-entry__buttons button:nth-child(2) .phoen-icon {
+.phonie-prompt-entry__buttons button:nth-child(2) .phonie-icon {
     transform: rotate(90deg);
 }
 
-.phoen-prompt-entry__buttons button:last-child {
-    color: var(--phoen-danger, #c85f67);
+.phonie-prompt-entry__buttons button:last-child {
+    color: var(--phonie-danger, #c85f67);
 }
 
-.phoen-prompt-entry__content {
+.phonie-prompt-entry__content {
     display: block;
     margin-top: 9px;
 }
 
-.phoen-prompt-entry textarea {
+.phonie-prompt-entry textarea {
     min-height: 132px;
     padding: 11px;
     resize: none;
-    font-family: var(--phoen-font-mono);
+    font-family: var(--phonie-font-mono);
     font-size: 11px;
     line-height: 1.6;
 }
 
-.phoen-sr-only {
+.phonie-sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -415,20 +415,20 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-    .phoen-profile-card:hover,
-    .phoen-preset-actions button:hover,
-    .phoen-prompt-entry__buttons button:hover:not(:disabled) {
-        border-color: color-mix(in srgb, var(--phoen-signal) 42%, var(--phoen-border));
+    .phonie-profile-card:hover,
+    .phonie-preset-actions button:hover,
+    .phonie-prompt-entry__buttons button:hover:not(:disabled) {
+        border-color: color-mix(in srgb, var(--phonie-signal) 42%, var(--phonie-border));
     }
 }
 
 @media (hover: none) and (pointer: coarse) {
-    .phoen-control-field select,
-    .phoen-control-field input,
-    .phoen-preset-toolbar input,
-    .phoen-prompt-entry input,
-    .phoen-prompt-entry select,
-    .phoen-prompt-entry textarea {
+    .phonie-control-field select,
+    .phonie-control-field input,
+    .phonie-preset-toolbar input,
+    .phonie-prompt-entry input,
+    .phonie-prompt-entry select,
+    .phonie-prompt-entry textarea {
         font-size: 16px;
     }
 }

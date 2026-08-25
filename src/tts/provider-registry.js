@@ -42,6 +42,6 @@ export class ProviderRegistry {
             }
         }
 
-        throw new AggregateError(failures.map((failure) => failure.error), 'All Phoen TTS providers failed.');
+        throw new AggregateError(failures.map((failure) => failure.error), 'All Phonie TTS providers failed.');
     }
 }

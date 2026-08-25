@@ -33,7 +33,7 @@ export class InlinePlayerManager {
         }
         for (const entry of this.#entries.values()) {
             entry.element.dataset.theme = settings.theme;
-            const translation = entry.element.querySelector('.phoen-inline-translation');
+            const translation = entry.element.querySelector('.phonie-inline-translation');
             if (translation) translation.hidden = !settings.showTranslation;
         }
     }
@@ -45,7 +45,7 @@ export class InlinePlayerManager {
             try {
                 await this.decorateMessage(messageId);
             } catch (error) {
-                console.warn(`[Phoen] Could not decorate message ${messageId}.`, error);
+                console.warn(`[Phonie] Could not decorate message ${messageId}.`, error);
             }
         }
     }
@@ -59,10 +59,10 @@ export class InlinePlayerManager {
         const textElement = host?.querySelector('.mes_text');
         if (!(textElement instanceof HTMLElement)) return;
 
-        const existing = host.querySelector('.phoen-inline-player');
+        const existing = host.querySelector('.phonie-inline-player');
         if (existing) existing.remove();
 
-        let translationText = message.extra?.phoen?.translation || message.extra?.display_text || '';
+        let translationText = message.extra?.phonie?.translation || message.extra?.display_text || '';
         if (translationText === message.mes) translationText = '';
         const plan = createSpeechPlan({
             messageId: Number(messageId),
@@ -80,16 +80,16 @@ export class InlinePlayerManager {
             provider: this.#bridge.getProviderLabel(),
         });
         const element = document.createElement('div');
-        element.className = 'phoen-inline-player';
+        element.className = 'phonie-inline-player';
         element.dataset.messageId = String(messageId);
         element.dataset.theme = this.#settings.theme;
         element.innerHTML = `
-            <button class="phoen-inline-button" type="button" aria-label="播放角色语音">${icon('play')}</button>
-            <div class="phoen-inline-copy">
-                <p class="phoen-inline-source" lang="${escapeHtml(plan.language)}">${escapeHtml(plan.speakText)}</p>
-                <p class="phoen-inline-translation" lang="${escapeHtml(this.#settings.targetLanguage)}" ${this.#settings.showTranslation ? '' : 'hidden'}>${escapeHtml(plan.translationText || '等待译文')}</p>
+            <button class="phonie-inline-button" type="button" aria-label="播放角色语音">${icon('play')}</button>
+            <div class="phonie-inline-copy">
+                <p class="phonie-inline-source" lang="${escapeHtml(plan.language)}">${escapeHtml(plan.speakText)}</p>
+                <p class="phonie-inline-translation" lang="${escapeHtml(this.#settings.targetLanguage)}" ${this.#settings.showTranslation ? '' : 'hidden'}>${escapeHtml(plan.translationText || '等待译文')}</p>
             </div>
-            <span class="phoen-inline-time">--:--</span>`;
+            <span class="phonie-inline-time">--:--</span>`;
         textElement.insertAdjacentElement('afterend', element);
 
         const entry = { messageId: Number(messageId), element, plan, cacheKey, chatId: this.#bridge.getChatId() };
@@ -108,9 +108,9 @@ export class InlinePlayerManager {
         const translated = await this.#bridge.translate(entry.plan.sourceText, this.#settings.targetLanguage);
         if (!translated || this.#bridge.getChatId() !== entry.chatId || !entry.element.isConnected) return;
         message.extra = message.extra || {};
-        message.extra.phoen = { ...(message.extra.phoen || {}), translation: translated };
+        message.extra.phonie = { ...(message.extra.phonie || {}), translation: translated };
         entry.plan = createSpeechPlan({ ...entry.plan, translationText: translated });
-        const element = entry.element.querySelector('.phoen-inline-translation');
+        const element = entry.element.querySelector('.phonie-inline-translation');
         if (element) element.textContent = translated;
         await this.#bridge.saveMessageExtra();
     }
@@ -139,17 +139,17 @@ export class InlinePlayerManager {
     setCorePlaying(messageId, playing) {
         const entry = this.#entries.get(Number(messageId));
         if (!entry) return;
-        const button = entry.element.querySelector('.phoen-inline-button');
+        const button = entry.element.querySelector('.phonie-inline-button');
         if (button) button.innerHTML = icon(playing ? 'pause' : 'play');
     }
 
     #handleFocus(detail) {
         for (const entry of this.#entries.values()) {
             const active = detail.current?.owner === 'inline' && detail.current?.messageId === entry.messageId && detail.state === 'playing';
-            const button = entry.element.querySelector('.phoen-inline-button');
+            const button = entry.element.querySelector('.phonie-inline-button');
             if (button) button.innerHTML = icon(active ? 'pause' : 'play');
             if (active || detail.current?.messageId === entry.messageId) {
-                const time = entry.element.querySelector('.phoen-inline-time');
+                const time = entry.element.querySelector('.phonie-inline-time');
                 if (time) time.textContent = formatDuration(detail.duration);
             }
         }

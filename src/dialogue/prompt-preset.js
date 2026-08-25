@@ -39,8 +39,8 @@ const DEFAULT_ENTRIES = [
 ];
 
 export const DEFAULT_PHONE_PROMPT_PRESET = Object.freeze({
-    id: 'phoen-default',
-    name: 'Phoen 默认预设',
+    id: 'phonie-default',
+    name: 'Phonie 默认预设',
     insertionDepth: 0,
     entries: Object.freeze(DEFAULT_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
 });

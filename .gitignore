@@ -3,4 +3,4 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
-PHOEN_ORIGINAL_HANDOFF_*/
+*_ORIGINAL_HANDOFF_*/

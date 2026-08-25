@@ -1,22 +1,22 @@
-#phoen-root {
+#phonie-root {
     position: fixed;
     inset: 0;
     z-index: 31000;
     pointer-events: none;
-    color: var(--phoen-ink);
-    font-family: var(--phoen-font-ui);
+    color: var(--phonie-ink);
+    font-family: var(--phonie-font-ui);
     font-size: 14px;
     line-height: 1.45;
     text-align: left;
     text-shadow: none;
 }
 
-#phoen-root,
-#phoen-root * {
+#phonie-root,
+#phonie-root * {
     box-sizing: border-box;
 }
 
-.phoen-scrim {
+.phonie-scrim {
     position: absolute;
     inset: 0;
     background: rgba(5, 7, 8, 0.22);
@@ -24,24 +24,24 @@
     pointer-events: none;
 }
 
-#phoen-root[data-open="true"] .phoen-scrim {
+#phonie-root[data-open="true"] .phonie-scrim {
     opacity: 1;
     pointer-events: auto;
 }
 
-.phoen-orb {
+.phonie-orb {
     position: fixed;
-    top: var(--phoen-orb-y, 48%);
+    top: var(--phonie-orb-y, 48%);
     right: -5px;
     width: 48px;
     height: 48px;
     margin: 0;
     padding: 0;
-    border: 1px solid var(--phoen-border);
+    border: 1px solid var(--phonie-border);
     border-radius: 17px 6px 6px 17px;
-    background: var(--phoen-surface-raised);
-    color: var(--phoen-signal);
-    box-shadow: 0 13px 30px var(--phoen-shadow), inset 0 1px 0 var(--phoen-glint);
+    background: var(--phonie-surface-raised);
+    color: var(--phonie-signal);
+    box-shadow: 0 13px 30px var(--phonie-shadow), inset 0 1px 0 var(--phonie-glint);
     cursor: grab;
     pointer-events: auto;
     touch-action: none;
@@ -49,28 +49,28 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-.phoen-orb:active {
+.phonie-orb:active {
     cursor: grabbing;
 }
 
-#phoen-root[data-dock="left"] .phoen-orb {
+#phonie-root[data-dock="left"] .phonie-orb {
     right: auto;
     left: -5px;
     border-radius: 6px 17px 17px 6px;
 }
 
-.phoen-orb:focus-visible,
-.phoen-button:focus-visible,
-.phoen-tab:focus-visible,
-.phoen-icon-button:focus-visible,
-.phoen-inline-button:focus-visible,
-.phoen-composer textarea:focus-visible,
-.phoen-setting-select:focus-visible {
-    outline: 2px solid var(--phoen-signal);
+.phonie-orb:focus-visible,
+.phonie-button:focus-visible,
+.phonie-tab:focus-visible,
+.phonie-icon-button:focus-visible,
+.phonie-inline-button:focus-visible,
+.phonie-composer textarea:focus-visible,
+.phonie-setting-select:focus-visible {
+    outline: 2px solid var(--phonie-signal);
     outline-offset: 3px;
 }
 
-.phoen-orb__seam {
+.phonie-orb__seam {
     position: absolute;
     top: 9px;
     right: 4px;
@@ -81,29 +81,29 @@
     opacity: 0.72;
 }
 
-#phoen-root[data-dock="left"] .phoen-orb__seam {
+#phonie-root[data-dock="left"] .phonie-orb__seam {
     right: auto;
     left: 4px;
 }
 
-.phoen-orb__unread {
+.phonie-orb__unread {
     position: absolute;
     top: -4px;
     left: -4px;
     min-width: 17px;
     height: 17px;
     padding: 0 4px;
-    border: 2px solid var(--phoen-surface);
+    border: 2px solid var(--phonie-surface);
     border-radius: 999px;
-    background: var(--phoen-accent);
-    color: var(--phoen-accent-ink);
+    background: var(--phonie-accent);
+    color: var(--phonie-accent-ink);
     font-size: 9px;
     font-weight: 700;
     line-height: 13px;
     text-align: center;
 }
 
-.phoen-phone {
+.phonie-phone {
     position: fixed;
     right: max(18px, env(safe-area-inset-right));
     bottom: max(16px, env(safe-area-inset-bottom));
@@ -111,13 +111,13 @@
     height: min(720px, calc(100dvh - 32px));
     min-height: 520px;
     overflow: hidden;
-    border: 1px solid var(--phoen-border);
-    border-radius: var(--phoen-radius-frame);
-    background: var(--phoen-surface);
+    border: 1px solid var(--phonie-border);
+    border-radius: var(--phonie-radius-frame);
+    background: var(--phonie-surface);
     box-shadow:
-        0 34px 90px var(--phoen-shadow),
+        0 34px 90px var(--phonie-shadow),
         0 8px 24px rgba(0, 0, 0, 0.18),
-        inset 0 1px 0 var(--phoen-glint);
+        inset 0 1px 0 var(--phonie-glint);
     opacity: 0;
     visibility: hidden;
     transform: translate3d(22px, 8px, 0) scale(0.96);
@@ -125,41 +125,41 @@
     pointer-events: none;
 }
 
-#phoen-root[data-dock="left"] .phoen-phone {
+#phonie-root[data-dock="left"] .phonie-phone {
     right: auto;
     left: max(18px, env(safe-area-inset-left));
     transform: translate3d(-22px, 8px, 0) scale(0.96);
     transform-origin: left center;
 }
 
-#phoen-root[data-open="true"] .phoen-phone {
+#phonie-root[data-open="true"] .phonie-phone {
     opacity: 1;
     visibility: visible;
     transform: translate3d(0, 0, 0) scale(1);
     pointer-events: auto;
 }
 
-#phoen-root[data-open="true"] .phoen-orb {
+#phonie-root[data-open="true"] .phonie-orb {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
 }
 
-.phoen-frame {
+.phonie-frame {
     position: relative;
     display: flex;
     width: 100%;
     height: 100%;
     flex-direction: column;
     overflow: hidden;
-    border: 6px solid color-mix(in srgb, var(--phoen-canvas) 88%, #000 12%);
+    border: 6px solid color-mix(in srgb, var(--phonie-canvas) 88%, #000 12%);
     border-radius: inherit;
     background:
-        radial-gradient(circle at 16% -8%, var(--phoen-glint), transparent 34%),
-        var(--phoen-surface);
+        radial-gradient(circle at 16% -8%, var(--phonie-glint), transparent 34%),
+        var(--phonie-surface);
 }
 
-.phoen-voice-seam {
+.phonie-voice-seam {
     position: absolute;
     z-index: 5;
     top: 116px;
@@ -168,46 +168,46 @@
     width: 2px;
     overflow: hidden;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--phoen-signal) 28%, transparent);
+    background: color-mix(in srgb, var(--phonie-signal) 28%, transparent);
     pointer-events: none;
 }
 
-.phoen-voice-seam::after {
+.phonie-voice-seam::after {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: linear-gradient(180deg, transparent, var(--phoen-signal), transparent);
+    background: linear-gradient(180deg, transparent, var(--phonie-signal), transparent);
     content: '';
     opacity: 0.52;
     transform: translateY(-70%);
 }
 
-.phoen-status {
+.phonie-status {
     display: grid;
     min-height: 34px;
     padding: 8px 18px 3px;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     font-size: 10px;
     font-weight: 650;
     letter-spacing: 0.08em;
 }
 
-.phoen-status__time {
+.phonie-status__time {
     justify-self: start;
     font-variant-numeric: tabular-nums;
 }
 
-.phoen-status__speaker {
+.phonie-status__speaker {
     width: 45px;
     height: 5px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--phoen-ink) 60%, transparent);
+    background: color-mix(in srgb, var(--phonie-ink) 60%, transparent);
     box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 
-.phoen-status__provider {
+.phonie-status__provider {
     max-width: 94px;
     overflow: hidden;
     justify-self: end;
@@ -215,29 +215,29 @@
     white-space: nowrap;
 }
 
-.phoen-header {
+.phonie-header {
     display: grid;
     min-height: 68px;
     padding: 8px 14px 12px 18px;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-    border-bottom: 1px solid var(--phoen-border);
+    border-bottom: 1px solid var(--phonie-border);
 }
 
-.phoen-header__eyebrow {
+.phonie-header__eyebrow {
     margin: 0 0 2px;
-    color: var(--phoen-signal);
+    color: var(--phonie-signal);
     font-size: 9px;
     font-weight: 750;
     letter-spacing: 0.18em;
     text-transform: uppercase;
 }
 
-.phoen-header__title {
+.phonie-header__title {
     margin: 0;
     overflow: hidden;
-    color: var(--phoen-ink);
-    font-family: var(--phoen-font-reading);
+    color: var(--phonie-ink);
+    font-family: var(--phonie-font-reading);
     font-size: 21px;
     font-weight: 650;
     letter-spacing: -0.025em;
@@ -245,19 +245,19 @@
     white-space: nowrap;
 }
 
-.phoen-header__actions {
+.phonie-header__actions {
     display: flex;
     gap: 6px;
 }
 
-.phoen-screen-stack {
+.phonie-screen-stack {
     position: relative;
     min-height: 0;
     flex: 1;
     overflow: hidden;
 }
 
-.phoen-screen {
+.phonie-screen {
     position: absolute;
     inset: 0;
     display: flex;
@@ -269,7 +269,7 @@
     pointer-events: none;
 }
 
-.phoen-screen[data-active="true"] {
+.phonie-screen[data-active="true"] {
     z-index: 1;
     opacity: 1;
     visibility: visible;
@@ -277,7 +277,7 @@
     pointer-events: auto;
 }
 
-.phoen-tabbar {
+.phonie-tabbar {
     position: relative;
     z-index: 4;
     display: grid;
@@ -285,18 +285,18 @@
     padding: 7px 15px max(10px, env(safe-area-inset-bottom));
     grid-template-columns: repeat(3, 1fr);
     gap: 4px;
-    border-top: 1px solid var(--phoen-border);
-    background: color-mix(in srgb, var(--phoen-surface) 92%, transparent);
+    border-top: 1px solid var(--phonie-border);
+    background: color-mix(in srgb, var(--phonie-surface) 92%, transparent);
 }
 
-.phoen-tab {
+.phonie-tab {
     display: grid;
     min-width: 0;
     padding: 5px 3px;
     border: 0;
     border-radius: 14px;
     background: transparent;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     cursor: pointer;
     font: inherit;
     font-size: 10px;
@@ -304,12 +304,12 @@
     place-items: center;
 }
 
-.phoen-tab[aria-selected="true"] {
-    background: var(--phoen-surface-muted);
-    color: var(--phoen-signal);
+.phonie-tab[aria-selected="true"] {
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-signal);
 }
 
-.phoen-home-indicator {
+.phonie-home-indicator {
     position: absolute;
     z-index: 7;
     bottom: 4px;
@@ -317,18 +317,18 @@
     width: 82px;
     height: 3px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--phoen-ink) 36%, transparent);
+    background: color-mix(in srgb, var(--phonie-ink) 36%, transparent);
     transform: translateX(-50%);
     pointer-events: none;
 }
 
 @media (max-width: 560px), (max-height: 650px) {
-    .phoen-scrim {
+    .phonie-scrim {
         display: none;
     }
 
-    .phoen-phone,
-    #phoen-root[data-dock="left"] .phoen-phone {
+    .phonie-phone,
+    #phonie-root[data-dock="left"] .phonie-phone {
         inset: 0;
         width: 100vw;
         height: 100dvh;
@@ -339,16 +339,16 @@
         transform-origin: center bottom;
     }
 
-    .phoen-frame {
+    .phonie-frame {
         border: 0;
         border-radius: 0;
     }
 
-    #phoen-root[data-open="true"] .phoen-phone {
+    #phonie-root[data-open="true"] .phonie-phone {
         transform: translate3d(0, 0, 0) scale(1);
     }
 
-    .phoen-status {
+    .phonie-status {
         min-height: calc(32px + env(safe-area-inset-top));
         padding-top: calc(8px + env(safe-area-inset-top));
     }

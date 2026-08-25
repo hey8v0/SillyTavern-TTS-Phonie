@@ -1,8 +1,8 @@
-# Phoen design contract
+# Phonie design contract
 
 ## Aesthetic direction
 
-Phoen uses a refined near-future glass terminal with tactile controls and quiet organic colour. Its recognition anchor is the voice seam: a narrow illuminated rail that continues the dynamic status island down one side of the handset. The seam and island change only to communicate audio and call state.
+Phonie uses a refined near-future glass terminal with tactile controls and quiet organic colour. Its recognition anchor is the voice seam: a narrow illuminated rail that continues the dynamic status island down one side of the handset. The seam and island change only to communicate audio and call state.
 
 The home screen is an operating hub rather than a decorative launcher: its time card, eight app tiles, voice-service card, five-item dock, physical frame, hardware rails, and gesture indicator expose live SillyTavern state. Character art becomes a softly faded portrait layer under theme-specific contrast veils instead of a blunt full-screen image.
 
@@ -12,7 +12,7 @@ The interface must remain recognisable without a logo. It does not imitate a com
 
 - Day: warm mineral paper, carbon text, oxide signal accent.
 - Night: blue-black glass, parchment text, sea-glass signal accent.
-- Tavern: SillyTavern theme variables mapped into Phoen tokens with local contrast guards.
+- Tavern: SillyTavern theme variables mapped into Phonie tokens with local contrast guards.
 
 Each theme has one dominant surface story, one signal accent, and a neutral hierarchy.
 

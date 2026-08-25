@@ -1,13 +1,13 @@
 {
-    "display_name": "Phoen Voice Phone",
+    "display_name": "Phonie Voice Phone",
     "loading_order": 110,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
-    "author": "Phoen",
-    "version": "0.3.0",
-    "homePage": "https://github.com/hey8v0/SillyTavern-TTS-Phoen",
+    "author": "Phonie",
+    "version": "0.3.1",
+    "homePage": "https://github.com/hey8v0/SillyTavern-TTS-Phonie",
     "auto_update": true,
     "hooks": {
         "activate": "init"

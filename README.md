@@ -1,10 +1,10 @@
-# Phoen Voice Phone
+# Phonie Voice Phone
 
-Phoen is an original voice-phone extension for SillyTavern. It treats inline narration, private phone messages, and calls as three views of one conversation system.
+Phonie is an original voice-phone extension for SillyTavern. It treats inline narration, private phone messages, and calls as three views of one conversation system.
 
 ## Installation
 
-Use `https://github.com/hey8v0/SillyTavern-TTS-Phoen.git` in **Extensions → Install Extension**. Android and Termux troubleshooting, including a no-credential clone and ZIP fallback, is documented in [Mobile installation](docs/MOBILE_INSTALL.md).
+Use `https://github.com/hey8v0/SillyTavern-TTS-Phonie.git` in **Extensions → Install Extension**. Android and Termux troubleshooting, including a no-credential clone and ZIP fallback, is documented in [Mobile installation](docs/MOBILE_INSTALL.md).
 
 ## Current scope
 

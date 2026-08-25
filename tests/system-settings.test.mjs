@@ -27,7 +27,7 @@ test('mobile handset CSS preserves a physical frame and fades character wallpape
     const css = await readFile(new URL('../styles/home.css', import.meta.url), 'utf8');
     assert.match(css, /pointer:\s*coarse[\s\S]*max-width:\s*1000px/);
     assert.match(css, /width:\s*auto/);
-    assert.match(css, /\.phoen-frame\s*\{[\s\S]*border:\s*6px/);
+    assert.match(css, /\.phonie-frame\s*\{[\s\S]*border:\s*6px/);
     assert.match(css, /mask-image:\s*linear-gradient/);
-    assert.match(css, /prefers-reduced-motion[\s\S]*\.phoen-rain-curtain/);
+    assert.match(css, /prefers-reduced-motion[\s\S]*\.phonie-rain-curtain/);
 });

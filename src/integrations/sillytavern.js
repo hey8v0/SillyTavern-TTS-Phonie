@@ -4,24 +4,22 @@ import {
     event_types,
     extension_prompt_roles,
     extension_prompt_types,
-    generateRaw,
+    generateQuietPrompt,
     getCurrentChatId,
-    getGeneratingApi,
-    getGeneratingModel,
     saveChatConditional,
     saveSettingsDebounced,
     setExtensionPrompt,
 } from '/script.js';
 import { extension_settings, getContext } from '/scripts/extensions.js';
 import { executeSlashCommandsWithOptions } from '/scripts/slash-commands.js';
-import { ConnectionManagerRequestService } from '/scripts/extensions/shared.js';
 
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
+import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
 import { normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
 import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
 import { createPhoneMetadata } from '../phone/chat-records.js';
 
-const PROMPT_KEY = 'phoen_private_channel';
+const PROMPT_KEY = 'phonie_private_channel';
 
 function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
@@ -112,30 +110,13 @@ export class SillyTavernBridge {
     }
 
     getGenerationProfiles() {
-        try {
-            return ConnectionManagerRequestService.getSupportedProfiles().map((profile) => ({
-                id: String(profile.id),
-                name: String(profile.name || profile.model || '未命名连接'),
-                api: String(profile.api || ''),
-                model: String(profile.model || '默认模型'),
-            }));
-        } catch (error) {
-            console.debug('[Phoen] Connection Manager profiles are unavailable.', error);
-            return [];
-        }
+        return listConnectionProfiles(this.context);
     }
 
     getGenerationTarget(settings = this.getSettings()) {
         const selected = this.getGenerationProfiles().find((profile) => profile.id === settings.generationProfileId);
-        if (selected) return selected;
-        return {
-            id: '',
-            name: '跟随酒馆',
-            api: String(getGeneratingApi() || this.context?.mainApi || 'current'),
-            model: String(getGeneratingModel() || '当前模型'),
-        };
+        return selected || getCurrentGenerationTarget(this.context);
     }
-
     async generatePhoneReply({ history, callMode = false }) {
         const settings = this.getSettings();
         const prompt = buildPhoneReplyMessages({
@@ -148,25 +129,12 @@ export class SillyTavernBridge {
             preset: settings.promptPreset,
         });
 
-        let result;
-        if (settings.generationProfileId) {
-            const preparedPrompt = ConnectionManagerRequestService.constructPrompt(prompt, settings.generationProfileId);
-            const response = await ConnectionManagerRequestService.sendRequest(
-                settings.generationProfileId,
-                preparedPrompt,
-                settings.phoneResponseLength,
-                { stream: false, extractData: true, includePreset: true, includeInstruct: true },
-                { json_schema: PHONE_REPLY_SCHEMA },
-            );
-            result = response?.content || '';
-        } else {
-            result = await generateRaw({
-                prompt,
-                responseLength: settings.phoneResponseLength,
-                jsonSchema: PHONE_REPLY_SCHEMA,
-                trimNames: false,
-            });
-        }
+        const result = await requestPhoneGeneration({
+            settings,
+            prompt,
+            jsonSchema: PHONE_REPLY_SCHEMA,
+            generateQuietPrompt,
+        });
         return parsePhoneReply(result, { targetLanguage: settings.targetLanguage });
     }
 
@@ -175,7 +143,7 @@ export class SillyTavernBridge {
             const module = await import('/scripts/extensions/translate/index.js');
             return await module.translate(String(text || ''), targetLanguage);
         } catch (error) {
-            console.warn('[Phoen] Translation unavailable.', error);
+            console.warn('[Phonie] Translation unavailable.', error);
             return '';
         }
     }
@@ -198,7 +166,7 @@ export class SillyTavernBridge {
         return executeSlashCommandsWithOptions(command, {
             handleParserErrors: true,
             handleExecutionErrors: true,
-            source: 'phoen',
+            source: 'phonie',
         });
     }
 

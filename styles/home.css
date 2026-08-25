@@ -1,4 +1,4 @@
-.phoen-phone {
+.phonie-phone {
     right: max(20px, env(safe-area-inset-right));
     bottom: max(18px, env(safe-area-inset-bottom));
     width: min(390px, calc(100vw - 40px));
@@ -10,53 +10,53 @@
     box-shadow: 0 38px 100px rgba(0, 0, 0, 0.48);
 }
 
-.phoen-frame {
+.phonie-frame {
     overflow: hidden;
-    border: 7px solid color-mix(in srgb, var(--phoen-canvas) 82%, #06080a 18%);
+    border: 7px solid color-mix(in srgb, var(--phonie-canvas) 82%, #06080a 18%);
     border-radius: 54px;
-    background: var(--phoen-surface);
+    background: var(--phonie-surface);
     isolation: isolate;
 }
 
-.phoen-frame::before {
+.phonie-frame::before {
     position: absolute;
     z-index: 20;
     inset: 2px;
-    border: 1px solid color-mix(in srgb, var(--phoen-glint) 52%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-glint) 52%, transparent);
     border-radius: 44px;
     content: '';
     pointer-events: none;
 }
 
-.phoen-hardware-key {
+.phonie-hardware-key {
     position: absolute;
     z-index: -1;
     width: 4px;
     border-radius: 3px;
-    background: color-mix(in srgb, var(--phoen-canvas) 66%, #000 34%);
-    box-shadow: inset 1px 0 var(--phoen-glint);
+    background: color-mix(in srgb, var(--phonie-canvas) 66%, #000 34%);
+    box-shadow: inset 1px 0 var(--phonie-glint);
 }
 
-.phoen-hardware-key--volume {
+.phonie-hardware-key--volume {
     top: 155px;
     left: -3px;
     height: 92px;
 }
 
-.phoen-hardware-key--power {
+.phonie-hardware-key--power {
     top: 184px;
     right: -3px;
     height: 68px;
 }
 
-.phoen-wallpaper,
-.phoen-wallpaper-veil {
+.phonie-wallpaper,
+.phonie-wallpaper-veil {
     position: absolute;
     inset: 0;
     pointer-events: none;
 }
 
-.phoen-wallpaper {
+.phonie-wallpaper {
     z-index: -3;
     background-color: #cdd6d1;
     background-image:
@@ -70,44 +70,44 @@
     transform: scale(1.01);
 }
 
-.phoen-wallpaper[data-has-image="true"] {
+.phonie-wallpaper[data-has-image="true"] {
     filter: saturate(0.82) contrast(0.96);
 }
 
-.phoen-wallpaper-veil {
+.phonie-wallpaper-veil {
     z-index: -2;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 28%),
-        linear-gradient(0deg, color-mix(in srgb, var(--phoen-surface) 22%, transparent), transparent 45%);
+        linear-gradient(0deg, color-mix(in srgb, var(--phonie-surface) 22%, transparent), transparent 45%);
 }
 
-#phoen-root[data-theme="day"] .phoen-wallpaper-veil {
+#phonie-root[data-theme="day"] .phonie-wallpaper-veil {
     background: linear-gradient(180deg, rgba(250, 248, 240, 0.38), rgba(247, 244, 235, 0.16) 58%, rgba(246, 242, 232, 0.42));
 }
 
-#phoen-root[data-theme="night"] .phoen-wallpaper-veil {
+#phonie-root[data-theme="night"] .phonie-wallpaper-veil {
     background: linear-gradient(180deg, rgba(8, 12, 16, 0.52), rgba(9, 13, 17, 0.34) 48%, rgba(7, 10, 14, 0.72));
 }
 
-#phoen-root[data-theme="tavern"] .phoen-wallpaper-veil {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--phoen-surface) 42%, transparent), color-mix(in srgb, var(--phoen-canvas) 68%, transparent));
+#phonie-root[data-theme="tavern"] .phonie-wallpaper-veil {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--phonie-surface) 42%, transparent), color-mix(in srgb, var(--phonie-canvas) 68%, transparent));
 }
 
-#phoen-root:not([data-screen="home"]) .phoen-wallpaper-veil {
-    background-color: color-mix(in srgb, var(--phoen-surface) 58%, transparent);
+#phonie-root:not([data-screen="home"]) .phonie-wallpaper-veil {
+    background-color: color-mix(in srgb, var(--phonie-surface) 58%, transparent);
     backdrop-filter: blur(14px) saturate(0.75);
 }
 
-.phoen-status {
+.phonie-status {
     position: relative;
     z-index: 12;
     min-height: 38px;
     padding: 9px 18px 3px;
-    color: color-mix(in srgb, var(--phoen-ink) 80%, transparent);
+    color: color-mix(in srgb, var(--phonie-ink) 80%, transparent);
     font-size: 10px;
 }
 
-.phoen-dynamic-island {
+.phonie-dynamic-island {
     position: relative;
     display: block;
     width: 82px;
@@ -117,8 +117,8 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045), 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.phoen-dynamic-island i,
-.phoen-dynamic-island b {
+.phonie-dynamic-island i,
+.phonie-dynamic-island b {
     position: absolute;
     top: 50%;
     border-radius: 50%;
@@ -126,21 +126,21 @@
     transform: translateY(-50%);
 }
 
-.phoen-dynamic-island i {
+.phonie-dynamic-island i {
     right: 10px;
     width: 7px;
     height: 7px;
     box-shadow: inset 0 0 0 2px #0d2631;
 }
 
-.phoen-dynamic-island b {
+.phonie-dynamic-island b {
     left: 14px;
     width: 24px;
     height: 3px;
     border-radius: 999px;
 }
 
-.phoen-status__signals {
+.phonie-status__signals {
     display: flex;
     min-width: 0;
     justify-self: end;
@@ -150,12 +150,12 @@
     letter-spacing: 0;
 }
 
-.phoen-status__signals svg {
+.phonie-status__signals svg {
     width: 13px;
     height: 13px;
 }
 
-.phoen-header {
+.phonie-header {
     position: relative;
     z-index: 11;
     min-height: 58px;
@@ -164,55 +164,55 @@
     border-bottom: 0;
 }
 
-.phoen-header::after {
+.phonie-header::after {
     position: absolute;
     right: 14px;
     bottom: 0;
     left: 14px;
     height: 1px;
-    background: color-mix(in srgb, var(--phoen-border) 74%, transparent);
+    background: color-mix(in srgb, var(--phonie-border) 74%, transparent);
     content: '';
 }
 
-#phoen-root[data-screen="home"] .phoen-header {
+#phonie-root[data-screen="home"] .phonie-header {
     min-height: 56px;
     align-items: start;
 }
 
-#phoen-root[data-screen="home"] .phoen-header > div:first-child,
-#phoen-root[data-screen="home"] .phoen-back-button {
+#phonie-root[data-screen="home"] .phonie-header > div:first-child,
+#phonie-root[data-screen="home"] .phonie-back-button {
     visibility: hidden;
 }
 
-#phoen-root[data-screen="home"] .phoen-header::after {
+#phonie-root[data-screen="home"] .phonie-header::after {
     display: none;
 }
 
-.phoen-header__actions {
+.phonie-header__actions {
     align-items: center;
 }
 
-.phoen-header .phoen-icon-button {
-    background: color-mix(in srgb, var(--phoen-surface-raised) 72%, transparent);
-    border-color: color-mix(in srgb, var(--phoen-border) 72%, transparent);
+.phonie-header .phonie-icon-button {
+    background: color-mix(in srgb, var(--phonie-surface-raised) 72%, transparent);
+    border-color: color-mix(in srgb, var(--phonie-border) 72%, transparent);
     backdrop-filter: blur(16px);
-    box-shadow: 0 8px 22px color-mix(in srgb, var(--phoen-shadow) 35%, transparent);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--phonie-shadow) 35%, transparent);
 }
 
-.phoen-screen-stack {
+.phonie-screen-stack {
     z-index: 3;
 }
 
-.phoen-screen:not(.phoen-home-screen) {
+.phonie-screen:not(.phonie-home-screen) {
     margin: 0 12px 8px;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 76%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 76%, transparent);
     border-radius: 26px;
-    background: color-mix(in srgb, var(--phoen-surface) 78%, transparent);
-    box-shadow: inset 0 1px var(--phoen-glint), 0 14px 30px color-mix(in srgb, var(--phoen-shadow) 24%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface) 78%, transparent);
+    box-shadow: inset 0 1px var(--phonie-glint), 0 14px 30px color-mix(in srgb, var(--phonie-shadow) 24%, transparent);
     backdrop-filter: blur(20px) saturate(0.82);
 }
 
-.phoen-home-content {
+.phonie-home-content {
     display: flex;
     height: 100%;
     min-height: 0;
@@ -220,60 +220,60 @@
     flex-direction: column;
 }
 
-.phoen-time-widget {
+.phonie-time-widget {
     display: grid;
     min-height: 102px;
     padding: 17px 18px;
     grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr);
     align-items: center;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
     border-radius: 26px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 66%, transparent);
-    box-shadow: inset 0 1px var(--phoen-glint), 0 18px 36px color-mix(in srgb, var(--phoen-shadow) 24%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 66%, transparent);
+    box-shadow: inset 0 1px var(--phonie-glint), 0 18px 36px color-mix(in srgb, var(--phonie-shadow) 24%, transparent);
     backdrop-filter: blur(18px) saturate(0.85);
 }
 
-.phoen-time-widget__clock,
-.phoen-time-widget__context {
+.phonie-time-widget__clock,
+.phonie-time-widget__context {
     display: flex;
     min-width: 0;
     flex-direction: column;
 }
 
-.phoen-time-widget__clock strong {
-    color: var(--phoen-ink);
+.phonie-time-widget__clock strong {
+    color: var(--phonie-ink);
     font-size: 39px;
     font-weight: 720;
     letter-spacing: -0.075em;
     line-height: 0.95;
 }
 
-.phoen-time-widget__clock span,
-.phoen-time-widget__context span,
-.phoen-time-widget__context small {
-    color: var(--phoen-ink-muted);
+.phonie-time-widget__clock span,
+.phonie-time-widget__context span,
+.phonie-time-widget__context small {
+    color: var(--phonie-ink-muted);
     font-size: 10px;
 }
 
-.phoen-time-widget__clock span {
+.phonie-time-widget__clock span {
     margin-top: 7px;
 }
 
-.phoen-time-widget__context {
+.phonie-time-widget__context {
     gap: 3px;
 }
 
-.phoen-time-widget__context strong {
+.phonie-time-widget__context strong {
     overflow: hidden;
-    color: var(--phoen-ink);
-    font-family: var(--phoen-font-reading);
+    color: var(--phonie-ink);
+    font-family: var(--phonie-font-reading);
     font-size: 17px;
     font-weight: 650;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-app-grid {
+.phonie-app-grid {
     display: grid;
     margin-top: 15px;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -281,20 +281,20 @@
     row-gap: 13px;
 }
 
-.phoen-app-tile {
+.phonie-app-tile {
     display: grid;
     min-width: 0;
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--phoen-ink);
+    color: var(--phonie-ink);
     cursor: pointer;
     font: inherit;
     gap: 2px;
     justify-items: center;
 }
 
-.phoen-app-tile__icon {
+.phonie-app-tile__icon {
     display: grid;
     width: 54px;
     height: 54px;
@@ -306,22 +306,22 @@
     place-items: center;
 }
 
-.phoen-app-tile__icon svg {
+.phonie-app-tile__icon svg {
     width: 24px;
     height: 24px;
     stroke-width: 1.7;
 }
 
-.phoen-app-tile__icon[data-tone="aqua"] { background: linear-gradient(145deg, #86e3e7, #55b8c8); }
-.phoen-app-tile__icon[data-tone="verdant"] { background: linear-gradient(145deg, #81dfbd, #4dbf8d); }
-.phoen-app-tile__icon[data-tone="amber"] { background: linear-gradient(145deg, #f5d486, #dda846); }
-.phoen-app-tile__icon[data-tone="violet"] { background: linear-gradient(145deg, #c49be7, #9561cc); }
-.phoen-app-tile__icon[data-tone="blue"] { background: linear-gradient(145deg, #9ed9f4, #62aee1); }
-.phoen-app-tile__icon[data-tone="rose"] { background: linear-gradient(145deg, #e6a4ca, #ce6ca4); }
-.phoen-app-tile__icon[data-tone="silver"] { background: linear-gradient(145deg, #ecf0f7, #adb9cb); }
-.phoen-app-tile__icon[data-tone="graphite"] { background: linear-gradient(145deg, #b9c2cc, #7f8b99); }
+.phonie-app-tile__icon[data-tone="aqua"] { background: linear-gradient(145deg, #86e3e7, #55b8c8); }
+.phonie-app-tile__icon[data-tone="verdant"] { background: linear-gradient(145deg, #81dfbd, #4dbf8d); }
+.phonie-app-tile__icon[data-tone="amber"] { background: linear-gradient(145deg, #f5d486, #dda846); }
+.phonie-app-tile__icon[data-tone="violet"] { background: linear-gradient(145deg, #c49be7, #9561cc); }
+.phonie-app-tile__icon[data-tone="blue"] { background: linear-gradient(145deg, #9ed9f4, #62aee1); }
+.phonie-app-tile__icon[data-tone="rose"] { background: linear-gradient(145deg, #e6a4ca, #ce6ca4); }
+.phonie-app-tile__icon[data-tone="silver"] { background: linear-gradient(145deg, #ecf0f7, #adb9cb); }
+.phonie-app-tile__icon[data-tone="graphite"] { background: linear-gradient(145deg, #b9c2cc, #7f8b99); }
 
-.phoen-app-tile__label {
+.phonie-app-tile__label {
     max-width: 100%;
     overflow: hidden;
     font-size: 11px;
@@ -330,16 +330,16 @@
     white-space: nowrap;
 }
 
-.phoen-app-tile__detail {
+.phonie-app-tile__detail {
     max-width: 100%;
     overflow: hidden;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     font-size: 8px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-page-rail {
+.phonie-page-rail {
     display: flex;
     min-height: 26px;
     align-items: center;
@@ -347,19 +347,19 @@
     gap: 8px;
 }
 
-.phoen-page-rail i {
+.phonie-page-rail i {
     width: 4px;
     height: 4px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--phoen-ink) 38%, transparent);
+    background: color-mix(in srgb, var(--phonie-ink) 38%, transparent);
 }
 
-.phoen-page-rail i:first-child {
+.phonie-page-rail i:first-child {
     width: 16px;
-    background: color-mix(in srgb, var(--phoen-ink) 78%, transparent);
+    background: color-mix(in srgb, var(--phonie-ink) 78%, transparent);
 }
 
-.phoen-service-card {
+.phonie-service-card {
     display: grid;
     width: 100%;
     min-height: 66px;
@@ -367,42 +367,42 @@
     padding: 10px 13px;
     grid-template-columns: 42px minmax(0, 1fr) auto;
     align-items: center;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
     border-radius: 22px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 72%, transparent);
-    color: var(--phoen-ink);
-    box-shadow: inset 0 1px var(--phoen-glint), 0 14px 28px color-mix(in srgb, var(--phoen-shadow) 22%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 72%, transparent);
+    color: var(--phonie-ink);
+    box-shadow: inset 0 1px var(--phonie-glint), 0 14px 28px color-mix(in srgb, var(--phonie-shadow) 22%, transparent);
     cursor: pointer;
     font: inherit;
     text-align: left;
     backdrop-filter: blur(18px);
 }
 
-.phoen-service-card__mark,
-.phoen-record-card__play {
+.phonie-service-card__mark,
+.phonie-record-card__play {
     display: grid;
     width: 36px;
     height: 36px;
     padding: 0;
     border: 0;
     border-radius: 13px;
-    background: color-mix(in srgb, var(--phoen-signal) 17%, var(--phoen-surface-muted));
-    color: var(--phoen-signal);
+    background: color-mix(in srgb, var(--phonie-signal) 17%, var(--phonie-surface-muted));
+    color: var(--phonie-signal);
     place-items: center;
 }
 
-.phoen-service-card__copy {
+.phonie-service-card__copy {
     display: flex;
     min-width: 0;
     flex-direction: column;
 }
 
-.phoen-service-card__copy small {
-    color: var(--phoen-ink-muted);
+.phonie-service-card__copy small {
+    color: var(--phonie-ink-muted);
     font-size: 9px;
 }
 
-.phoen-service-card__copy strong {
+.phonie-service-card__copy strong {
     display: flex;
     min-width: 0;
     align-items: center;
@@ -411,13 +411,13 @@
     gap: 6px;
 }
 
-.phoen-service-card__copy strong span {
+.phonie-service-card__copy strong span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-service-card__copy b {
+.phonie-service-card__copy b {
     width: 2px;
     height: 2px;
     flex: 0 0 auto;
@@ -425,15 +425,15 @@
     background: currentColor;
 }
 
-.phoen-service-card__status {
+.phonie-service-card__status {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--phoen-signal);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--phoen-signal) 12%, transparent);
+    background: var(--phonie-signal);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--phonie-signal) 12%, transparent);
 }
 
-.phoen-dock {
+.phonie-dock {
     position: relative;
     z-index: 10;
     display: grid;
@@ -442,21 +442,21 @@
     padding: 8px 8px 14px;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
-    border: 1px solid color-mix(in srgb, var(--phoen-border) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
     border-radius: 27px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 76%, transparent);
-    box-shadow: inset 0 1px var(--phoen-glint), 0 12px 30px color-mix(in srgb, var(--phoen-shadow) 28%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 76%, transparent);
+    box-shadow: inset 0 1px var(--phonie-glint), 0 12px 30px color-mix(in srgb, var(--phonie-shadow) 28%, transparent);
     backdrop-filter: blur(22px) saturate(0.85);
 }
 
-.phoen-dock-button {
+.phonie-dock-button {
     display: grid;
     min-width: 0;
     padding: 6px 2px;
     border: 0;
     border-radius: 17px;
     background: transparent;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     cursor: pointer;
     font: inherit;
     font-size: 9px;
@@ -464,80 +464,80 @@
     place-items: center;
 }
 
-.phoen-dock-button svg {
+.phonie-dock-button svg {
     width: 20px;
     height: 20px;
 }
 
-.phoen-dock-button[aria-selected="true"] {
-    background: color-mix(in srgb, var(--phoen-accent) 16%, var(--phoen-surface-muted));
-    color: var(--phoen-accent);
+.phonie-dock-button[aria-selected="true"] {
+    background: color-mix(in srgb, var(--phonie-accent) 16%, var(--phonie-surface-muted));
+    color: var(--phonie-accent);
 }
 
-.phoen-home-indicator {
+.phonie-home-indicator {
     z-index: 14;
     bottom: 8px;
     width: 66px;
     height: 4px;
-    background: color-mix(in srgb, var(--phoen-ink) 70%, transparent);
+    background: color-mix(in srgb, var(--phonie-ink) 70%, transparent);
 }
 
-.phoen-app-pane {
+.phonie-app-pane {
     min-height: 0;
     padding: 15px;
     overflow: auto;
     scrollbar-width: none;
 }
 
-.phoen-app-pane::-webkit-scrollbar {
+.phonie-app-pane::-webkit-scrollbar {
     display: none;
 }
 
-.phoen-voice-hero {
+.phonie-voice-hero {
     display: grid;
     padding: 14px;
     grid-template-columns: 42px minmax(0, 1fr) auto;
     align-items: center;
     border-radius: 20px;
-    background: color-mix(in srgb, var(--phoen-surface-muted) 78%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-muted) 78%, transparent);
     gap: 10px;
 }
 
-.phoen-voice-hero__mark {
+.phonie-voice-hero__mark {
     display: grid;
     width: 40px;
     height: 40px;
     border-radius: 14px;
-    background: color-mix(in srgb, var(--phoen-signal) 17%, transparent);
-    color: var(--phoen-signal);
+    background: color-mix(in srgb, var(--phonie-signal) 17%, transparent);
+    color: var(--phonie-signal);
     place-items: center;
 }
 
-.phoen-voice-hero span:nth-child(2) {
+.phonie-voice-hero span:nth-child(2) {
     display: flex;
     min-width: 0;
     flex-direction: column;
 }
 
-.phoen-voice-hero small,
-.phoen-pane-heading small {
-    color: var(--phoen-ink-muted);
+.phonie-voice-hero small,
+.phonie-pane-heading small {
+    color: var(--phonie-ink-muted);
     font-size: 9px;
 }
 
-.phoen-voice-hero strong {
+.phonie-voice-hero strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-voice-hero > i {
-    color: var(--phoen-signal);
+.phonie-voice-hero > i {
+    color: var(--phonie-signal);
     font-size: 9px;
     font-style: normal;
 }
 
-.phoen-pane-heading {
+.phonie-pane-heading {
     display: flex;
     margin: 19px 2px 9px;
     align-items: baseline;
@@ -545,265 +545,265 @@
     gap: 12px;
 }
 
-.phoen-pane-heading span {
-    font-family: var(--phoen-font-reading);
+.phonie-pane-heading span {
+    font-family: var(--phonie-font-reading);
     font-size: 16px;
     font-weight: 650;
 }
 
-.phoen-pane-heading small {
+.phonie-pane-heading small {
     text-align: right;
 }
 
-.phoen-record-list {
+.phonie-record-list {
     display: grid;
     gap: 8px;
 }
 
-.phoen-record-card {
+.phonie-record-card {
     display: grid;
     padding: 10px;
     grid-template-columns: 38px minmax(0, 1fr) auto;
     align-items: center;
-    border: 1px solid var(--phoen-border);
+    border: 1px solid var(--phonie-border);
     border-radius: 17px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 64%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 64%, transparent);
     gap: 9px;
 }
 
-button.phoen-record-card__play {
+button.phonie-record-card__play {
     cursor: pointer;
 }
 
-.phoen-record-card__copy {
+.phonie-record-card__copy {
     display: flex;
     min-width: 0;
     flex-direction: column;
 }
 
-.phoen-record-card__copy strong,
-.phoen-record-card__copy small {
+.phonie-record-card__copy strong,
+.phonie-record-card__copy small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.phoen-record-card__copy small,
-.phoen-record-card time {
-    color: var(--phoen-ink-muted);
+.phonie-record-card__copy small,
+.phonie-record-card time {
+    color: var(--phonie-ink-muted);
     font-size: 9px;
 }
 
-.phoen-record-card time {
+.phonie-record-card time {
     max-width: 76px;
     text-align: right;
 }
 
-.phoen-record-empty {
+.phonie-record-empty {
     padding: 34px 24px;
-    border: 1px dashed var(--phoen-border);
+    border: 1px dashed var(--phonie-border);
     border-radius: 20px;
-    color: var(--phoen-ink-muted);
+    color: var(--phonie-ink-muted);
     font-size: 11px;
     line-height: 1.7;
     text-align: center;
 }
 
-.phoen-character-card {
+.phonie-character-card {
     display: flex;
     padding: 24px 18px;
     align-items: center;
     border-radius: 24px;
-    background: color-mix(in srgb, var(--phoen-surface-muted) 72%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-muted) 72%, transparent);
     flex-direction: column;
 }
 
-.phoen-character-card__portrait {
+.phonie-character-card__portrait {
     display: grid;
     width: 104px;
     height: 104px;
     margin-bottom: 13px;
-    border: 3px solid color-mix(in srgb, var(--phoen-glint) 74%, transparent);
+    border: 3px solid color-mix(in srgb, var(--phonie-glint) 74%, transparent);
     border-radius: 37px;
     background:
-        linear-gradient(145deg, color-mix(in srgb, var(--phoen-signal) 40%, var(--phoen-surface-muted)), var(--phoen-surface-raised));
+        linear-gradient(145deg, color-mix(in srgb, var(--phonie-signal) 40%, var(--phonie-surface-muted)), var(--phonie-surface-raised));
     background-position: center;
     background-size: cover;
-    color: var(--phoen-ink);
-    box-shadow: 0 18px 34px color-mix(in srgb, var(--phoen-shadow) 38%, transparent);
-    font-family: var(--phoen-font-reading);
+    color: var(--phonie-ink);
+    box-shadow: 0 18px 34px color-mix(in srgb, var(--phonie-shadow) 38%, transparent);
+    font-family: var(--phonie-font-reading);
     font-size: 34px;
     place-items: center;
 }
 
-.phoen-character-card__portrait[data-has-image="true"] b {
+.phonie-character-card__portrait[data-has-image="true"] b {
     visibility: hidden;
 }
 
-.phoen-character-card small {
-    color: var(--phoen-ink-muted);
+.phonie-character-card small {
+    color: var(--phonie-ink-muted);
     font-size: 9px;
 }
 
-.phoen-character-card > strong {
+.phonie-character-card > strong {
     margin-top: 4px;
-    font-family: var(--phoen-font-reading);
+    font-family: var(--phonie-font-reading);
     font-size: 22px;
 }
 
-.phoen-character-card > span:last-child {
-    color: var(--phoen-signal);
+.phonie-character-card > span:last-child {
+    color: var(--phonie-signal);
     font-size: 10px;
 }
 
-.phoen-character-specs {
+.phonie-character-specs {
     display: grid;
     margin: 12px 0 0;
     gap: 8px;
 }
 
-.phoen-character-specs div {
+.phonie-character-specs div {
     display: flex;
     padding: 13px 15px;
     align-items: center;
     justify-content: space-between;
-    border: 1px solid var(--phoen-border);
+    border: 1px solid var(--phonie-border);
     border-radius: 16px;
-    background: color-mix(in srgb, var(--phoen-surface-raised) 62%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 62%, transparent);
 }
 
-.phoen-character-specs dt {
-    color: var(--phoen-ink-muted);
+.phonie-character-specs dt {
+    color: var(--phonie-ink-muted);
 }
 
-.phoen-character-specs dd {
+.phonie-character-specs dd {
     margin: 0;
-    color: var(--phoen-ink);
+    color: var(--phonie-ink);
     font-weight: 700;
 }
 
-#phoen-root[data-audio-state="speaking"] .phoen-dynamic-island,
-#phoen-root[data-audio-state="generating"] .phoen-dynamic-island {
+#phonie-root[data-audio-state="speaking"] .phonie-dynamic-island,
+#phonie-root[data-audio-state="generating"] .phonie-dynamic-island {
     width: 104px;
 }
 
-#phoen-root[data-audio-state="speaking"] .phoen-dynamic-island b,
-#phoen-root[data-audio-state="generating"] .phoen-dynamic-island b {
-    background: var(--phoen-signal);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--phoen-signal) 65%, transparent);
+#phonie-root[data-audio-state="speaking"] .phonie-dynamic-island b,
+#phonie-root[data-audio-state="generating"] .phonie-dynamic-island b {
+    background: var(--phonie-signal);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--phonie-signal) 65%, transparent);
 }
 
-.phoen-voice-seam {
+.phonie-voice-seam {
     top: 100px;
     bottom: 102px;
 }
 
 @media (max-height: 720px) and (min-width: 561px) {
-    .phoen-phone {
+    .phonie-phone {
         height: calc(100dvh - 24px);
         bottom: 12px;
     }
 
-    .phoen-time-widget {
+    .phonie-time-widget {
         min-height: 88px;
         padding-block: 12px;
     }
 
-    .phoen-time-widget__clock strong {
+    .phonie-time-widget__clock strong {
         font-size: 34px;
     }
 
-    .phoen-app-grid {
+    .phonie-app-grid {
         margin-top: 10px;
         row-gap: 8px;
     }
 
-    .phoen-app-tile__icon {
+    .phonie-app-tile__icon {
         width: 47px;
         height: 47px;
         border-radius: 15px;
     }
 
-    .phoen-page-rail {
+    .phonie-page-rail {
         min-height: 18px;
     }
 }
 
 @media (max-width: 560px), (max-height: 650px) {
-    .phoen-phone,
-    #phoen-root[data-dock="left"] .phoen-phone {
+    .phonie-phone,
+    #phonie-root[data-dock="left"] .phonie-phone {
         overflow: hidden;
         border-radius: 0;
         box-shadow: none;
     }
 
-    .phoen-frame {
+    .phonie-frame {
         border: 0;
         border-radius: 0;
     }
 
-    .phoen-frame::before,
-    .phoen-hardware-key {
+    .phonie-frame::before,
+    .phonie-hardware-key {
         display: none;
     }
 
-    .phoen-status {
+    .phonie-status {
         min-height: calc(38px + env(safe-area-inset-top));
         padding-top: calc(9px + env(safe-area-inset-top));
     }
 
-    .phoen-dock {
+    .phonie-dock {
         margin-bottom: max(7px, env(safe-area-inset-bottom));
     }
 
-    .phoen-home-indicator {
+    .phonie-home-indicator {
         bottom: max(8px, env(safe-area-inset-bottom));
     }
 }
 
 @media (max-width: 360px) {
-    .phoen-home-content {
+    .phonie-home-content {
         padding-inline: 11px;
     }
 
-    .phoen-time-widget {
+    .phonie-time-widget {
         padding-inline: 14px;
     }
 
-    .phoen-app-grid {
+    .phonie-app-grid {
         column-gap: 3px;
     }
 
-    .phoen-app-tile__icon {
+    .phonie-app-tile__icon {
         width: 49px;
         height: 49px;
     }
 
-    .phoen-dock {
+    .phonie-dock {
         margin-inline: 8px;
     }
 }
 
 
-.phoen-app-tile:focus-visible,
-.phoen-dock-button:focus-visible,
-.phoen-service-card:focus-visible,
-.phoen-record-card__play:focus-visible {
-    outline: 2px solid var(--phoen-signal);
+.phonie-app-tile:focus-visible,
+.phonie-dock-button:focus-visible,
+.phonie-service-card:focus-visible,
+.phonie-record-card__play:focus-visible {
+    outline: 2px solid var(--phonie-signal);
     outline-offset: 3px;
 }
 
-/* Phoen physical handset mobile contract */
-.phoen-wallpaper[data-has-image="true"] {
+/* Phonie physical handset mobile contract */
+.phonie-wallpaper[data-has-image="true"] {
     background-position: center 18%;
 }
 
-#phoen-root[data-screen="home"] .phoen-wallpaper[data-has-image="true"] {
+#phonie-root[data-screen="home"] .phonie-wallpaper[data-has-image="true"] {
     -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 58%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.3) 88%, transparent 100%);
     mask-image: linear-gradient(180deg, #000 0%, #000 58%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.3) 88%, transparent 100%);
 }
 
-.phoen-rain-curtain {
+.phonie-rain-curtain {
     position: absolute;
     z-index: -1;
     inset: 0;
@@ -812,39 +812,39 @@ button.phoen-record-card__play {
     pointer-events: none;
 }
 
-#phoen-root[data-screen="home"] .phoen-rain-curtain {
+#phonie-root[data-screen="home"] .phonie-rain-curtain {
     opacity: 0.38;
 }
 
-.phoen-rain-curtain i {
+.phonie-rain-curtain i {
     position: absolute;
     top: 10%;
     bottom: 18%;
     left: var(--rain-x);
     width: 1px;
-    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--phoen-signal) 18%, transparent) 34%, color-mix(in srgb, var(--phoen-ink) 12%, transparent) 72%, transparent);
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--phonie-signal) 18%, transparent) 34%, color-mix(in srgb, var(--phonie-ink) 12%, transparent) 72%, transparent);
     opacity: 0.24;
 }
 
-.phoen-rain-curtain i::after {
+.phonie-rain-curtain i::after {
     position: absolute;
     top: -28px;
     left: -1px;
     width: 3px;
     height: 22px;
     border-radius: 999px;
-    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--phoen-signal) 64%, transparent));
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--phonie-signal) 64%, transparent));
     content: '';
     opacity: 0;
     transform: translate3d(0, -12vh, 0);
-    animation: phoen-resonance-drop 4.6s linear var(--rain-delay) infinite paused;
+    animation: phonie-resonance-drop 4.6s linear var(--rain-delay) infinite paused;
 }
 
-#phoen-root[data-screen="home"][data-audio-state="idle"] .phoen-rain-curtain i::after {
+#phonie-root[data-screen="home"][data-audio-state="idle"] .phonie-rain-curtain i::after {
     animation-play-state: running;
 }
 
-@keyframes phoen-resonance-drop {
+@keyframes phonie-resonance-drop {
     0% { opacity: 0; transform: translate3d(0, -12vh, 0); }
     12% { opacity: 0.52; }
     72% { opacity: 0.26; }
@@ -852,8 +852,8 @@ button.phoen-record-card__play {
 }
 
 @media (hover: none) and (pointer: coarse) and (max-width: 1000px), (max-width: 560px), (max-height: 650px) {
-    .phoen-phone,
-    #phoen-root[data-dock="left"] .phoen-phone {
+    .phonie-phone,
+    #phonie-root[data-dock="left"] .phonie-phone {
         inset:
             max(8px, env(safe-area-inset-top))
             max(8px, env(safe-area-inset-right))
@@ -871,62 +871,62 @@ button.phoen-record-card__play {
         transform-origin: center bottom;
     }
 
-    #phoen-root[data-open="true"] .phoen-phone,
-    #phoen-root[data-dock="left"][data-open="true"] .phoen-phone {
+    #phonie-root[data-open="true"] .phonie-phone,
+    #phonie-root[data-dock="left"][data-open="true"] .phonie-phone {
         transform: translate3d(0, 0, 0) scale(1);
     }
 
-    .phoen-frame {
+    .phonie-frame {
         overflow: hidden;
-        border: 6px solid color-mix(in srgb, var(--phoen-canvas) 78%, #050708 22%);
+        border: 6px solid color-mix(in srgb, var(--phonie-canvas) 78%, #050708 22%);
         border-radius: 46px;
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--phoen-glint) 34%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--phonie-glint) 34%, transparent);
     }
 
-    .phoen-frame::before {
+    .phonie-frame::before {
         display: block;
         inset: 2px;
         border-radius: 38px;
     }
 
-    .phoen-hardware-key {
+    .phonie-hardware-key {
         display: block;
     }
 
-    .phoen-status {
+    .phonie-status {
         min-height: 38px;
         padding-top: 9px;
     }
 
-    .phoen-dock {
+    .phonie-dock {
         margin-bottom: 7px;
     }
 
-    .phoen-home-indicator {
+    .phonie-home-indicator {
         bottom: 8px;
     }
 }
 
 @media (max-width: 380px) {
-    .phoen-phone,
-    #phoen-root[data-dock="left"] .phoen-phone {
+    .phonie-phone,
+    #phonie-root[data-dock="left"] .phonie-phone {
         left: max(5px, env(safe-area-inset-left));
         right: max(5px, env(safe-area-inset-right));
         border-radius: 40px;
     }
 
-    .phoen-frame {
+    .phonie-frame {
         border-width: 5px;
         border-radius: 40px;
     }
 
-    .phoen-frame::before {
+    .phonie-frame::before {
         border-radius: 33px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .phoen-rain-curtain {
+    .phonie-rain-curtain {
         display: none;
     }
 }

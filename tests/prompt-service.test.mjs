@@ -75,5 +75,5 @@ test('continuity prompt is bounded', () => {
     }));
     const prompt = buildContinuityPrompt({ contactName: 'Aoi', messages, maxChars: 480 });
     assert.ok(prompt.length <= 480);
-    assert.match(prompt, /Phoen private communication continuity/);
+    assert.match(prompt, /Phonie private communication continuity/);
 });

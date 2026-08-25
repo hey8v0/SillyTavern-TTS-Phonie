@@ -1,6 +1,6 @@
 import { hashString } from '../core/id.js';
 
-const DATABASE_NAME = 'phoen-audio';
+const DATABASE_NAME = 'phonie-audio';
 const STORE_NAME = 'audio';
 const DATABASE_VERSION = 1;
 
@@ -31,7 +31,7 @@ export class AudioCache {
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         }).catch((error) => {
-            console.warn('[Phoen] IndexedDB cache unavailable.', error);
+            console.warn('[Phonie] IndexedDB cache unavailable.', error);
             return null;
         });
 
