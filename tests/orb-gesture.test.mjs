@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
     getOrbDockTarget,
+    getOrbDockTargetFromRect,
+    getOrbTop,
     isOrbTap,
     ORB_DRAG_THRESHOLD,
     shouldStartOrbDrag,
@@ -38,6 +40,11 @@ test('touch pointers are accepted even when WebView reports button minus one', (
 });
 
 test('orb release snaps to the closest edge with a clamped vertical position', () => {
-    assert.deepEqual(getOrbDockTarget(40, -200, 400, 800), { dockSide: 'left', dockY: 0.07 });
-    assert.deepEqual(getOrbDockTarget(360, 1200, 400, 800), { dockSide: 'right', dockY: 0.9 });
+    assert.deepEqual(getOrbDockTarget(40, -200, 400, 800), { dockSide: 'left', dockY: 0 });
+    assert.deepEqual(getOrbDockTarget(360, 1200, 400, 800), { dockSide: 'right', dockY: 1 });
+    assert.deepEqual(
+        getOrbDockTargetFromRect({ left: 330, top: 376, width: 48, height: 48 }, 400, 800),
+        { dockSide: 'right', dockY: 0.5 },
+    );
+    assert.equal(getOrbTop(0.5, 800, 48), 376);
 });

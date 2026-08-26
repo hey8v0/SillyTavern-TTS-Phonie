@@ -1,4 +1,4 @@
-import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from './core/constants.js';
+import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCHEMA_VERSION, SCREENS, THEMES } from './core/constants.js';
 import { createStore } from './core/store.js';
 import { createDeviceStatusSnapshot, DeviceStatusMonitor } from './device/device-status.js';
 import { SillyTavernBridge } from './integrations/sillytavern.js';
@@ -20,7 +20,11 @@ function buildCallSummary(messages, contactName) {
 
 export async function createPhonieApp() {
     const existing = globalThis.__phonieApp;
-    if (existing?.version === APP_VERSION && document.getElementById('phonie-root')) return existing;
+    if (
+        existing?.version === APP_VERSION
+        && document.getElementById('phonie-root')
+        && document.getElementById('phonie-orb')
+    ) return existing;
     if (existing?.dispose) {
         try {
             existing.dispose();
@@ -29,12 +33,15 @@ export async function createPhonieApp() {
         }
     }
     document.getElementById('phonie-root')?.remove();
+    document.getElementById('phonie-orb')?.remove();
     document.getElementById('phonie-settings-launcher')?.remove();
     document.getElementById('phonie-wand-menu-item')?.remove();
 
     const bridge = new SillyTavernBridge();
     const settings = bridge.getSettings();
     const metadata = bridge.getPhoneMetadata();
+    const contact = bridge.getContact();
+    const characters = bridge.getCharacterDirectory(settings);
     const providerCenter = new PhonieProviderCenter({ bridge });
     const callMachine = new CallMachine();
     const audioCache = new AudioCache();
@@ -48,9 +55,14 @@ export async function createPhonieApp() {
         open: false,
         screen: SCREENS.HOME,
         settings: { ...settings },
-        contact: bridge.getContact(),
+        contact,
+        userName: bridge.getUserName(),
+        characters,
+        selectedCharacterId: contact.id,
+        selectedProviderId: settings.ttsActiveProvider,
         messages: metadata.messages,
         calls: metadata.calls,
+        pendingUserMessageIds: metadata.pendingUserMessageIds,
         providerLabel: providerCenter.getActiveLabel(),
         providerSnapshot: providerCenter.snapshot(),
         deviceStatus: createDeviceStatusSnapshot(),
@@ -76,8 +88,12 @@ export async function createPhonieApp() {
         updateState({ toast: { id: Date.now(), text } });
     }
 
-    function persistPhoneState(messages = store.getState().messages, calls = store.getState().calls) {
-        const nextMetadata = { schemaVersion: 1, messages, calls };
+    function persistPhoneState(
+        messages = store.getState().messages,
+        calls = store.getState().calls,
+        pendingUserMessageIds = store.getState().pendingUserMessageIds,
+    ) {
+        const nextMetadata = { schemaVersion: SCHEMA_VERSION, messages, calls, pendingUserMessageIds };
         bridge.savePhoneMetadata(nextMetadata);
         bridge.updateContinuityPrompt(nextMetadata);
     }
@@ -122,6 +138,7 @@ export async function createPhonieApp() {
 
     async function sendMessage(text, kind, callMode) {
         const state = store.getState();
+        const cleanText = String(text || '').trim();
         if (state.generating) {
             showToast('上一条回复仍在生成');
             return;
@@ -130,29 +147,55 @@ export async function createPhonieApp() {
             showToast('请先接通电话');
             return;
         }
+        if (callMode && !cleanText) {
+            showToast('通话中请先输入这一轮要说的话');
+            return;
+        }
+        const existingPending = Array.isArray(state.pendingUserMessageIds) ? state.pendingUserMessageIds : [];
+        if (!callMode && !cleanText && existingPending.length === 0) {
+            showToast('先发送一条消息，再请求角色回复');
+            return;
+        }
         const originChatId = bridge.getChatId();
         if (callMode && state.callState === CALL_STATES.SPEAKING) {
             providerCenter.cancel();
             audioFocus.stop();
         }
 
-        const outgoing = createPhoneMessage({
-            direction: 'outgoing',
-            author: bridge.getUserName(),
-            originalText: text,
-            kind,
-        });
-        const withOutgoing = [...state.messages, outgoing];
-        updateState({ messages: withOutgoing, generating: true, audioState: 'generating' });
-        persistPhoneState(withOutgoing, state.calls);
-
-        if (callMode && callMachine.state === CALL_STATES.SPEAKING) {
-            callMachine.transition(CALL_STATES.GENERATING);
-        } else if (callMode && callMachine.state === CALL_STATES.CONNECTED) {
-            callMachine.transition(CALL_STATES.GENERATING);
+        let outgoing = null;
+        let withOutgoing = state.messages;
+        let pendingUserMessageIds = existingPending;
+        if (cleanText) {
+            outgoing = createPhoneMessage({
+                direction: 'outgoing',
+                author: bridge.getUserName(),
+                originalText: cleanText,
+                kind,
+            });
+            withOutgoing = [...state.messages, outgoing];
+            if (!callMode) pendingUserMessageIds = [...existingPending, outgoing.id];
         }
 
-        if (kind === MESSAGE_KINDS.VOICE) {
+        if (!callMode && cleanText) {
+            updateState({ messages: withOutgoing, pendingUserMessageIds });
+            persistPhoneState(withOutgoing, state.calls, pendingUserMessageIds);
+            if (outgoing?.kind === MESSAGE_KINDS.VOICE) {
+                try {
+                    await preparePhoneAudio(outgoing, bridge.getUserName(), { autoplay: true });
+                } catch (error) {
+                    console.warn('[Phonie] User voice message synthesis failed.', error);
+                    showToast('语音消息已发送，但暂时无法生成音频');
+                }
+            }
+            return;
+        }
+
+        updateState({ messages: withOutgoing, generating: true, audioState: 'generating' });
+        persistPhoneState(withOutgoing, state.calls, pendingUserMessageIds);
+        if (callMode && [CALL_STATES.SPEAKING, CALL_STATES.CONNECTED].includes(callMachine.state)) {
+            callMachine.transition(CALL_STATES.GENERATING);
+        }
+        if (outgoing?.kind === MESSAGE_KINDS.VOICE) {
             try {
                 await preparePhoneAudio(outgoing, bridge.getUserName(), { autoplay: true });
             } catch (error) {
@@ -174,15 +217,17 @@ export async function createPhonieApp() {
                 emotion: reply.emotion,
             });
             const messages = [...store.getState().messages, incoming];
+            const nextPending = callMode ? store.getState().pendingUserMessageIds : [];
             updateState({
                 messages,
+                pendingUserMessageIds: nextPending,
                 generating: false,
                 callCaption: callMode
                     ? { source: incoming.originalText, translation: incoming.translationText }
                     : store.getState().callCaption,
                 unread: store.getState().open ? 0 : store.getState().unread + 1,
             });
-            persistPhoneState(messages, store.getState().calls);
+            persistPhoneState(messages, store.getState().calls, nextPending);
 
             const shouldSpeak = callMode || currentSettings.autoPlayPhoneReplies;
             if (shouldSpeak) {
@@ -190,7 +235,7 @@ export async function createPhonieApp() {
                     callMachine.transition(CALL_STATES.SPEAKING);
                 }
                 try {
-                    await preparePhoneAudio(incoming, store.getState().contact.name, { autoplay: true });
+                    await preparePhoneAudio(incoming, store.getState().contact, { autoplay: true });
                 } catch (error) {
                     console.warn('[Phonie] Character phone audio synthesis failed.', error);
                     updateState({ audioState: 'idle' });
@@ -241,7 +286,7 @@ export async function createPhonieApp() {
             });
             persistPhoneState(messages, store.getState().calls);
             callMachine.transition(CALL_STATES.SPEAKING);
-            await preparePhoneAudio(incoming, store.getState().contact.name, { autoplay: true });
+            await preparePhoneAudio(incoming, store.getState().contact, { autoplay: true });
         } catch (error) {
             console.error('[Phonie] Incoming call opener failed.', error);
             updateState({ generating: false, audioState: 'idle' });
@@ -342,10 +387,14 @@ export async function createPhonieApp() {
     }
 
     async function playPhoneAudio(messageId) {
-        const message = store.getState().messages.find((entry) => entry.id === messageId);
+        const state = store.getState();
+        const message = state.messages.find((entry) => entry.id === messageId);
         if (!message) return;
         try {
-            await preparePhoneAudio(message, message.author, { autoplay: true });
+            const speaker = message.direction === 'incoming' && message.author === state.contact.name
+                ? state.contact
+                : message.author;
+            await preparePhoneAudio(message, speaker, { autoplay: true });
         } catch (error) {
             console.error('[Phonie] Could not play phone audio.', error);
             showToast('这条语音暂时无法播放');
@@ -355,10 +404,15 @@ export async function createPhonieApp() {
     const actions = {
         open() {
             const currentSettings = bridge.getSettings();
+            const directory = bridge.getCharacterDirectory(currentSettings);
             updateState({
                 open: true,
                 unread: 0,
                 settings: { ...currentSettings },
+                characters: directory,
+                selectedCharacterId: directory.some((entry) => entry.id === store.getState().selectedCharacterId)
+                    ? store.getState().selectedCharacterId
+                    : bridge.getContact().id,
                 providerLabel: providerCenter.getActiveLabel(),
                 providerSnapshot: providerCenter.snapshot(),
                 generationProfiles: bridge.getGenerationProfiles(),
@@ -371,6 +425,10 @@ export async function createPhonieApp() {
         navigate(screen) {
             if (!Object.values(SCREENS).includes(screen)) return;
             updateState({ screen });
+        },
+        openTtsProvider(providerId) {
+            if (!providerCenter.snapshot().providers.some((provider) => provider.id === providerId)) return;
+            updateState({ selectedProviderId: providerId, screen: SCREENS.PROVIDER });
         },
         sendMessage,
         startCall,
@@ -443,13 +501,40 @@ export async function createPhonieApp() {
                 showToast(error?.message || '模型与音色同步失败');
             }
         },
+        async previewTtsProvider(providerId, text) {
+            const state = store.getState();
+            const character = state.characters.find((entry) => entry.id === state.selectedCharacterId) || state.contact;
+            const sample = String(text || '').trim() || 'おはよう。今日はどんな話をしようか。';
+            try {
+                const result = await providerCenter.synthesize({
+                    providerId,
+                    text: sample,
+                    speaker: character,
+                    language: character.route?.textLanguage || state.settings.sourceLanguage,
+                });
+                const key = 'provider-preview:' + providerId;
+                audioFocus.setSource(key, result.blob);
+                await audioFocus.play(key, { owner: 'provider-preview', providerId });
+                showToast(result.providerLabel + ' 试听中');
+            } catch (error) {
+                showToast(error?.message || '供应商试听失败');
+            }
+        },
+        selectCharacterRoute(characterId) {
+            if (!store.getState().characters.some((entry) => entry.id === characterId)) return;
+            updateState({ selectedCharacterId: characterId });
+        },
         updateCharacterRoute(route) {
-            providerCenter.setCharacterRoute(store.getState().contact.name, route);
+            const state = store.getState();
+            const character = state.characters.find((entry) => entry.id === state.selectedCharacterId) || state.contact;
+            providerCenter.setCharacterRoute(character, route);
+            const nextSettings = bridge.getSettings();
             updateState({
-                settings: { ...bridge.getSettings() },
+                settings: { ...nextSettings },
                 providerSnapshot: providerCenter.snapshot(),
+                characters: bridge.getCharacterDirectory(nextSettings),
             });
-            showToast('角色专属声线已保存');
+            showToast(character.name + ' 的专属声线已保存');
         },
         updateSetting(key, value) {
             const nextSettings = bridge.updateSettings({ [key]: value });
@@ -590,12 +675,18 @@ export async function createPhonieApp() {
         if (callMachine.canTransition(CALL_STATES.IDLE)) callMachine.transition(CALL_STATES.IDLE);
         const nextMetadata = bridge.getPhoneMetadata();
         const nextSettings = bridge.getSettings();
+        const nextContact = bridge.getContact();
         inlinePlayers.reset();
         inlinePlayers.updateSettings(nextSettings);
         updateState({
-            contact: bridge.getContact(),
+            contact: nextContact,
+            userName: bridge.getUserName(),
+            characters: bridge.getCharacterDirectory(nextSettings),
+            selectedCharacterId: nextContact.id,
+            selectedProviderId: nextSettings.ttsActiveProvider,
             messages: nextMetadata.messages,
             calls: nextMetadata.calls,
+            pendingUserMessageIds: nextMetadata.pendingUserMessageIds,
             settings: { ...nextSettings },
             providerLabel: providerCenter.getActiveLabel(),
             providerSnapshot: providerCenter.snapshot(),

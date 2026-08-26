@@ -6,6 +6,11 @@ export function createPhoneMetadata(value = {}) {
         schemaVersion: SCHEMA_VERSION,
         messages: Array.isArray(value.messages) ? value.messages : [],
         calls: Array.isArray(value.calls) ? value.calls : [],
+        pendingUserMessageIds: Array.isArray(value.pendingUserMessageIds)
+            ? value.pendingUserMessageIds
+                .filter((id) => id !== null && id !== undefined && id !== '')
+                .map((id) => String(id))
+            : [],
     };
 }
 

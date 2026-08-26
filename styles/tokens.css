@@ -1,4 +1,5 @@
-#phonie-root {
+#phonie-root,
+#phonie-orb {
     --phonie-font-ui: "Avenir Next", "Nunito Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
     --phonie-font-reading: "Yu Mincho", "Hiragino Mincho ProN", "Source Han Serif SC", serif;
     --phonie-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -15,7 +16,8 @@
     --phonie-space-6: 24px;
 }
 
-#phonie-root[data-theme="day"] {
+#phonie-root[data-theme="day"],
+#phonie-orb[data-theme="day"] {
     color-scheme: light;
     --phonie-canvas: #c9baa7;
     --phonie-surface: #f3ece2;
@@ -36,7 +38,8 @@
     --phonie-hardware-edge: #4a4650;
 }
 
-#phonie-root[data-theme="night"] {
+#phonie-root[data-theme="night"],
+#phonie-orb[data-theme="night"] {
     color-scheme: dark;
     --phonie-canvas: #080916;
     --phonie-surface: #111426;
@@ -57,7 +60,8 @@
     --phonie-hardware-edge: #373a49;
 }
 
-#phonie-root[data-theme="tavern"] {
+#phonie-root[data-theme="tavern"],
+#phonie-orb[data-theme="tavern"] {
     color-scheme: normal;
     --phonie-canvas: var(--SmartThemeBlurTintColor, #18181d);
     --phonie-surface: var(--SmartThemeBlurTintColor, #222229);

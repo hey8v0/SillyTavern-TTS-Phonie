@@ -11,6 +11,10 @@
     text-shadow: none;
 }
 
+#phonie-root[hidden] {
+    display: none !important;
+}
+
 #phonie-root,
 #phonie-root * {
     box-sizing: border-box;
@@ -49,6 +53,7 @@
 
 .phonie-orb {
     position: fixed;
+    z-index: 31001;
     top: var(--phonie-orb-y, 48%);
     right: -17px;
     width: 48px;
@@ -71,22 +76,22 @@
     cursor: grabbing;
 }
 
-#phonie-root[data-dock="left"] .phonie-orb {
+.phonie-orb[data-dock="left"] {
     right: auto;
     left: -17px;
     border-radius: 6px 17px 17px 6px;
 }
 
 .phonie-orb[data-dragging="true"] {
-    z-index: 2;
+    z-index: 31002;
     opacity: 0.96;
     box-shadow: 0 18px 42px var(--phonie-shadow), inset 0 1px 0 var(--phonie-glint);
     transition: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-    #phonie-root[data-dock="right"] .phonie-orb:hover { transform: translateX(-9px); }
-    #phonie-root[data-dock="left"] .phonie-orb:hover { transform: translateX(9px); }
+    .phonie-orb[data-dock="right"]:hover { transform: translateX(-9px); }
+    .phonie-orb[data-dock="left"]:hover { transform: translateX(9px); }
 }
 
 .phonie-orb:focus-visible,
@@ -111,7 +116,7 @@
     opacity: 0.72;
 }
 
-#phonie-root[data-dock="left"] .phonie-orb__seam {
+.phonie-orb[data-dock="left"] .phonie-orb__seam {
     right: auto;
     left: 4px;
 }
@@ -174,10 +179,8 @@
     pointer-events: none !important;
 }
 
-#phonie-root[data-open="true"] .phonie-orb {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
+.phonie-orb[hidden] {
+    display: none !important;
 }
 
 .phonie-frame {
@@ -404,8 +407,4 @@
         .phonie-phone,
         #phonie-root[data-dock="left"] .phonie-phone { height: 100dvh; }
     }
-}
-
-#phonie-root[data-launcher="wand"] .phonie-orb {
-    display: none;
 }

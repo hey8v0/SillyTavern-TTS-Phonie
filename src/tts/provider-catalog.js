@@ -4,7 +4,8 @@ export const MINIMAX_EMOTIONS = Object.freeze([
 
 export const TTS_PROVIDERS = Object.freeze([
     {
-        id: 'indextts2', name: 'IndexTTS2', category: '本地推理', mode: '按需启动', icon: 'layers',
+        id: 'indextts2', name: 'IndexTTS2', category: '本地推理', mode: '按需启动', icon: 'layers', tone: 'indigo',
+        summary: '参考音频与情绪参考分离，适合在本地细调角色音色。',
         defaults: { endpoint: 'http://127.0.0.1:7860', generatePath: '/tts', adapter: 'json', speakerAudio: '', emotionAudio: '', emotionWeight: 0.65, outputFormat: 'wav' },
         fields: [
             { key: 'endpoint', label: '服务地址', type: 'url' },
@@ -17,7 +18,8 @@ export const TTS_PROVIDERS = Object.freeze([
         ],
     },
     {
-        id: 'gpt_sovits', name: 'GPT-SoVITS', category: '本地推理', mode: '需要管理后端', icon: 'wave',
+        id: 'gpt_sovits', name: 'GPT-SoVITS', category: '本地推理', mode: '需要管理后端', icon: 'wave', tone: 'amber',
+        summary: '以参考音频与参考文本驱动，台词语言和提示语言可以独立设置。',
         defaults: { managerEndpoint: 'http://127.0.0.1:3000', engineEndpoint: 'http://127.0.0.1:9880', refAudioPath: '', promptText: '', textLang: 'ja', promptLang: 'ja', speedFactor: 1 },
         fields: [
             { key: 'managerEndpoint', label: '管理服务地址', type: 'url', help: '手机访问时填写电脑局域网 IP。' },
@@ -30,7 +32,8 @@ export const TTS_PROVIDERS = Object.freeze([
         ],
     },
     {
-        id: 'voxcpm2', name: 'VoxCPM2', category: '本地推理', mode: '按需启动', icon: 'spark',
+        id: 'voxcpm2', name: 'VoxCPM2', category: '本地推理', mode: '按需启动', icon: 'microphone', tone: 'rose',
+        summary: '通过参考音频和自然语言指令控制声线、情绪与说话风格。',
         defaults: { endpoint: 'http://127.0.0.1:8808', generatePath: '/v1/audio/speech', model: 'openbmb/VoxCPM2', speaker: 'default', referenceAudio: '', controlInstruction: '', outputFormat: 'wav' },
         fields: [
             { key: 'endpoint', label: '服务地址', type: 'url' },
@@ -43,7 +46,8 @@ export const TTS_PROVIDERS = Object.freeze([
         ],
     },
     {
-        id: 'doubao', name: '豆包 TTS', category: '云端服务', mode: '安全代理', icon: 'signal',
+        id: 'doubao', name: '豆包 TTS', category: '云端服务', mode: '安全代理', icon: 'bolt', tone: 'cyan',
+        summary: '使用火山引擎资源与音色 ID，通过酒馆安全密钥槽调用。',
         defaults: { providerEndpoint: 'https://openspeech.bytedance.com/api/v3/tts/unidirectional', resourceId: '', voice: 'zh_female_xiaohe_uranus_bigtts', speed: 0 },
         fields: [
             { key: 'volcengine_app_id', label: '应用 ID', type: 'secret' },
@@ -54,7 +58,8 @@ export const TTS_PROVIDERS = Object.freeze([
         ],
     },
     {
-        id: 'edge', name: 'Edge TTS', category: '宿主服务', mode: '需要服务插件', icon: 'signal',
+        id: 'edge', name: 'Edge TTS', category: '宿主服务', mode: '需要服务插件', icon: 'wifi', tone: 'blue',
+        summary: '轻量的宿主语音服务，适合作为预览或故障回退声线。',
         defaults: { serviceBase: '/api/plugins/edge-tts', voice: 'ja-JP-NanamiNeural', rate: 0 },
         fields: [
             { key: 'serviceBase', label: '服务路径', type: 'text' },
@@ -63,7 +68,8 @@ export const TTS_PROVIDERS = Object.freeze([
         ],
     },
     {
-        id: 'elevenlabs', name: 'ElevenLabs', category: '云端服务', mode: 'Phonie 安全代理', icon: 'spark',
+        id: 'elevenlabs', name: 'ElevenLabs', category: '云端服务', mode: 'Phonie 安全代理', icon: 'stars', tone: 'violet',
+        summary: '同步账号模型与音色，提供稳定度、相似度、风格和说话人增强。',
         defaults: { model: 'eleven_multilingual_v2', voice: '', languageCode: '', stability: 0.5, similarityBoost: 0.75, style: 0, speakerBoost: true, speed: 1 },
         fields: [
             { key: 'api_key_elevenlabs', label: 'API Key', type: 'secret' },
@@ -78,7 +84,8 @@ export const TTS_PROVIDERS = Object.freeze([
         ],
     },
     {
-        id: 'minimax', name: 'MiniMax', category: '云端服务', mode: '直连或安全代理', icon: 'wave',
+        id: 'minimax', name: 'MiniMax', category: '云端服务', mode: '直连或安全代理', icon: 'signal', tone: 'gold',
+        summary: '支持国际站与大陆站、账号音色、情绪归一化和 Sound Tags。',
         defaults: { credentialMode: 'vault', directApiKey: '', apiHost: 'https://api.minimax.io', model: 'speech-2.8-hd', voice: 'Chinese (Mandarin)_Unrestrained_Young_Man', speed: 1, volume: 1, pitch: 0, format: 'mp3' },
         fields: [
             { key: 'credentialMode', label: '连接方式', type: 'select', options: [['vault', '安全代理'], ['direct', '浏览器直连']] },

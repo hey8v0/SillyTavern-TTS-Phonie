@@ -670,6 +670,180 @@
     white-space: nowrap;
 }
 
+.phonie-chat-appbar {
+    display: grid;
+    min-height: 58px;
+    padding: 8px 12px;
+    grid-template-columns: 40px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 9px;
+    border-bottom: 1px solid var(--phonie-border);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 88%, transparent);
+    backdrop-filter: blur(18px);
+}
+
+.phonie-chat-appbar__avatar,
+.phonie-message__avatar {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 78%, transparent);
+    background:
+        linear-gradient(145deg, color-mix(in srgb, var(--phonie-signal) 30%, var(--phonie-surface-muted)), var(--phonie-surface-raised));
+    background-position: center;
+    background-size: cover;
+    font-family: var(--phonie-font-reading);
+    place-items: center;
+}
+
+.phonie-chat-appbar__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+}
+
+.phonie-chat-appbar__avatar[data-has-image="true"] b,
+.phonie-message__avatar[style] b {
+    visibility: hidden;
+}
+
+.phonie-chat-appbar__identity {
+    display: grid;
+    min-width: 0;
+}
+
+.phonie-chat-appbar__identity strong {
+    overflow: hidden;
+    font-family: var(--phonie-font-reading);
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phonie-chat-appbar__identity small {
+    color: var(--phonie-ink-muted);
+    font-size: 9px;
+}
+
+.phonie-message {
+    display: grid;
+    width: min(94%, 320px);
+    max-width: none;
+    grid-template-columns: 31px minmax(0, 1fr);
+    align-items: end;
+    gap: 7px;
+}
+
+.phonie-message--outgoing {
+    grid-template-columns: minmax(0, 1fr) 31px;
+}
+
+.phonie-message__avatar {
+    width: 31px;
+    height: 31px;
+    border-radius: 11px;
+    align-self: end;
+    font-size: 9px;
+}
+
+.phonie-message--outgoing .phonie-message__avatar {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.phonie-message__content {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+}
+
+.phonie-message--outgoing .phonie-message__content {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.phonie-message__bubble {
+    position: relative;
+}
+
+.phonie-message:not(.phonie-message--outgoing) .phonie-message__bubble::before,
+.phonie-message--outgoing .phonie-message__bubble::after {
+    position: absolute;
+    bottom: 8px;
+    width: 8px;
+    height: 12px;
+    background: inherit;
+    content: '';
+}
+
+.phonie-message:not(.phonie-message--outgoing) .phonie-message__bubble::before {
+    left: -5px;
+    clip-path: polygon(100% 0, 100% 100%, 0 72%);
+}
+
+.phonie-message--outgoing .phonie-message__bubble::after {
+    right: -5px;
+    clip-path: polygon(0 0, 100% 72%, 0 100%);
+}
+
+.phonie-chat-send[data-mode="request-reply"][data-has-text="false"] {
+    border-color: color-mix(in srgb, var(--phonie-signal) 56%, var(--phonie-border));
+    background: color-mix(in srgb, var(--phonie-signal) 18%, var(--phonie-surface-raised));
+    color: var(--phonie-signal);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--phonie-signal) 10%, transparent);
+}
+
+.phonie-call-backdrop,
+.phonie-call-veil {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+}
+
+.phonie-call-backdrop {
+    background:
+        radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--phonie-signal) 34%, var(--phonie-surface)), var(--phonie-canvas));
+    background-position: center;
+    background-size: cover;
+    filter: blur(18px) saturate(0.76);
+    opacity: 0.46;
+    transform: scale(1.12);
+}
+
+.phonie-call-veil {
+    z-index: 1;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--phonie-surface) 16%, transparent), color-mix(in srgb, var(--phonie-canvas) 72%, transparent)),
+        radial-gradient(circle at 50% 22%, transparent 0 20%, color-mix(in srgb, var(--phonie-canvas) 36%, transparent) 64%);
+    backdrop-filter: blur(2px);
+}
+
+.phonie-call-screen > :not(.phonie-call-backdrop):not(.phonie-call-veil) {
+    position: relative;
+    z-index: 2;
+}
+
+.phonie-contact-mark {
+    overflow: hidden;
+    background-position: center;
+    background-size: cover;
+    border-radius: 50%;
+}
+
+.phonie-contact-mark[data-has-image="true"] > span {
+    visibility: hidden;
+}
+
+.phonie-call-screen {
+    color: var(--phonie-ink);
+}
+
+.phonie-call-captions,
+.phonie-call-feature-controls button,
+.phonie-call-controls input {
+    backdrop-filter: blur(16px);
+}
+
 .phonie-toast {
     position: absolute;
     z-index: 12;

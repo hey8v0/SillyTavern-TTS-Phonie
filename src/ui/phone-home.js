@@ -74,9 +74,13 @@ export function auxiliaryScreensMarkup() {
                 </section>
                 <div class="phonie-pane-heading"><span>Phonie 语音引擎</span><small>不调用酒馆自带 TTS</small></div>
                 <div class="phonie-profile-list phonie-provider-list" data-role="tts-provider-list"></div>
-                <div class="phonie-provider-editor" data-role="tts-provider-editor"></div>
                 <div class="phonie-pane-heading"><span>最近声线</span><small>手机与正文统一播放焦点</small></div>
                 <div class="phonie-record-list" data-role="voice-library"></div>
+            </div>
+        </section>
+        <section class="phonie-screen phonie-provider-screen" data-screen="${SCREENS.PROVIDER}" aria-label="语音供应商详情">
+            <div class="phonie-app-pane">
+                <div class="phonie-provider-detail" data-role="tts-provider-editor"></div>
             </div>
         </section>
         <section class="phonie-screen phonie-trace-screen" data-screen="${SCREENS.TRACE}" aria-label="通话轨迹">
@@ -87,6 +91,12 @@ export function auxiliaryScreensMarkup() {
         </section>
         <section class="phonie-screen phonie-character-screen" data-screen="${SCREENS.CHARACTER}" aria-label="角色声线">
             <div class="phonie-app-pane">
+                <div class="phonie-pane-heading"><span>角色声线路由</span><small data-role="character-directory-count">0 位角色</small></div>
+                <label class="phonie-character-search">
+                    ${icon('person')}
+                    <input type="search" data-role="character-search" placeholder="搜索正文说话人或角色卡" autocomplete="off">
+                </label>
+                <div class="phonie-character-directory" data-role="character-directory"></div>
                 <section class="phonie-character-card">
                     <span class="phonie-character-card__portrait" data-role="character-portrait"><b data-role="character-initials">P</b></span>
                     <small>当前声线对象</small>
@@ -101,7 +111,10 @@ export function auxiliaryScreensMarkup() {
                 <section class="phonie-route-editor">
                     <label><span>专属引擎</span><select data-role="character-provider-select"></select></label>
                     <label><span>备用引擎</span><select data-role="character-fallback-provider-select"></select></label>
-                    <label><span>Voice ID</span><input type="text" data-role="character-voice-id" placeholder="角色专属音色"></label>
+                    <label><span>专属模型</span><select data-role="character-model-select"></select></label>
+                    <label><span>账号音色</span><select data-role="character-voice-select"></select></label>
+                    <label><span>自定义 Voice ID</span><input type="text" data-role="character-voice-id" placeholder="目录没有时手动填写"></label>
+                    <label><span>台词语言</span><input type="text" data-role="character-text-language" placeholder="ja-JP"></label>
                     <label><span>参考音频</span><input type="text" data-role="character-reference-audio" placeholder="本地路径或音频 URL"></label>
                     <button type="button" data-action="save-character-route">保存角色声线路由</button>
                 </section>

@@ -113,35 +113,105 @@
 
 .phonie-dynamic-island {
     position: relative;
-    display: block;
+    display: flex;
     width: 82px;
     height: 24px;
+    padding: 0 9px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    overflow: hidden;
     border-radius: 999px;
     background: #050708;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045), 0 4px 12px rgba(0, 0, 0, 0.2);
+    color: #f2f3f4;
+    transition: width 260ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.phonie-dynamic-island i,
-.phonie-dynamic-island b {
-    position: absolute;
-    top: 50%;
+.phonie-dynamic-island__label {
+    max-width: 0;
+    overflow: hidden;
+    font-size: 8px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    opacity: 0;
+    white-space: nowrap;
+    transition: max-width 240ms cubic-bezier(0.23, 1, 0.32, 1), opacity 140ms ease;
+}
+
+.phonie-dynamic-island__wave {
+    display: flex;
+    width: 0;
+    height: 12px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    gap: 2px;
+    opacity: 0;
+    transition: width 220ms cubic-bezier(0.23, 1, 0.32, 1), opacity 140ms ease;
+}
+
+.phonie-dynamic-island__wave i {
+    width: 2px;
+    height: 4px;
     border-radius: 50%;
-    background: #101a1f;
-    transform: translateY(-50%);
+    background: currentColor;
 }
 
-.phonie-dynamic-island i {
-    right: 10px;
+.phonie-dynamic-island__sensor {
+    flex: 0 0 auto;
     width: 7px;
     height: 7px;
+    margin-left: auto;
     box-shadow: inset 0 0 0 2px #0d2631;
+    border-radius: 999px;
+    background: #101a1f;
 }
 
-.phonie-dynamic-island b {
-    left: 14px;
-    width: 24px;
-    height: 3px;
-    border-radius: 999px;
+.phonie-dynamic-island[data-state="generating"],
+.phonie-dynamic-island[data-state="playing"],
+.phonie-dynamic-island[data-state="call"] {
+    width: 126px;
+    justify-content: flex-start;
+}
+
+.phonie-dynamic-island[data-state="generating"] .phonie-dynamic-island__label,
+.phonie-dynamic-island[data-state="playing"] .phonie-dynamic-island__label,
+.phonie-dynamic-island[data-state="call"] .phonie-dynamic-island__label {
+    max-width: 52px;
+    opacity: 1;
+}
+
+.phonie-dynamic-island[data-state="generating"] .phonie-dynamic-island__wave,
+.phonie-dynamic-island[data-state="playing"] .phonie-dynamic-island__wave,
+.phonie-dynamic-island[data-state="call"] .phonie-dynamic-island__wave {
+    width: 22px;
+    opacity: 1;
+}
+
+.phonie-dynamic-island[data-state="generating"] {
+    color: var(--phonie-signal);
+}
+
+.phonie-dynamic-island[data-state="playing"] {
+    color: #d8b7ff;
+}
+
+.phonie-dynamic-island[data-state="call"] {
+    color: #f0a4ad;
+}
+
+.phonie-dynamic-island[data-state]:not([data-state="idle"]) .phonie-dynamic-island__wave i {
+    animation: phonie-island-wave 720ms ease-in-out infinite alternate;
+}
+
+.phonie-dynamic-island__wave i:nth-child(2) { animation-delay: -180ms !important; }
+.phonie-dynamic-island__wave i:nth-child(3) { animation-delay: -360ms !important; }
+.phonie-dynamic-island__wave i:nth-child(4) { animation-delay: -90ms !important; }
+
+@keyframes phonie-island-wave {
+    from { height: 3px; opacity: 0.5; }
+    to { height: 11px; opacity: 1; }
 }
 
 .phonie-status__signals {
@@ -709,17 +779,6 @@ button.phonie-record-card__play {
     font-weight: 700;
 }
 
-#phonie-root[data-audio-state="speaking"] .phonie-dynamic-island,
-#phonie-root[data-audio-state="generating"] .phonie-dynamic-island {
-    width: 104px;
-}
-
-#phonie-root[data-audio-state="speaking"] .phonie-dynamic-island b,
-#phonie-root[data-audio-state="generating"] .phonie-dynamic-island b {
-    background: var(--phonie-signal);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--phonie-signal) 65%, transparent);
-}
-
 .phonie-voice-seam {
     top: 100px;
     bottom: 102px;
@@ -976,5 +1035,15 @@ button.phonie-record-card__play {
 @media (prefers-reduced-motion: reduce) {
     .phonie-rain-curtain {
         display: none;
+    }
+
+    .phonie-dynamic-island,
+    .phonie-dynamic-island__label,
+    .phonie-dynamic-island__wave {
+        transition: none;
+    }
+
+    .phonie-dynamic-island__wave i {
+        animation: none !important;
     }
 }

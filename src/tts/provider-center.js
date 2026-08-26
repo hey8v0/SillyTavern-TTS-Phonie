@@ -1,4 +1,5 @@
 import { MINIMAX_EMOTIONS, TTS_PROVIDERS, getProviderDefinition, normalizeProviderSettings } from './provider-catalog.js';
+import { resolveCharacterRoute } from '../dialogue/character-directory.js';
 
 const MINIMAX_MODELS = Object.freeze([
     { id: 'speech-2.8-hd', name: 'Speech 2.8 HD' },
@@ -212,20 +213,29 @@ export class PhonieProviderCenter {
         return providers[providerId];
     }
 
-    setCharacterRoute(characterName, route) {
-        const name = String(characterName || '').trim();
+    setCharacterRoute(character, route) {
+        const identity = typeof character === 'string' ? { name: character } : (character || {});
+        const name = String(identity.name || '').trim();
         if (!name) throw new Error('角色名称不能为空');
         const settings = this.#bridge.getSettings();
         const routes = settings.ttsCharacterRoutes && typeof settings.ttsCharacterRoutes === 'object' ? { ...settings.ttsCharacterRoutes } : {};
-        routes[name] = { ...routes[name], ...route, updatedAt: Date.now() };
+        const key = String(identity.id || name).trim();
+        routes[key] = {
+            ...resolveCharacterRoute(routes, identity),
+            ...route,
+            characterId: key,
+            characterName: name,
+            updatedAt: Date.now(),
+        };
         this.#bridge.updateSettings({ ttsCharacterRoutes: routes });
         this.#emit();
-        return routes[name];
+        return routes[key];
     }
 
-    resolveRoute(characterName) {
+    resolveRoute(character) {
         const settings = this.#bridge.getSettings();
-        const route = settings.ttsCharacterRoutes?.[String(characterName || '').trim()] || {};
+        const identity = typeof character === 'string' ? { name: character } : (character || {});
+        const route = resolveCharacterRoute(settings.ttsCharacterRoutes, identity);
         return {
             ...route,
             providerId: route.providerId || settings.ttsActiveProvider,
@@ -240,7 +250,7 @@ export class PhonieProviderCenter {
         return [
             route.providerId,
             route.voiceId || config.voice || config.speaker || config.speakerAudio || '',
-            config.model || '',
+            route.modelId || config.model || '',
             route.referenceAudio || config.referenceAudio || config.refAudioPath || '',
         ].join('|');
     }
@@ -419,7 +429,7 @@ export class PhonieProviderCenter {
             if (!settings.voice) throw new Error('请先同步并选择 ElevenLabs 音色');
             const body = {
                 text: request.text,
-                model_id: request.model || settings.model,
+                model_id: request.model || request.route.modelId || settings.model,
                 voice_settings: {
                     stability: clamp(settings.stability, 0, 1, 0.5),
                     similarity_boost: clamp(settings.similarityBoost, 0, 1, 0.75),
@@ -446,7 +456,7 @@ export class PhonieProviderCenter {
             if (settings.credentialMode === 'direct') {
                 if (!settings.directApiKey) throw new Error('请先填写 MiniMax 直连 API Key');
                 const makeBody = () => ({
-                    model: request.model || settings.model, text: request.text, stream: false,
+                    model: request.model || request.route.modelId || settings.model, text: request.text, stream: false,
                     voice_setting: voiceSetting,
                     audio_setting: { sample_rate: 32000, bitrate: 128000, format: settings.format, channel: 1 },
                     language_boost: 'auto', output_format: 'hex',
@@ -473,7 +483,7 @@ export class PhonieProviderCenter {
                 method: 'POST', headers, signal: request.signal,
                 body: JSON.stringify({
                     text: request.text, voiceId: voiceSetting.voice_id, apiHost: settings.apiHost,
-                    model: request.model || settings.model, speed: Number(settings.speed),
+                    model: request.model || request.route.modelId || settings.model, speed: Number(settings.speed),
                     volume: Number(settings.volume), pitch: Number(settings.pitch),
                     format: settings.format, emotion,
                 }),
@@ -523,7 +533,7 @@ export class PhonieProviderCenter {
             response = await fetch(joinUrl(settings.endpoint, settings.generatePath), {
                 method: 'POST', signal: request.signal, headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: request.model || settings.model, input: request.text,
+                    model: request.model || request.route.modelId || settings.model, input: request.text,
                     voice: request.voice || request.route.voiceId || settings.speaker,
                     response_format: settings.outputFormat,
                     ...(request.referenceAudio || request.route.referenceAudio || settings.referenceAudio

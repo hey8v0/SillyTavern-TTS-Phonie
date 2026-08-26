@@ -34,6 +34,13 @@ test('closed phone root collapses its hit area instead of covering SillyTavern',
     const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
 
     assert.match(view, /root\.dataset\.open\s*=\s*'false'/);
+    assert.match(view, /document\.body\.append\(root, orb\)/);
+    assert.match(view, /this\.\#root\.hidden\s*=\s*!state\.open/);
+    assert.match(view, /this\.\#root\.style\.display\s*=\s*state\.open\s*\?\s*'block'\s*:\s*'none'/);
+    assert.match(view, /this\.\#root\.inert\s*=\s*!state\.open/);
+    assert.match(view, /if\s*\(drag\.moved\)\s*\{/);
+    assert.doesNotMatch(view, /drag\.moved\s*&&\s*event\.type\s*===\s*'pointerup'/);
+    assert.match(phoneCss, /#phonie-root\[hidden\]\s*\{[^}]*display:\s*none !important;/s);
     assert.match(phoneCss, /#phonie-root\[data-open="false"\]\s*\{[^}]*width:\s*0;[^}]*height:\s*0;/s);
     assert.match(phoneCss, /#phonie-root\[data-open="true"\]\s*\{[^}]*inset:\s*0;[^}]*width:\s*auto;[^}]*height:\s*auto;/s);
     assert.match(phoneCss, /#phonie-root\[data-open="false"\] \.phonie-phone,\s*#phonie-root\[data-open="false"\] \.phonie-scrim\s*\{[^}]*pointer-events:\s*none !important;/s);

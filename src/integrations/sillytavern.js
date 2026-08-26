@@ -14,7 +14,8 @@ import { extension_settings, getContext } from '/scripts/extensions.js';
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
 import { DEFAULT_PHONE_PROMPT_PRESET, normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
-import { compileBodyPromptEntries, DEFAULT_BODY_PROMPT_PRESET } from '../dialogue/body-speech.js';
+import { compileBodyPromptEntries, DEFAULT_BODY_PROMPT_PRESET, parseBodySpeechSegments } from '../dialogue/body-speech.js';
+import { buildCharacterDirectory } from '../dialogue/character-directory.js';
 import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
 import { createPhoneMetadata } from '../phone/chat-records.js';
 import { fetchCustomOpenAIModels, saveCustomOpenAIKey } from './openai-compatible.js';
@@ -100,7 +101,30 @@ export class SillyTavernBridge {
         const avatarUrl = character?.avatar
             ? `/characters/${encodeURIComponent(character.avatar)}`
             : '';
-        return { name, avatarUrl };
+        const id = character?.avatar
+            ? 'card:' + encodeURIComponent(character.avatar)
+            : 'speaker:' + encodeURIComponent(name.toLocaleLowerCase('zh-CN'));
+        return { id, name, avatarUrl };
+    }
+
+    getCharacterDirectory(settings = this.getSettings()) {
+        const messages = this.getMessages().map((message, messageId) => {
+            if (message?.extra?.phonie?.bodySpeech?.length) return message;
+            if (!message?.mes || message?.is_user || message?.is_system) return message;
+            const bodySpeech = parseBodySpeechSegments(message.mes, {
+                messageId,
+                preferredLanguage: settings.sourceLanguage,
+            });
+            return bodySpeech.length
+                ? { ...message, extra: { ...(message.extra || {}), phonie: { ...(message.extra?.phonie || {}), bodySpeech } } }
+                : message;
+        });
+        return buildCharacterDirectory({
+            currentContact: this.getContact(),
+            characters: this.context?.characters || [],
+            routes: settings.ttsCharacterRoutes,
+            messages,
+        });
     }
 
     getUserName() {

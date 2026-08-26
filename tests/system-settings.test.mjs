@@ -27,7 +27,14 @@ test('voice app exposes the independent Phonie provider center', async () => {
     const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
     assert.match(home, /data-role="tts-provider-list"/);
     assert.match(home, /data-role="tts-provider-editor"/);
+    assert.match(home, /data-screen="\$\{SCREENS\.PROVIDER\}"/);
+    assert.match(home, /data-role="character-directory"/);
     assert.match(view, /data-action="set-tts-provider"/);
+    assert.match(view, /data-action="open-tts-provider"/);
+    assert.match(view, /data-provider-tone/);
+    assert.match(view, /data-role="dynamic-island-label"/);
+    assert.match(view, /生成中/);
+    assert.match(view, /通话中/);
     assert.match(view, /data-action="check-tts-provider"/);
     assert.match(view, /data-action="cycle-theme"/);
 });
