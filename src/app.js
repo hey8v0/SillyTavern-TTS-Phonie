@@ -32,6 +32,7 @@ export async function createPhonieApp() {
     }
     document.getElementById('phonie-root')?.remove();
     document.getElementById('phonie-settings-launcher')?.remove();
+    document.getElementById('phonie-wand-menu-item')?.remove();
 
     const bridge = new SillyTavernBridge();
     const settings = bridge.getSettings();
@@ -54,6 +55,7 @@ export async function createPhonieApp() {
         providerLabel: bridge.getProviderLabel(),
         generationProfiles: bridge.getGenerationProfiles(),
         generationTarget: bridge.getGenerationTarget(settings),
+        customModelStatus: '',
         generating: false,
         callState: CALL_STATES.IDLE,
         callStartedAt: null,
@@ -304,6 +306,43 @@ export async function createPhonieApp() {
             if (key === 'autoDecorateMessages' && value) inlinePlayers.decorateAll();
             if (key === 'injectContinuity') persistPhoneState();
         },
+        async saveCustomKey(value) {
+            try {
+                await bridge.saveCustomOpenAIKey(value);
+                showToast('API 密钥已保存到酒馆安全密钥槽');
+                updateState({ customModelStatus: '密钥已安全保存，可以拉取模型' });
+                return true;
+            } catch (error) {
+                console.error('[Phonie] Could not save custom OpenAI key.', error);
+                showToast(error?.message || 'API 密钥保存失败');
+                return false;
+            }
+        },
+        async refreshCustomModels(endpoint) {
+            const value = String(endpoint || store.getState().settings.customOpenAIEndpoint || '').trim();
+            updateState({ customModelStatus: '正在连接接口并拉取模型…' });
+            try {
+                const models = await bridge.refreshCustomOpenAIModels(value);
+                if (!models.length) throw new Error('接口连接成功，但没有返回可用模型');
+                const current = store.getState().settings.customOpenAIModel;
+                const nextSettings = bridge.updateSettings({
+                    generationMode: 'custom',
+                    customOpenAIEndpoint: value,
+                    customOpenAIModels: models,
+                    customOpenAIModel: models.includes(current) ? current : models[0],
+                });
+                updateState({
+                    settings: { ...nextSettings },
+                    generationTarget: bridge.getGenerationTarget(nextSettings),
+                    customModelStatus: `连接成功，共 ${models.length} 个模型`,
+                });
+                showToast(`已拉取 ${models.length} 个模型`);
+            } catch (error) {
+                console.error('[Phonie] Could not refresh custom OpenAI models.', error);
+                updateState({ customModelStatus: error?.message || '连接失败，请检查地址和密钥' });
+                showToast(error?.message || '自定义模型连接失败');
+            }
+        },
         updatePromptPreset(promptPreset) {
             const nextSettings = bridge.updateSettings({ promptPreset });
             updateState({ settings: { ...nextSettings } });
@@ -417,6 +456,7 @@ export async function createPhonieApp() {
             providerLabel: bridge.getProviderLabel(),
             generationProfiles: bridge.getGenerationProfiles(),
             generationTarget: bridge.getGenerationTarget(nextSettings),
+            customModelStatus: '',
             generating: false,
             callCaption: { source: '', translation: '' },
             audioState: 'idle',

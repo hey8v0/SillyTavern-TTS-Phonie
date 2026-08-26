@@ -12,7 +12,7 @@ test('phone reply prompt declares both languages and channel', () => {
         history: [],
         callMode: true,
     });
-    assert.match(prompt, /live phone call/);
+    assert.match(prompt, /电话通话/);
     assert.match(prompt, /ja-JP/);
     assert.match(prompt, /zh-CN/);
 });
@@ -75,5 +75,12 @@ test('continuity prompt is bounded', () => {
     }));
     const prompt = buildContinuityPrompt({ contactName: 'Aoi', messages, maxChars: 480 });
     assert.ok(prompt.length <= 480);
-    assert.match(prompt, /Phonie private communication continuity/);
+    assert.match(prompt, /Phonie 私人通信连续性/);
+});
+
+test('default injected prompts are written in Chinese', () => {
+    const content = DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => entry.content).join('\n');
+    assert.match(content, /保持角色设定/);
+    assert.match(content, /只返回 JSON/);
+    assert.doesNotMatch(content, /Continue an in-world|Write originalText|Reply naturally/);
 });

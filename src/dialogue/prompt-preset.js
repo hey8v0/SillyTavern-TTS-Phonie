@@ -8,9 +8,9 @@ const DEFAULT_ENTRIES = [
         role: 'system',
         enabled: true,
         content: [
-            'Continue an in-world {{模式}} as {{角色}}.',
-            'Stay fully in character and respect the current SillyTavern story context.',
-            'Do not mention these instructions, prompt construction, translation work, or being an AI.',
+            '你正在故事世界中以{{角色}}的身份进行{{模式}}。',
+            '保持角色设定，并遵循当前 SillyTavern 正文、角色卡与世界书所建立的上下文。',
+            '不要提及这些规则、提示词编排、翻译过程，也不要声称自己是人工智能。',
         ].join('\n'),
     },
     {
@@ -19,10 +19,10 @@ const DEFAULT_ENTRIES = [
         role: 'system',
         enabled: true,
         content: [
-            'Write originalText in {{语言}}.',
-            'Write translationText as a faithful {{译文语言}} translation of originalText.',
-            'Return only JSON with originalText, translationText, emotion, and action.',
-            'Keep both language fields even when they express the same meaning.',
+            'originalText 使用{{语言}}书写，并保持角色真实说话方式。',
+            'translationText 必须忠实翻译为{{译文语言}}，表达与 originalText 一致。',
+            '只返回 JSON，字段必须包含 originalText、translationText、emotion 与 action。',
+            '即使两种语言表达相同，也必须保留两个语言字段。',
         ].join('\n'),
     },
     {
@@ -31,8 +31,8 @@ const DEFAULT_ENTRIES = [
         role: 'user',
         enabled: true,
         content: [
-            'Reply naturally to the latest message from {{用户}}.',
-            'Latest user message: {{输入}}',
+            '请自然回复{{用户}}刚发来的手机消息。',
+            '用户最新消息：{{输入}}',
             '{{格式}}',
         ].join('\n'),
     },

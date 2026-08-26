@@ -6,7 +6,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Phonie",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "homePage": "https://github.com/hey8v0/SillyTavern-TTS-Phonie",
     "auto_update": true,
     "hooks": {

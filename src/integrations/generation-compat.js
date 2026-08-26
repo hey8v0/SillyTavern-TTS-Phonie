@@ -34,8 +34,23 @@ export async function requestPhoneGeneration({
     generateQuietPrompt,
     loadScriptModule = () => import('/script.js'),
     loadSharedModule = () => import('/scripts/extensions/shared.js'),
+    requestCustomGeneration = async (options) => {
+        const module = await import('./openai-compatible.js');
+        return module.requestCustomOpenAIGeneration(options);
+    },
 }) {
-    if (settings.generationProfileId) {
+    if (settings.generationMode === 'custom') {
+        return requestCustomGeneration({
+            endpoint: settings.customOpenAIEndpoint,
+            model: settings.customOpenAIModel,
+            messages: prompt,
+            maxTokens: settings.customOpenAIMaxTokens,
+            temperature: settings.customOpenAITemperature,
+            jsonSchema,
+        });
+    }
+
+    if ((settings.generationMode === 'profile' || (!settings.generationMode && settings.generationProfileId)) && settings.generationProfileId) {
         const shared = await loadSharedModule();
         const service = shared?.ConnectionManagerRequestService;
         if (!service?.constructPrompt || !service?.sendRequest) {

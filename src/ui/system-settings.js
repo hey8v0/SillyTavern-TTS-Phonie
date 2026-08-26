@@ -11,7 +11,15 @@ export function systemSettingsScreensMarkup() {
                 </section>
                 <section class="phonie-control-card">
                     <label class="phonie-control-field">
-                        <span><strong>生成连接</strong><small>可选择酒馆连接配置；密钥仍由酒馆管理</small></span>
+                        <span><strong>模型来源</strong><small>跟随主模型、连接配置或自定义 OpenAI</small></span>
+                        <select data-setting="generationMode" data-role="generation-mode-select">
+                            <option value="tavern">跟随酒馆主模型</option>
+                            <option value="profile">连接管理器配置</option>
+                            <option value="custom">自定义 OpenAI</option>
+                        </select>
+                    </label>
+                    <label class="phonie-control-field" data-generation-source="profile">
+                        <span><strong>连接配置</strong><small>密钥继续由酒馆管理</small></span>
                         <select data-setting="generationProfileId" data-role="generation-profile-select"></select>
                     </label>
                     <label class="phonie-control-field">
@@ -19,8 +27,37 @@ export function systemSettingsScreensMarkup() {
                         <input type="number" min="80" max="1200" step="20" inputmode="numeric" data-setting="phoneResponseLength">
                     </label>
                 </section>
-                <div class="phonie-pane-heading"><span>可用连接</span><small>来自 SillyTavern Connection Manager</small></div>
-                <div class="phonie-profile-list" data-role="generation-profile-list"></div>
+                <section class="phonie-custom-openai" data-generation-source="custom">
+                    <div class="phonie-pane-heading"><span>OpenAI 兼容接口</span><small>密钥存入酒馆安全密钥槽</small></div>
+                    <div class="phonie-control-card">
+                        <label class="phonie-control-field phonie-control-field--stacked">
+                            <span><strong>接口地址</strong><small>例如 https://example.com/v1</small></span>
+                            <input type="url" inputmode="url" autocomplete="url" data-setting="customOpenAIEndpoint" placeholder="https://example.com/v1">
+                        </label>
+                        <label class="phonie-control-field phonie-control-field--stacked">
+                            <span><strong>API 密钥</strong><small>不会写入插件设置、聊天记录或备份</small></span>
+                            <input type="password" autocomplete="new-password" data-role="custom-openai-key" placeholder="输入后保存到酒馆">
+                        </label>
+                        <div class="phonie-custom-openai__actions">
+                            <button type="button" data-action="save-custom-key">保存密钥</button>
+                            <button type="button" data-action="refresh-custom-models">拉取并测试模型</button>
+                        </div>
+                        <label class="phonie-control-field phonie-control-field--stacked">
+                            <span><strong>模型</strong><small data-role="custom-openai-status">请先保存密钥并拉取模型</small></span>
+                            <select data-setting="customOpenAIModel" data-role="custom-model-select"></select>
+                        </label>
+                        <label class="phonie-control-field">
+                            <span><strong>温度</strong><small>0–2</small></span>
+                            <input type="number" min="0" max="2" step="0.1" inputmode="decimal" data-setting="customOpenAITemperature">
+                        </label>
+                        <label class="phonie-control-field">
+                            <span><strong>最大令牌</strong><small>80–65536</small></span>
+                            <input type="number" min="80" max="65536" step="128" inputmode="numeric" data-setting="customOpenAIMaxTokens">
+                        </label>
+                    </div>
+                </section>
+                <div class="phonie-pane-heading" data-generation-source="profile"><span>可用连接</span><small>来自 SillyTavern Connection Manager</small></div>
+                <div class="phonie-profile-list" data-role="generation-profile-list" data-generation-source="profile"></div>
                 <section class="phonie-route-note">
                     ${icon('signal')}
                     <p><strong>语音仍跟随酒馆 TTS</strong><span data-role="model-tts-provider">TTS 未配置</span></p>

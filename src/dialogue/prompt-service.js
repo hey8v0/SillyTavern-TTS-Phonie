@@ -33,12 +33,12 @@ export function buildPhoneReplyMessages({
             user: userName,
             sourceLanguage,
             targetLanguage,
-            mode: callMode ? 'live phone call（电话通话）' : 'private phone chat（手机私信）',
+            mode: callMode ? '电话通话' : '手机私信',
             history: JSON.stringify(compact),
             input: latestInput,
             format: callMode
-                ? 'Use one natural spoken turn concise enough to say aloud.'
-                : 'Reply like a private message; avoid stage directions unless needed to understand the voice.',
+                ? '只写一轮自然、适合直接朗读的简洁口语。'
+                : '像私人聊天消息一样回复；除非理解语音必须，否则不要写舞台指示。',
         },
     });
 }
@@ -109,18 +109,18 @@ export function buildContinuityPrompt({ contactName, messages = [], calls = [], 
     if (messages.length === 0 && calls.length === 0) return '';
 
     const recentMessages = messages.slice(-6).map((message) => {
-        const speaker = message.direction === 'outgoing' ? 'User' : contactName;
+        const speaker = message.direction === 'outgoing' ? '用户' : contactName;
         return `${speaker}: ${String(message.originalText || '').replace(/\s+/g, ' ').slice(0, 220)}`;
     });
     const recentCall = calls.at(-1)?.summary
-        ? `Most recent call: ${String(calls.at(-1).summary).slice(0, 360)}`
+        ? `最近一次通话：${String(calls.at(-1).summary).slice(0, 360)}`
         : '';
 
     return [
-        '[Phonie private communication continuity]',
-        `The user and ${contactName} have a private phone channel inside the story.`,
+        '[Phonie 私人通信连续性]',
+        `用户与${contactName}在故事世界中拥有一条私人手机频道。`,
         ...recentMessages,
         recentCall,
-        'Treat these phone events as established continuity. Do not reproduce this block verbatim.',
+        '将这些手机事件视为已经发生的连续剧情，不要逐字复述本段。',
     ].filter(Boolean).join('\n').slice(0, maxChars);
 }

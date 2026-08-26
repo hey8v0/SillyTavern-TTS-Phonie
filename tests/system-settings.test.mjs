@@ -9,7 +9,13 @@ test('system app markup exposes real model and prompt controls', () => {
     const markup = systemSettingsScreensMarkup();
     assert.match(markup, new RegExp(`data-screen="${SCREENS.MODEL}"`));
     assert.match(markup, new RegExp(`data-screen="${SCREENS.PROMPTS}"`));
+    assert.match(markup, /data-setting="generationMode"/);
     assert.match(markup, /data-setting="generationProfileId"/);
+    assert.match(markup, /data-setting="customOpenAIEndpoint"/);
+    assert.match(markup, /data-setting="customOpenAIModel"/);
+    assert.match(markup, /data-action="refresh-custom-models"/);
+    assert.match(markup, /data-action="save-custom-key"/);
+    assert.doesNotMatch(markup, /data-setting="customOpenAIKey"/);
     assert.match(markup, /data-prompt-preset-field="insertionDepth"/);
     assert.match(markup, /\{\{角色\}\}/);
 });

@@ -123,6 +123,7 @@ export class PhoneView {
     #actions;
     #root = null;
     #launcher = null;
+    #wandLauncher = null;
     #unsubscribe = null;
     #clockTimer = null;
     #toastTimer = null;
@@ -244,6 +245,7 @@ export class PhoneView {
         this.#root = root;
         this.#bindEvents();
         this.#mountSettingsLauncher();
+        this.#mountWandLauncher();
         this.#unsubscribe = this.#store.subscribe((state) => this.render(state));
         this.#clockTimer = window.setInterval(() => this.#renderClocks(), 1000);
         this.render(this.#store.getState());
@@ -259,6 +261,11 @@ export class PhoneView {
                             [THEMES.DAY, '日间'],
                             [THEMES.NIGHT, '夜间'],
                             [THEMES.TAVERN, '跟随酒馆'],
+                        ])}
+                        ${this.#selectRow('打开入口', '悬浮球、魔棒菜单或同时显示', 'launcherMode', [
+                            ['orb', '悬浮球'],
+                            ['wand', '酒馆魔棒菜单'],
+                            ['both', '两个入口都显示'],
                         ])}
                         ${this.#switchRow('显示中文译文', '原文始终保留为主文本', 'showTranslation')}
                     </div>
@@ -346,19 +353,57 @@ export class PhoneView {
             return;
         }
         if (document.getElementById('phonie-settings-launcher')) return;
-        const launcher = document.createElement('div');
+        const launcher = document.createElement('details');
         launcher.id = 'phonie-settings-launcher';
         launcher.className = 'phonie-settings-launcher';
         launcher.innerHTML = `
-            <p class="phonie-settings-launcher__title">Phonie Voice Phone</p>
-            <p class="phonie-settings-launcher__description">双语正文语音、私人消息与电话。</p>
-            <button class="menu_button" type="button">打开手机设置</button>`;
-        launcher.querySelector('button')?.addEventListener('click', () => {
+            <summary><span><strong>Phonie Voice Phone</strong><small>双语语音、私信与电话</small></span></summary>
+            <div class="phonie-settings-launcher__body">
+                <label><span>打开入口</span><select data-launcher-setting="launcherMode">
+                    <option value="orb">悬浮球</option>
+                    <option value="wand">酒馆魔棒菜单</option>
+                    <option value="both">两个入口都显示</option>
+                </select></label>
+                <button class="menu_button" type="button" data-launcher-action="open">打开手机设置</button>
+            </div>`;
+        launcher.querySelector('[data-launcher-action="open"]')?.addEventListener('click', () => {
             this.#actions.open?.();
             this.#actions.navigate?.(SCREENS.SETTINGS);
         });
+        launcher.querySelector('[data-launcher-setting="launcherMode"]')?.addEventListener('change', (event) => {
+            this.#actions.updateSetting?.('launcherMode', event.currentTarget.value);
+        });
         container.append(launcher);
         this.#launcher = launcher;
+    }
+
+    #mountWandLauncher() {
+        if (this.#wandLauncher?.isConnected) return;
+        const container = document.getElementById('tts_wand_container') || document.getElementById('extensionsMenu');
+        if (!container) {
+            window.setTimeout(() => {
+                if (this.#root?.isConnected && !this.#wandLauncher?.isConnected) this.#mountWandLauncher();
+            }, 700);
+            return;
+        }
+        document.getElementById('phonie-wand-menu-item')?.remove();
+        const item = document.createElement('div');
+        item.id = 'phonie-wand-menu-item';
+        item.className = 'list-group-item flex-container flexGap5 phonie-wand-menu-item';
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
+        item.setAttribute('aria-label', '打开 Phonie 手机');
+        item.innerHTML = `${icon('wave')}<span>Phonie 手机</span>`;
+        const open = () => this.#actions.open?.();
+        item.addEventListener('click', open);
+        item.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                open();
+            }
+        });
+        container.append(item);
+        this.#wandLauncher = item;
     }
 
     #bindEvents() {
@@ -390,7 +435,13 @@ export class PhoneView {
             } else if (action === 'play-phone-audio') {
                 this.#actions.playPhoneAudio?.(target.dataset.messageId);
             } else if (action === 'set-generation-profile') {
+                this.#actions.updateSetting?.('generationMode', 'profile');
                 this.#actions.updateSetting?.('generationProfileId', target.dataset.profileId || '');
+            } else if (action === 'save-custom-key') {
+                this.#saveCustomKey();
+            } else if (action === 'refresh-custom-models') {
+                const endpoint = this.#root.querySelector('[data-setting="customOpenAIEndpoint"]')?.value || '';
+                this.#actions.refreshCustomModels?.(endpoint);
             } else if (action === 'reset-prompt-preset') {
                 this.#actions.updatePromptPreset?.(normalizePhonePromptPreset(DEFAULT_PHONE_PROMPT_PRESET));
             } else if (action === 'add-prompt-entry') {
@@ -445,6 +496,13 @@ export class PhoneView {
 
         const orb = this.#root.querySelector('.phonie-orb');
         orb?.addEventListener('pointerdown', (event) => this.#startOrbDrag(event));
+    }
+
+    async #saveCustomKey() {
+        const input = this.#root.querySelector('[data-role="custom-openai-key"]');
+        if (!(input instanceof HTMLInputElement)) return;
+        const saved = await this.#actions.saveCustomKey?.(input.value);
+        if (saved) input.value = '';
     }
 
     #startOrbDrag(event) {
@@ -526,12 +584,17 @@ export class PhoneView {
         this.#root.dataset.dock = state.settings.dockSide;
         this.#root.dataset.screen = state.screen;
         this.#root.dataset.audioState = state.audioState || 'idle';
+        this.#root.dataset.launcher = state.settings.launcherMode || 'orb';
         this.#root.style.setProperty('--phonie-orb-y', `${clamp(state.settings.dockY, 0.07, 0.9) * 100}%`);
 
         const phone = this.#root.querySelector('.phonie-phone');
         phone?.setAttribute('aria-hidden', String(!state.open));
         const orb = this.#root.querySelector('.phonie-orb');
         orb?.setAttribute('aria-expanded', String(Boolean(state.open)));
+        const wandVisible = ['wand', 'both'].includes(state.settings.launcherMode);
+        if (this.#wandLauncher) this.#wandLauncher.hidden = !wandVisible;
+        const launcherSelect = this.#launcher?.querySelector('[data-launcher-setting="launcherMode"]');
+        if (launcherSelect instanceof HTMLSelectElement) launcherSelect.value = state.settings.launcherMode || 'orb';
         this.#setText('[data-role="provider"]', state.providerLabel);
         this.#setText('[data-role="provider-chip"]', state.providerLabel);
         const screenCopy = SCREEN_COPY[state.screen] || SCREEN_COPY[SCREENS.HOME];
@@ -674,6 +737,12 @@ export class PhoneView {
         this.#setText('[data-role="generation-target"]', target.name);
         this.#setText('[data-role="generation-model"]', `${target.model || '当前模型'} · ${target.api || 'current'}`);
         this.#setText('[data-role="model-tts-provider"]', state.providerLabel);
+        this.#setText('[data-role="custom-openai-status"]', state.customModelStatus || '密钥由酒馆安全保存，不会进入插件备份');
+
+        const mode = state.settings.generationMode || 'tavern';
+        for (const section of this.#root.querySelectorAll('[data-generation-source]')) {
+            section.hidden = section.dataset.generationSource !== mode;
+        }
 
         const select = this.#root.querySelector('[data-role="generation-profile-select"]');
         const profiles = Array.isArray(state.generationProfiles) ? state.generationProfiles : [];
@@ -687,15 +756,26 @@ export class PhoneView {
 
         const list = this.#root.querySelector('[data-role="generation-profile-list"]');
         if (!list) return;
-        const choices = [{ id: '', name: '跟随酒馆', model: '自动使用当前模型', api: 'current' }, ...profiles];
+        const choices = profiles;
         list.innerHTML = choices.map((profile) => {
-            const current = (state.settings.generationProfileId || '') === profile.id;
+            const current = mode === 'profile' && (state.settings.generationProfileId || '') === profile.id;
             return `<button class="phonie-profile-card${current ? ' is-current' : ''}" type="button" data-action="set-generation-profile" data-profile-id="${escapeHtml(profile.id)}" aria-pressed="${current}">
                 <span class="phonie-profile-card__mark">${icon('signal')}</span>
                 <span><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(profile.model || '当前模型')} · ${escapeHtml(profile.api || 'current')}</small></span>
                 <b>${current ? '当前' : '选择'}</b>
             </button>`;
         }).join('');
+
+        const customSelect = this.#root.querySelector('[data-role="custom-model-select"]');
+        if (customSelect instanceof HTMLSelectElement) {
+            const models = Array.isArray(state.settings.customOpenAIModels) ? state.settings.customOpenAIModels : [];
+            const current = state.settings.customOpenAIModel || '';
+            const choices = current && !models.includes(current) ? [current, ...models] : models;
+            customSelect.innerHTML = choices.length
+                ? choices.map((model) => `<option value="${escapeHtml(model)}">${escapeHtml(model)}</option>`).join('')
+                : '<option value="">请先拉取模型</option>';
+            customSelect.value = current;
+        }
     }
 
     #renderPromptPreset(state) {
@@ -767,6 +847,7 @@ export class PhoneView {
         window.clearTimeout(this.#toastTimer);
         this.#unsubscribe?.();
         this.#launcher?.remove();
+        this.#wandLauncher?.remove();
         this.#root?.remove();
         this.#root = null;
     }

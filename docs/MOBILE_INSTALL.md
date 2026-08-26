@@ -45,3 +45,9 @@ If Git remains unavailable:
 5. Restart the SillyTavern server and reload the page.
 
 Do not place API keys or GitHub tokens inside the extension folder.
+
+## Phone opens as a few horizontal lines
+
+Phonie 0.4.0 includes a legacy Android WebView fallback that establishes the handset with `100vh` before progressively using `svh` or `dvh`. It also uses explicit top, right, bottom, and left offsets so an older CSS parser cannot discard the whole mobile layout rule.
+
+After updating, restart the SillyTavern server and fully reload the page. If an installed browser wrapper keeps an old stylesheet, clear that site's cache once and reload again.

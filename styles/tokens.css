@@ -17,40 +17,40 @@
 
 #phonie-root[data-theme="day"] {
     color-scheme: light;
-    --phonie-canvas: #d7cbb9;
-    --phonie-surface: #f4eee4;
-    --phonie-surface-raised: #fffaf1;
-    --phonie-surface-muted: #e9dfd1;
-    --phonie-ink: #28231f;
-    --phonie-ink-muted: #70665c;
-    --phonie-border: rgba(70, 58, 47, 0.16);
-    --phonie-accent: #b84d3a;
+    --phonie-canvas: #c9baa7;
+    --phonie-surface: #f3ece2;
+    --phonie-surface-raised: #fffaf3;
+    --phonie-surface-muted: #e6d9cd;
+    --phonie-ink: #282127;
+    --phonie-ink-muted: #75656e;
+    --phonie-border: rgba(76, 55, 68, 0.17);
+    --phonie-accent: #b85848;
     --phonie-accent-ink: #fff8f2;
-    --phonie-signal: #287a70;
-    --phonie-danger: #9f3e36;
-    --phonie-shadow: rgba(55, 43, 33, 0.32);
+    --phonie-signal: #6b588b;
+    --phonie-danger: #a34342;
+    --phonie-shadow: rgba(57, 42, 50, 0.32);
     --phonie-glint: rgba(255, 255, 255, 0.72);
-    --phonie-user-bubble: #2f6f68;
-    --phonie-user-ink: #f8fffc;
+    --phonie-user-bubble: #684d70;
+    --phonie-user-ink: #fff9ff;
 }
 
 #phonie-root[data-theme="night"] {
     color-scheme: dark;
-    --phonie-canvas: #080d10;
-    --phonie-surface: #121a1e;
-    --phonie-surface-raised: #1a2428;
-    --phonie-surface-muted: #202c30;
-    --phonie-ink: #eee8dc;
-    --phonie-ink-muted: #a9aaa3;
-    --phonie-border: rgba(221, 231, 227, 0.14);
-    --phonie-accent: #d46a52;
+    --phonie-canvas: #080916;
+    --phonie-surface: #111426;
+    --phonie-surface-raised: #1a1e34;
+    --phonie-surface-muted: #242941;
+    --phonie-ink: #f1e9df;
+    --phonie-ink-muted: #aaa3b5;
+    --phonie-border: rgba(225, 216, 239, 0.15);
+    --phonie-accent: #d36d5b;
     --phonie-accent-ink: #fff8f2;
-    --phonie-signal: #70bdb0;
+    --phonie-signal: #b39ad8;
     --phonie-danger: #e0786d;
     --phonie-shadow: rgba(0, 0, 0, 0.62);
     --phonie-glint: rgba(255, 255, 255, 0.12);
-    --phonie-user-bubble: #2e6f68;
-    --phonie-user-ink: #f3fffb;
+    --phonie-user-bubble: #493760;
+    --phonie-user-ink: #fff9ff;
 }
 
 #phonie-root[data-theme="tavern"] {
@@ -64,10 +64,10 @@
     --phonie-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     --phonie-accent: var(--SmartThemeEmColor, #d36850);
     --phonie-accent-ink: #fffaf4;
-    --phonie-signal: var(--SmartThemeQuoteColor, #75b9ae);
+    --phonie-signal: var(--SmartThemeQuoteColor, #b7a0d5);
     --phonie-danger: #d56d63;
     --phonie-shadow: var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.52));
     --phonie-glint: rgba(255, 255, 255, 0.15);
-    --phonie-user-bubble: var(--SmartThemeQuoteColor, #356f68);
+    --phonie-user-bubble: var(--SmartThemeQuoteColor, #58446d);
     --phonie-user-ink: var(--SmartThemeBlurTintColor, #ffffff);
 }

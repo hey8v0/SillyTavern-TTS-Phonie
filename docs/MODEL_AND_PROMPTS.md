@@ -4,10 +4,12 @@
 
 The **模型** app controls text generation for Phonie private chat and turn-based calls.
 
-- **跟随酒馆** uses SillyTavern's current generation API and model.
-- Other choices come from SillyTavern Connection Manager profiles.
-- Phonie stores only the selected profile ID. API URLs, credentials, presets, and instruct settings remain managed by SillyTavern.
+- **跟随酒馆主模型** uses SillyTavern's current generation API and model.
+- **连接管理器配置** lists profiles from SillyTavern Connection Manager. Phonie stores only the selected profile ID; credentials, presets, and instruct settings remain managed by SillyTavern.
+- **自定义 OpenAI** accepts an OpenAI-compatible base URL, saves the API key into SillyTavern's protected `Custom OpenAI` secret slot, tests the connection through SillyTavern's backend proxy, and fetches the endpoint's model list.
+- The custom API key is never placed in `extension_settings.phonie`, chat metadata, exported prompt presets, or the extension directory. Saving a key replaces the value currently held in SillyTavern's shared `Custom OpenAI` secret slot.
 - **回复上限** accepts 80–1200 tokens for the current phone reply.
+- Custom OpenAI requests also expose temperature and a separate 80–65536 maximum-token limit.
 - Voice synthesis remains routed through SillyTavern TTS and is independent of the reply model.
 
 ## Phone prompt preset

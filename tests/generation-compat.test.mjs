@@ -63,6 +63,28 @@ test('Connection Manager is loaded only when a profile is selected', async () =>
     assert.equal(call[0], 'profile-a');
 });
 
+test('custom mode routes through the OpenAI-compatible proxy adapter', async () => {
+    let received;
+    const result = await requestPhoneGeneration({
+        settings: {
+            ...settings,
+            generationMode: 'custom',
+            customOpenAIEndpoint: 'https://voice.example/v1',
+            customOpenAIModel: 'voice-model',
+            customOpenAIMaxTokens: 2048,
+            customOpenAITemperature: 0.6,
+        },
+        prompt,
+        jsonSchema: { type: 'object' },
+        generateQuietPrompt: async () => 'wrong route',
+        requestCustomGeneration: async (options) => { received = options; return 'custom route'; },
+    });
+    assert.equal(result, 'custom route');
+    assert.equal(received.endpoint, 'https://voice.example/v1');
+    assert.equal(received.model, 'voice-model');
+    assert.deepEqual(received.messages, prompt);
+});
+
 test('profile discovery reads settings data without importing optional modules', () => {
     const context = { extensionSettings: { connectionManager: { profiles: [{ id: 'a', name: 'A', api: 'openai', model: 'm' }] } } };
     assert.deepEqual(listConnectionProfiles(context), [{ id: 'a', name: 'A', api: 'openai', model: 'm' }]);

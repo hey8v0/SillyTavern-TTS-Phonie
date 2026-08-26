@@ -145,7 +145,7 @@
 #phonie-root[data-open="true"][data-screen="home"] .phonie-app-tile:nth-child(8) { animation-delay: 206ms; }
 
 #phonie-root[data-open="true"][data-screen="home"] .phonie-service-card {
-    animation: phonie-home-rise 320ms var(--phonie-ease-drawer) 190ms both;
+    animation: phonie-home-rise 280ms var(--phonie-ease-drawer) 190ms both;
 }
 
 @keyframes phonie-home-rise {

@@ -15,16 +15,35 @@ import { executeSlashCommandsWithOptions } from '/scripts/slash-commands.js';
 
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
-import { normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
+import { DEFAULT_PHONE_PROMPT_PRESET, normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
 import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
 import { createPhoneMetadata } from '../phone/chat-records.js';
+import { fetchCustomOpenAIModels, saveCustomOpenAIKey } from './openai-compatible.js';
 
 const PROMPT_KEY = 'phonie_private_channel';
 
 function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
     merged.phoneResponseLength = Math.min(1200, Math.max(80, Math.round(Number(merged.phoneResponseLength) || 420)));
+    merged.launcherMode = ['orb', 'wand', 'both'].includes(merged.launcherMode) ? merged.launcherMode : 'orb';
+    merged.generationMode = !value.generationMode && value.generationProfileId
+        ? 'profile'
+        : ['tavern', 'profile', 'custom'].includes(merged.generationMode) ? merged.generationMode : 'tavern';
+    merged.customOpenAIEndpoint = String(merged.customOpenAIEndpoint || '').trim().slice(0, 1000);
+    merged.customOpenAIModel = String(merged.customOpenAIModel || '').trim().slice(0, 300);
+    merged.customOpenAIModels = Array.isArray(merged.customOpenAIModels)
+        ? [...new Set(merged.customOpenAIModels.map((model) => String(model || '').trim()).filter(Boolean))].slice(0, 500)
+        : [];
+    merged.customOpenAITemperature = Math.min(2, Math.max(0, Number(merged.customOpenAITemperature) || 0.8));
+    merged.customOpenAIMaxTokens = Math.min(65536, Math.max(80, Math.round(Number(merged.customOpenAIMaxTokens) || 8192)));
     merged.promptPreset = normalizePhonePromptPreset(value.promptPreset);
+    if (Number(value.schemaVersion || 0) < 3) {
+        const defaults = new Map(DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => [entry.id, entry.content]));
+        merged.promptPreset.entries = merged.promptPreset.entries.map((entry) => {
+            const isLegacyDefault = /Continue an in-world|Write originalText|Reply naturally/.test(entry.content);
+            return isLegacyDefault && defaults.has(entry.id) ? { ...entry, content: defaults.get(entry.id) } : entry;
+        });
+    }
     return merged;
 }
 
@@ -114,8 +133,25 @@ export class SillyTavernBridge {
     }
 
     getGenerationTarget(settings = this.getSettings()) {
+        if (settings.generationMode === 'custom') {
+            return {
+                id: 'custom',
+                name: '自定义 OpenAI',
+                api: settings.customOpenAIEndpoint || '等待填写接口',
+                model: settings.customOpenAIModel || '等待选择模型',
+            };
+        }
+        if (settings.generationMode !== 'profile') return getCurrentGenerationTarget(this.context);
         const selected = this.getGenerationProfiles().find((profile) => profile.id === settings.generationProfileId);
         return selected || getCurrentGenerationTarget(this.context);
+    }
+
+    async saveCustomOpenAIKey(value) {
+        return saveCustomOpenAIKey(value);
+    }
+
+    async refreshCustomOpenAIModels(endpoint) {
+        return fetchCustomOpenAIModels(endpoint);
     }
     async generatePhoneReply({ history, callMode = false }) {
         const settings = this.getSettings();
