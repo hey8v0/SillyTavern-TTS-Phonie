@@ -19,9 +19,22 @@ test('phone exposes a compact settings launcher and a wand-menu entry', async ()
     const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
     assert.match(view, /tts_wand_container/);
     assert.match(view, /phonie-wand-menu-item/);
-    assert.match(view, /createElement\('details'\)/);
+    assert.match(view, /inline-drawer-toggle inline-drawer-header/);
+    assert.match(view, /inline-drawer-content/);
+    assert.match(view, /extensionsMenuExtensionButton fa-solid fa-mobile-screen-button/);
+    assert.doesNotMatch(view, /createElement\('details'\)/);
     assert.match(view, /data-launcher-setting="launcherMode"/);
     assert.match(view, /window\.addEventListener\('pointermove'/);
     assert.match(view, /getOrbDockTarget/);
     assert.match(view, /duration:\s*220/);
+});
+
+test('closed phone root collapses its hit area instead of covering SillyTavern', async () => {
+    const phoneCss = await readFile(new URL('../styles/phone.css', import.meta.url), 'utf8');
+    const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
+
+    assert.match(view, /root\.dataset\.open\s*=\s*'false'/);
+    assert.match(phoneCss, /#phonie-root\[data-open="false"\]\s*\{[^}]*width:\s*0;[^}]*height:\s*0;/s);
+    assert.match(phoneCss, /#phonie-root\[data-open="true"\]\s*\{[^}]*inset:\s*0;[^}]*width:\s*auto;[^}]*height:\s*auto;/s);
+    assert.match(phoneCss, /#phonie-root\[data-open="false"\] \.phonie-phone,\s*#phonie-root\[data-open="false"\] \.phonie-scrim\s*\{[^}]*pointer-events:\s*none !important;/s);
 });

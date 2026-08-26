@@ -165,6 +165,7 @@ export class PhoneView {
         const root = document.createElement('div');
         root.id = 'phonie-root';
         root.className = 'phonie-root';
+        root.dataset.open = 'false';
         root.innerHTML = `
             <div class="phonie-scrim" data-action="close" aria-hidden="true"></div>
             <button class="phonie-orb" type="button" data-action="open" aria-label="打开 Phonie" aria-controls="phonie-phone">
@@ -388,18 +389,28 @@ export class PhoneView {
             return;
         }
         if (document.getElementById('phonie-settings-launcher')) return;
-        const launcher = document.createElement('details');
+        const launcher = document.createElement('div');
         launcher.id = 'phonie-settings-launcher';
-        launcher.className = 'phonie-settings-launcher';
+        launcher.className = 'extension_container phonie-settings-launcher';
         launcher.innerHTML = `
-            <summary><span><strong>Phonie Voice Phone</strong><small>双语语音、私信与电话</small></span></summary>
-            <div class="phonie-settings-launcher__body">
-                <label><span>打开入口</span><select data-launcher-setting="launcherMode">
-                    <option value="orb">悬浮球</option>
-                    <option value="wand">酒馆魔棒菜单</option>
-                    <option value="both">两个入口都显示</option>
-                </select></label>
-                <button class="menu_button" type="button" data-launcher-action="open">打开手机设置</button>
+            <div class="inline-drawer">
+                <div class="inline-drawer-toggle inline-drawer-header">
+                    <b>Phonie Voice Phone</b>
+                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                </div>
+                <div class="inline-drawer-content">
+                    <small>双语语音、私信与电话</small>
+                    <label for="phonie-launcher-mode">打开入口</label>
+                    <select id="phonie-launcher-mode" class="text_pole" data-launcher-setting="launcherMode">
+                        <option value="orb">悬浮球</option>
+                        <option value="wand">酒馆魔棒菜单</option>
+                        <option value="both">两个入口都显示</option>
+                    </select>
+                    <button class="menu_button menu_button_icon" type="button" data-launcher-action="open">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                        <span>打开手机设置</span>
+                    </button>
+                </div>
             </div>`;
         launcher.querySelector('[data-launcher-action="open"]')?.addEventListener('click', () => {
             this.#actions.open?.();
@@ -424,11 +435,11 @@ export class PhoneView {
         document.getElementById('phonie-wand-menu-item')?.remove();
         const item = document.createElement('div');
         item.id = 'phonie-wand-menu-item';
-        item.className = 'list-group-item flex-container flexGap5 phonie-wand-menu-item';
+        item.className = 'list-group-item flex-container flexGap5';
         item.tabIndex = 0;
         item.setAttribute('role', 'button');
         item.setAttribute('aria-label', '打开 Phonie 手机');
-        item.innerHTML = `${icon('wave')}<span>Phonie 手机</span>`;
+        item.innerHTML = '<div class="extensionsMenuExtensionButton fa-solid fa-mobile-screen-button"></div><span>Phonie 手机</span>';
         const open = () => this.#actions.open?.();
         item.addEventListener('click', open);
         item.addEventListener('keydown', (event) => {
