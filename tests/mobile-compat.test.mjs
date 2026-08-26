@@ -9,8 +9,9 @@ test('mobile handset keeps a legacy viewport fallback before modern viewport uni
     assert.match(combined, /height:\s*100vh/);
     assert.match(combined, /@supports\s*\(height:\s*100svh\)/);
     assert.match(combined, /@supports\s*\(height:\s*100dvh\)/);
-    assert.match(homeCss, /top:\s*max\(8px,\s*env\(safe-area-inset-top\)\)/);
-    assert.match(homeCss, /right:\s*max\(8px,\s*env\(safe-area-inset-right\)\)/);
+    assert.match(homeCss, /top:\s*max\(4px,\s*env\(safe-area-inset-top\)\)/);
+    assert.match(homeCss, /right:\s*max\(4px,\s*env\(safe-area-inset-right\)\)/);
+    assert.match(homeCss, /height:\s*calc\(100vh\s*-\s*8px\)/);
     assert.doesNotMatch(homeCss, /height:\s*auto;\s*\n\s*min-height:\s*0/);
 });
 

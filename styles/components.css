@@ -282,7 +282,7 @@
     min-height: 0;
     padding: 22px 18px 12px;
     flex: 1;
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
     gap: 16px;
     overflow: hidden;
     background:
@@ -317,6 +317,21 @@
     border-radius: 50%;
     background: var(--phonie-signal);
     content: '';
+}
+
+.phonie-contact-mark[data-ringing="true"]::before {
+    position: absolute;
+    inset: -9px;
+    border: 1px solid color-mix(in srgb, var(--phonie-signal) 62%, transparent);
+    border-radius: 38px;
+    content: '';
+    animation: phonie-call-ring 1.35s var(--phonie-ease-out) infinite;
+    pointer-events: none;
+}
+
+@keyframes phonie-call-ring {
+    from { opacity: 0.68; transform: scale(0.9); }
+    to { opacity: 0; transform: scale(1.18); }
 }
 
 .phonie-call-identity {
@@ -378,9 +393,13 @@
 
 .phonie-call-idle-action {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
 }
 
 .phonie-call-idle-action[hidden],
+.phonie-call-incoming-actions[hidden],
+.phonie-call-feature-controls[hidden],
 .phonie-call-end[hidden],
 .phonie-call-controls[hidden] {
     display: none;
@@ -390,6 +409,77 @@
     width: 100%;
     min-height: 46px;
     background: var(--phonie-signal);
+    gap: 6px;
+}
+
+.phonie-call-idle-action .phonie-button--secondary {
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
+}
+
+.phonie-call-idle-action .phonie-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.phonie-call-incoming-actions {
+    display: flex;
+    justify-content: center;
+    gap: 54px;
+}
+
+.phonie-call-incoming-actions button,
+.phonie-call-feature-controls button {
+    display: grid;
+    min-width: 62px;
+    min-height: 62px;
+    padding: 8px;
+    border: 0;
+    border-radius: 22px;
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
+    font: inherit;
+    font-size: 9px;
+    gap: 3px;
+    place-items: center;
+}
+
+.phonie-call-incoming-actions button:first-child {
+    background: var(--phonie-danger);
+    color: #fff;
+}
+
+.phonie-call-incoming-actions button:last-child {
+    background: #3f966d;
+    color: #fff;
+}
+
+.phonie-call-incoming-actions .phonie-icon {
+    width: 25px;
+    height: 25px;
+}
+
+.phonie-call-feature-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.phonie-call-feature-controls button {
+    min-width: 0;
+    min-height: 50px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 16px;
+}
+
+.phonie-call-feature-controls button[aria-pressed="true"] {
+    background: var(--phonie-signal);
+    color: var(--phonie-accent-ink);
+}
+
+.phonie-call-feature-controls .phonie-icon {
+    width: 19px;
+    height: 19px;
 }
 
 .phonie-call-end {

@@ -6,10 +6,6 @@ import {
 import { makeAudioCacheKey } from '../storage/audio-cache.js';
 import { icon } from './dom.js';
 
-function normalizeText(value) {
-    return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
 function publicSegment(segment) {
     return {
         id: segment.id,
@@ -27,15 +23,16 @@ export class InlinePlayerManager {
     #settings;
     #cache;
     #audioFocus;
+    #providerCenter;
     #entries = new Map();
-    #pendingEntryKey = null;
     #unsubscribeAudio = null;
 
-    constructor({ bridge, settings, cache, audioFocus }) {
+    constructor({ bridge, settings, cache, audioFocus, providerCenter }) {
         this.#bridge = bridge;
         this.#settings = settings;
         this.#cache = cache;
         this.#audioFocus = audioFocus;
+        this.#providerCenter = providerCenter;
         this.#unsubscribeAudio = audioFocus.subscribe((detail) => this.#handleFocus(detail));
     }
 
@@ -97,12 +94,13 @@ export class InlinePlayerManager {
         for (let index = 0; index < segments.length; index += 1) {
             const segment = segments[index];
             const entryKey = `${id}:${index}`;
-            const spokenText = formatSpeechForProvider(segment, this.#bridge.getProviderLabel());
+            const providerLabel = this.#providerCenter.getLabelForSpeaker(segment.speaker || this.#bridge.getContact().name);
+            const spokenText = formatSpeechForProvider(segment, providerLabel);
             const cacheKey = makeAudioCacheKey({
                 chatId: this.#bridge.getChatId(),
                 messageId: `${id}-${index}`,
                 text: `${segment.emotion}:${spokenText}`,
-                provider: this.#bridge.getProviderLabel(),
+                provider: this.#providerCenter.getCacheSignature(segment.speaker || this.#bridge.getContact().name),
             });
             const entry = {
                 key: entryKey,
@@ -214,7 +212,6 @@ export class InlinePlayerManager {
     async #play(entry) {
         const audioKey = `inline:${entry.key}`;
         if (this.#audioFocus.hasSource(audioKey)) {
-            this.#bridge.stopSpeech();
             await this.#audioFocus.play(audioKey, {
                 owner: 'inline',
                 messageId: entry.messageId,
@@ -223,34 +220,26 @@ export class InlinePlayerManager {
             });
             return;
         }
-        this.#pendingEntryKey = entry.key;
         entry.element.innerHTML = icon('pause');
         try {
-            await this.#bridge.speakText(entry.spokenText, entry.segment.speaker || this.#bridge.getContact().name);
+            const result = await this.#providerCenter.synthesize({
+                text: entry.spokenText,
+                speaker: entry.segment.speaker || this.#bridge.getContact().name,
+                emotion: entry.segment.emotion,
+                language: entry.segment.language || this.#settings.sourceLanguage,
+            });
+            this.#audioFocus.setSource(audioKey, result.blob);
+            await this.#cache.put(entry.cacheKey, result.blob);
+            await this.#audioFocus.play(audioKey, {
+                owner: 'inline',
+                messageId: entry.messageId,
+                segmentIndex: entry.index,
+                entryKey: entry.key,
+            });
         } catch (error) {
-            if (this.#pendingEntryKey === entry.key) this.#pendingEntryKey = null;
             entry.element.innerHTML = icon('play');
             throw error;
         }
-    }
-
-    async handleAudioReady(event) {
-        const entry = this.#pendingEntryKey ? this.#entries.get(this.#pendingEntryKey) : null;
-        if (!entry) return null;
-        const eventText = normalizeText(event?.text);
-        const expected = normalizeText(entry.spokenText);
-        if (eventText && expected && eventText !== expected && !eventText.includes(expected) && !expected.includes(eventText)) return null;
-        const source = event?.audio;
-        if (!(source instanceof Blob || typeof source === 'string')) return null;
-        this.#audioFocus.setSource(`inline:${entry.key}`, source);
-        if (source instanceof Blob) await this.#cache.put(entry.cacheKey, source);
-        this.#pendingEntryKey = null;
-        return { key: entry.key, messageId: entry.messageId, segmentIndex: entry.index };
-    }
-
-    setCorePlayingByKey(entryKey, playing) {
-        const entry = this.#entries.get(String(entryKey || ''));
-        if (entry?.element) entry.element.innerHTML = icon(playing ? 'pause' : 'play');
     }
 
     #handleFocus(detail) {
@@ -267,7 +256,6 @@ export class InlinePlayerManager {
             if (entry.messageId !== Number(messageId)) continue;
             if (restore && entry.element?.isConnected) entry.element.replaceWith(document.createTextNode(entry.segment.rawTag));
             this.#entries.delete(key);
-            if (this.#pendingEntryKey === key) this.#pendingEntryKey = null;
         }
     }
 
@@ -279,7 +267,6 @@ export class InlinePlayerManager {
         const messageIds = new Set([...this.#entries.values()].map((entry) => entry.messageId));
         for (const messageId of messageIds) this.#dropMessageEntries(messageId, { restore: true });
         document.querySelectorAll('.phonie-inline-actions').forEach((element) => element.remove());
-        this.#pendingEntryKey = null;
     }
 
     dispose() {

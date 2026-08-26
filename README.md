@@ -13,12 +13,14 @@ Use `https://github.com/hey8v0/SillyTavern-TTS-Phonie.git` in **Extensions → I
 - Character wallpaper with a soft lower fade and day, night, and SillyTavern-following contrast veils.
 - Low-density resonance curtain that pauses outside the home screen, during audio work, and when reduced motion is requested.
 - Chinese body-TTS workflow injected before every normal generation, with editable ordered roles, provider-aware emotion controls, visible translation, and a tiny per-line play button.
-- Live SillyTavern TTS provider list and switching inside the Voice app.
+- Phonie-owned provider center for IndexTTS2, GPT-SoVITS, VoxCPM2, 豆包 TTS, Edge TTS, ElevenLabs, and MiniMax, with connection checks, model/voice resources, per-character routes, fallback, cancellation, retry, and cache.
 - Private text and synthesized voice messages.
 - Turn-based calls with bilingual captions and TTS playback.
 - Phone reply generation through the current SillyTavern model, a saved Connection Manager profile, or an OpenAI-compatible endpoint with model discovery; secrets remain managed by SillyTavern.
 - Separate editable body-TTS and phone prompt workflows with ordered entries, `system`/`user`/`assistant` roles, enable switches, insertion depth, variables, and automatic persistence.
 - Per-chat phone history, global settings, and IndexedDB audio caching.
+
+Phonie does not call SillyTavern's front-end TTS player. Inline dialogue, private voice messages, and calls all use Phonie's own provider routing and audio focus. MiniMax's secure-vault mode includes a companion in server-plugins/tts-minimax-resources; its README explains the one-time server-side placement.
 
 Model routing and prompt variables are documented in [Model and prompt settings](docs/MODEL_AND_PROMPTS.md).
 

@@ -22,11 +22,13 @@ test('system app markup exposes real model and prompt controls', () => {
     assert.match(markup, /\{\{角色\}\}/);
 });
 
-test('voice app exposes the live SillyTavern provider list target', async () => {
+test('voice app exposes the independent Phonie provider center', async () => {
     const home = await readFile(new URL('../src/ui/phone-home.js', import.meta.url), 'utf8');
     const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
     assert.match(home, /data-role="tts-provider-list"/);
+    assert.match(home, /data-role="tts-provider-editor"/);
     assert.match(view, /data-action="set-tts-provider"/);
+    assert.match(view, /data-action="check-tts-provider"/);
     assert.match(view, /data-action="cycle-theme"/);
 });
 
@@ -43,7 +45,8 @@ test('mobile handset CSS preserves a physical frame and fades character wallpape
     const css = await readFile(new URL('../styles/home.css', import.meta.url), 'utf8');
     assert.match(css, /pointer:\s*coarse[\s\S]*max-width:\s*1000px/);
     assert.match(css, /width:\s*auto/);
-    assert.match(css, /\.phonie-frame\s*\{[\s\S]*border:\s*6px/);
+    assert.match(css, /\.phonie-phone\s*\{[\s\S]*padding:\s*5px/);
+    assert.match(css, /\.phonie-frame\s*\{[\s\S]*border:\s*1px\s+solid/);
     assert.match(css, /mask-image:\s*linear-gradient/);
     assert.match(css, /prefers-reduced-motion[\s\S]*\.phonie-rain-curtain/);
 });

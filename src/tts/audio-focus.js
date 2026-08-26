@@ -61,6 +61,14 @@ export class AudioFocusController {
         this.#emit('stopped');
     }
 
+    setMuted(muted) {
+        this.#audio.muted = Boolean(muted);
+    }
+
+    setVolume(volume) {
+        this.#audio.volume = Math.min(1, Math.max(0, Number(volume) || 0));
+    }
+
     subscribe(listener) {
         this.#listeners.add(listener);
         return () => this.#listeners.delete(listener);

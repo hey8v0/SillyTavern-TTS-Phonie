@@ -15,11 +15,15 @@ const required = [
     'src/ui/system-settings.js',
     'src/ui/orb-gesture.js',
     'src/ui/inline-player.js',
+    'src/device/device-status.js',
+    'src/tts/provider-catalog.js',
+    'src/tts/provider-center.js',
     'styles/home.css',
     'styles/system.css',
     'src/dialogue/prompt-preset.js',
     'src/integrations/generation-compat.js',
     'assets/icons/sprite.svg',
+    'server-plugins/tts-minimax-resources/index.mjs',
 ];
 
 async function walk(directory) {
@@ -69,7 +73,10 @@ for (const file of files.filter((entry) => /\.(?:js|mjs)$/.test(entry))) {
 }
 
 const relativeImportPattern = /(?:from\s+|import\s*\()(['"])(\.[^'"]+)\1/g;
-for (const file of files.filter((entry) => /\.(?:js|mjs)$/.test(entry))) {
+for (const file of files.filter((entry) => (
+    /\.(?:js|mjs)$/.test(entry)
+    && !path.relative(root, entry).startsWith(`server-plugins${path.sep}`)
+))) {
     const text = await readFile(file, 'utf8');
     let match;
     while ((match = relativeImportPattern.exec(text)) !== null) {

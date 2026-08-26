@@ -60,7 +60,7 @@ export function systemSettingsScreensMarkup() {
                 <div class="phonie-profile-list" data-role="generation-profile-list" data-generation-source="profile"></div>
                 <section class="phonie-route-note">
                     ${icon('signal')}
-                    <p><strong>语音仍跟随酒馆 TTS</strong><span data-role="model-tts-provider">TTS 未配置</span></p>
+                    <p><strong>Phonie 独立语音路由</strong><span data-role="model-tts-provider">语音未配置</span></p>
                 </section>
             </div>
         </section>

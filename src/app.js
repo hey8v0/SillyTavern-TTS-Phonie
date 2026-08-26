@@ -1,16 +1,14 @@
 import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from './core/constants.js';
 import { createStore } from './core/store.js';
+import { createDeviceStatusSnapshot, DeviceStatusMonitor } from './device/device-status.js';
 import { SillyTavernBridge } from './integrations/sillytavern.js';
 import { CallMachine } from './phone/call-machine.js';
 import { createCallRecord, createPhoneMessage } from './phone/chat-records.js';
 import { AudioCache, makeAudioCacheKey } from './storage/audio-cache.js';
 import { AudioFocusController } from './tts/audio-focus.js';
+import { PhonieProviderCenter } from './tts/provider-center.js';
 import { InlinePlayerManager } from './ui/inline-player.js';
 import { PhoneView } from './ui/phone-view.js';
-
-function normalizeSpeechText(value) {
-    return String(value || '').replace(/\s+/g, ' ').trim();
-}
 
 function buildCallSummary(messages, contactName) {
     const lines = messages.slice(-6).map((message) => {
@@ -37,13 +35,14 @@ export async function createPhonieApp() {
     const bridge = new SillyTavernBridge();
     const settings = bridge.getSettings();
     const metadata = bridge.getPhoneMetadata();
+    const providerCenter = new PhonieProviderCenter({ bridge });
     const callMachine = new CallMachine();
     const audioCache = new AudioCache();
     const audioFocus = new AudioFocusController();
-    const pendingPhoneSpeech = [];
-    let coreAudioElement = null;
-    let coreAudioContext = null;
     let callConnectTimer = null;
+    const deviceMonitor = new DeviceStatusMonitor({
+        onChange: (deviceStatus) => updateState({ deviceStatus }),
+    });
 
     const store = createStore({
         open: false,
@@ -52,15 +51,18 @@ export async function createPhonieApp() {
         contact: bridge.getContact(),
         messages: metadata.messages,
         calls: metadata.calls,
-        providerLabel: bridge.getProviderLabel(),
-        ttsProviders: bridge.getTtsProviders(),
+        providerLabel: providerCenter.getActiveLabel(),
+        providerSnapshot: providerCenter.snapshot(),
+        deviceStatus: createDeviceStatusSnapshot(),
         generationProfiles: bridge.getGenerationProfiles(),
         generationTarget: bridge.getGenerationTarget(settings),
         customModelStatus: '',
         generating: false,
         callState: CALL_STATES.IDLE,
+        callDirection: null,
         callStartedAt: null,
         callCaption: { source: '', translation: '' },
+        callControls: { muted: false, speaker: false, captions: true },
         audioState: 'idle',
         unread: 0,
         toast: null,
@@ -85,7 +87,7 @@ export async function createPhonieApp() {
             chatId: bridge.getChatId(),
             messageId: message.id,
             text: message.originalText,
-            provider: bridge.getProviderLabel(),
+            provider: providerCenter.getCacheSignature(voiceName),
         });
         message.audioCacheKey = key;
 
@@ -94,7 +96,7 @@ export async function createPhonieApp() {
         if (source) {
             audioFocus.setSource(`phone:${message.id}`, source);
             if (autoplay) {
-                bridge.stopSpeech();
+                providerCenter.cancel();
                 try {
                     await audioFocus.play(`phone:${message.id}`, { owner: 'phone', messageId: message.id });
                 } catch (error) {
@@ -104,20 +106,18 @@ export async function createPhonieApp() {
             return true;
         }
 
-        const pending = {
-            messageId: message.id,
-            text: normalizeSpeechText(message.originalText),
-            cacheKey: key,
-        };
-        pendingPhoneSpeech.push(pending);
-        try {
-            await bridge.speakText(message.originalText, voiceName);
-        } catch (error) {
-            const index = pendingPhoneSpeech.indexOf(pending);
-            if (index >= 0) pendingPhoneSpeech.splice(index, 1);
-            throw error;
+        const result = await providerCenter.synthesize({
+            text: message.originalText,
+            speaker: voiceName,
+            emotion: message.emotion,
+            language: message.language || store.getState().settings.sourceLanguage,
+        });
+        audioFocus.setSource(`phone:${message.id}`, result.blob);
+        await audioCache.put(key, result.blob);
+        if (autoplay) {
+            await audioFocus.play(`phone:${message.id}`, { owner: 'phone', messageId: message.id });
         }
-        return false;
+        return true;
     }
 
     async function sendMessage(text, kind, callMode) {
@@ -132,7 +132,7 @@ export async function createPhonieApp() {
         }
         const originChatId = bridge.getChatId();
         if (callMode && state.callState === CALL_STATES.SPEAKING) {
-            bridge.stopSpeech();
+            providerCenter.cancel();
             audioFocus.stop();
         }
 
@@ -219,6 +219,39 @@ export async function createPhonieApp() {
         }
     }
 
+    async function generateIncomingCallOpening() {
+        if (callMachine.state !== CALL_STATES.CONNECTED) return;
+        updateState({ generating: true, audioState: 'generating' });
+        callMachine.transition(CALL_STATES.GENERATING);
+        try {
+            const reply = await bridge.generatePhoneReply({ history: store.getState().messages, callMode: true });
+            const incoming = createPhoneMessage({
+                direction: 'incoming',
+                author: store.getState().contact.name,
+                originalText: reply.originalText,
+                translationText: reply.translationText,
+                kind: MESSAGE_KINDS.VOICE,
+                emotion: reply.emotion,
+            });
+            const messages = [...store.getState().messages, incoming];
+            updateState({
+                messages,
+                generating: false,
+                callCaption: { source: incoming.originalText, translation: incoming.translationText },
+            });
+            persistPhoneState(messages, store.getState().calls);
+            callMachine.transition(CALL_STATES.SPEAKING);
+            await preparePhoneAudio(incoming, store.getState().contact.name, { autoplay: true });
+        } catch (error) {
+            console.error('[Phonie] Incoming call opener failed.', error);
+            updateState({ generating: false, audioState: 'idle' });
+            if ([CALL_STATES.GENERATING, CALL_STATES.SPEAKING].includes(callMachine.state)) {
+                callMachine.transition(CALL_STATES.CONNECTED);
+            }
+            showToast('来电已接通，但角色暂时没有说话');
+        }
+    }
+
     function startCall() {
         const state = store.getState();
         if ([CALL_STATES.DIALING, CALL_STATES.RINGING, CALL_STATES.CONNECTED, CALL_STATES.GENERATING, CALL_STATES.SPEAKING].includes(callMachine.state)) {
@@ -230,18 +263,61 @@ export async function createPhonieApp() {
         updateState({
             open: true,
             screen: SCREENS.CALL,
+            callDirection: 'outgoing',
             callCaption: { source: '', translation: '' },
+            callControls: { muted: false, speaker: false, captions: true },
         });
         callConnectTimer = window.setTimeout(() => {
             if (callMachine.state === CALL_STATES.DIALING) {
-                callMachine.transition(CALL_STATES.CONNECTED);
+                callMachine.transition(CALL_STATES.RINGING);
+                callConnectTimer = window.setTimeout(() => {
+                    if (callMachine.state === CALL_STATES.RINGING && store.getState().callDirection === 'outgoing') {
+                        callMachine.transition(CALL_STATES.CONNECTED);
+                    }
+                }, 900);
             }
-        }, 520);
+        }, 420);
     }
 
-    function endCall() {
+    function startIncomingCall() {
+        if (![CALL_STATES.IDLE, CALL_STATES.ENDED].includes(callMachine.state)) return;
         window.clearTimeout(callConnectTimer);
-        bridge.stopSpeech();
+        callMachine.transition(CALL_STATES.RINGING, { contact: store.getState().contact.name, direction: 'incoming' });
+        updateState({
+            open: true,
+            screen: SCREENS.CALL,
+            callDirection: 'incoming',
+            callCaption: { source: '', translation: '' },
+            callControls: { muted: false, speaker: false, captions: true },
+        });
+        globalThis.navigator?.vibrate?.([160, 90, 160, 360, 160, 90, 160]);
+    }
+
+    function acceptCall() {
+        if (callMachine.state !== CALL_STATES.RINGING || store.getState().callDirection !== 'incoming') return;
+        globalThis.navigator?.vibrate?.(0);
+        callMachine.transition(CALL_STATES.CONNECTED);
+        window.setTimeout(() => generateIncomingCallOpening(), 360);
+    }
+
+    function declineCall() {
+        if (callMachine.state !== CALL_STATES.RINGING) return;
+        globalThis.navigator?.vibrate?.(0);
+        endCall('declined');
+    }
+
+    function toggleCallControl(control) {
+        if (!['muted', 'speaker', 'captions'].includes(control)) return;
+        const current = store.getState().callControls;
+        const next = { ...current, [control]: !current[control] };
+        if (control === 'muted') audioFocus.setMuted(next.muted);
+        if (control === 'speaker') audioFocus.setVolume(next.speaker ? 1 : 0.72);
+        updateState({ callControls: next });
+    }
+
+    function endCall(outcome = 'completed') {
+        window.clearTimeout(callConnectTimer);
+        providerCenter.cancel();
         audioFocus.stop();
         const state = store.getState();
         const startedAt = callMachine.startedAt;
@@ -249,15 +325,18 @@ export async function createPhonieApp() {
         if (callMachine.canTransition(CALL_STATES.ENDED)) {
             callMachine.transition(CALL_STATES.ENDED);
         }
-        if (startedAt) {
+        if (state.callDirection) {
+            const endedAt = Date.now();
             const record = createCallRecord({
                 contactName: state.contact.name,
-                startedAt,
-                endedAt: Date.now(),
-                summary: buildCallSummary(state.messages, state.contact.name),
+                startedAt: startedAt || endedAt,
+                endedAt,
+                direction: state.callDirection,
+                outcome,
+                summary: outcome === 'declined' ? '已拒绝来电' : buildCallSummary(state.messages, state.contact.name),
             });
             const calls = [...state.calls, record];
-            updateState({ calls, generating: false, audioState: 'idle' });
+            updateState({ calls, generating: false, audioState: 'idle', callDirection: null });
             persistPhoneState(state.messages, calls);
         }
     }
@@ -280,8 +359,8 @@ export async function createPhonieApp() {
                 open: true,
                 unread: 0,
                 settings: { ...currentSettings },
-                providerLabel: bridge.getProviderLabel(),
-                ttsProviders: bridge.getTtsProviders(),
+                providerLabel: providerCenter.getActiveLabel(),
+                providerSnapshot: providerCenter.snapshot(),
                 generationProfiles: bridge.getGenerationProfiles(),
                 generationTarget: bridge.getGenerationTarget(currentSettings),
             });
@@ -295,6 +374,10 @@ export async function createPhonieApp() {
         },
         sendMessage,
         startCall,
+        startIncomingCall,
+        acceptCall,
+        declineCall,
+        toggleCallControl,
         endCall,
         playPhoneAudio,
         cycleTheme() {
@@ -308,23 +391,71 @@ export async function createPhonieApp() {
         },
         async setTtsProvider(providerId) {
             try {
-                const providers = await bridge.setTtsProvider(providerId);
+                const nextSettings = providerCenter.setActive(providerId);
                 updateState({
-                    providerLabel: bridge.getProviderLabel(),
-                    ttsProviders: providers,
+                    settings: { ...nextSettings },
+                    providerLabel: providerCenter.getActiveLabel(),
+                    providerSnapshot: providerCenter.snapshot(),
                 });
                 inlinePlayers.reset();
                 window.setTimeout(() => inlinePlayers.decorateAll(), 0);
-                showToast(`当前语音提供商：${bridge.getProviderLabel()}`);
+                showToast(`当前语音提供商：${providerCenter.getActiveLabel()}`);
             } catch (error) {
                 console.error('[Phonie] Could not switch TTS provider.', error);
                 showToast(error?.message || '语音提供商切换失败');
             }
         },
+        updateTtsProvider(providerId, key, value) {
+            providerCenter.updateProvider(providerId, { [key]: value });
+            const nextSettings = bridge.getSettings();
+            updateState({
+                settings: { ...nextSettings },
+                providerLabel: providerCenter.getActiveLabel(),
+                providerSnapshot: providerCenter.snapshot(),
+            });
+        },
+        async saveTtsSecret(providerId, key, value) {
+            try {
+                await providerCenter.saveSecret(providerId, key, value);
+                updateState({ providerSnapshot: providerCenter.snapshot() });
+                showToast('密钥已保存到酒馆安全密钥槽');
+                return true;
+            } catch (error) {
+                showToast(error?.message || '密钥保存失败');
+                return false;
+            }
+        },
+        async checkTtsProvider(providerId) {
+            try {
+                await providerCenter.checkProvider(providerId);
+                updateState({ providerSnapshot: providerCenter.snapshot() });
+                showToast('语音服务连接可用');
+            } catch (error) {
+                showToast(error?.message || '语音服务连接失败');
+            }
+        },
+        async syncTtsResources(providerId) {
+            try {
+                await providerCenter.syncResources(providerId);
+                updateState({ providerSnapshot: providerCenter.snapshot() });
+                showToast('模型与音色已同步');
+            } catch (error) {
+                showToast(error?.message || '模型与音色同步失败');
+            }
+        },
+        updateCharacterRoute(route) {
+            providerCenter.setCharacterRoute(store.getState().contact.name, route);
+            updateState({
+                settings: { ...bridge.getSettings() },
+                providerSnapshot: providerCenter.snapshot(),
+            });
+            showToast('角色专属声线已保存');
+        },
         updateSetting(key, value) {
             const nextSettings = bridge.updateSettings({ [key]: value });
             updateState({
                 settings: { ...nextSettings },
+                ...(key === 'ttsFallbackProvider' ? { providerSnapshot: providerCenter.snapshot() } : {}),
                 generationProfiles: bridge.getGenerationProfiles(),
                 generationTarget: bridge.getGenerationTarget(nextSettings),
             });
@@ -399,6 +530,15 @@ export async function createPhonieApp() {
         settings,
         cache: audioCache,
         audioFocus,
+        providerCenter,
+    });
+
+    providerCenter.subscribe((providerSnapshot) => {
+        updateState({
+            providerSnapshot,
+            providerLabel: providerCenter.getActiveLabel(),
+            settings: { ...bridge.getSettings() },
+        });
     });
 
     callMachine.subscribe(({ state, startedAt }) => {
@@ -428,35 +568,6 @@ export async function createPhonieApp() {
         }
     });
 
-    function bindCoreAudio() {
-        const element = document.getElementById('tts_audio');
-        if (!(element instanceof HTMLAudioElement) || element === coreAudioElement) return;
-        coreAudioElement = element;
-        element.addEventListener('play', () => {
-            updateState({ audioState: 'speaking' });
-            if (coreAudioContext?.inlineKey) inlinePlayers.setCorePlayingByKey(coreAudioContext.inlineKey, true);
-        });
-        const onStopped = () => {
-            updateState({ audioState: 'idle' });
-            if (coreAudioContext?.inlineKey) inlinePlayers.setCorePlayingByKey(coreAudioContext.inlineKey, false);
-            if (coreAudioContext?.phoneMessageId) {
-                const messages = store.getState().messages.map((message) => ({
-                    ...message,
-                    isPlaying: false,
-                }));
-                updateState({ messages });
-            }
-            coreAudioContext = null;
-            if (callMachine.state === CALL_STATES.SPEAKING) {
-                callMachine.transition(CALL_STATES.CONNECTED);
-            }
-        };
-        element.addEventListener('ended', onStopped);
-        element.addEventListener('pause', () => {
-            if (!element.ended && element.currentTime > 0) onStopped();
-        });
-    }
-
     bridge.on(bridge.events.CHARACTER_MESSAGE_RENDERED, (messageId) => {
         window.setTimeout(() => inlinePlayers.decorateMessage(messageId), 0);
     });
@@ -471,7 +582,7 @@ export async function createPhonieApp() {
     });
     bridge.on(bridge.events.CHAT_CHANGED, () => {
         window.clearTimeout(callConnectTimer);
-        pendingPhoneSpeech.splice(0);
+        providerCenter.cancel();
         audioFocus.stop();
         if (![CALL_STATES.IDLE, CALL_STATES.ENDED].includes(callMachine.state) && callMachine.canTransition(CALL_STATES.ENDED)) {
             callMachine.transition(CALL_STATES.ENDED);
@@ -486,13 +597,15 @@ export async function createPhonieApp() {
             messages: nextMetadata.messages,
             calls: nextMetadata.calls,
             settings: { ...nextSettings },
-            providerLabel: bridge.getProviderLabel(),
-            ttsProviders: bridge.getTtsProviders(),
+            providerLabel: providerCenter.getActiveLabel(),
+            providerSnapshot: providerCenter.snapshot(),
             generationProfiles: bridge.getGenerationProfiles(),
             generationTarget: bridge.getGenerationTarget(nextSettings),
             customModelStatus: '',
             generating: false,
+            callDirection: null,
             callCaption: { source: '', translation: '' },
+            callControls: { muted: false, speaker: false, captions: true },
             audioState: 'idle',
             unread: 0,
         });
@@ -503,45 +616,15 @@ export async function createPhonieApp() {
     for (const eventName of [bridge.events.CHAT_LOADED, bridge.events.SETTINGS_LOADED_AFTER, bridge.events.APP_READY].filter(Boolean)) {
         bridge.on(eventName, () => bridge.updateBodyPromptInjection());
     }
-    bridge.on(bridge.events.TTS_JOB_STARTED, (event) => {
-        coreAudioContext = { messageId: event?.messageId ?? null, phoneMessageId: null };
-        updateState({ audioState: 'generating' });
-    });
-    bridge.on(bridge.events.TTS_AUDIO_READY, async (event) => {
-        updateState({ audioState: 'speaking' });
-        const inlineContext = await inlinePlayers.handleAudioReady(event);
-        if (inlineContext) {
-            coreAudioContext = { inlineKey: inlineContext.key, messageId: inlineContext.messageId, phoneMessageId: null };
-        } else if (event?.messageId == null) {
-            const text = normalizeSpeechText(event?.text);
-            const pendingIndex = pendingPhoneSpeech.findIndex((pending) => pending.text === text || pending.text.includes(text) || text.includes(pending.text));
-            const pending = pendingIndex >= 0 ? pendingPhoneSpeech.splice(pendingIndex, 1)[0] : pendingPhoneSpeech.shift();
-            if (pending && (event.audio instanceof Blob || typeof event.audio === 'string')) {
-                audioFocus.setSource(`phone:${pending.messageId}`, event.audio);
-                if (event.audio instanceof Blob) await audioCache.put(pending.cacheKey, event.audio);
-                coreAudioContext = { messageId: null, phoneMessageId: pending.messageId };
-                const messages = store.getState().messages.map((message) => ({
-                    ...message,
-                    isPlaying: message.id === pending.messageId,
-                }));
-                updateState({ messages });
-                persistPhoneState(messages, store.getState().calls);
-            }
-        }
-        window.setTimeout(bindCoreAudio, 0);
-    });
-
     if (bridge.events.GENERATION_AFTER_COMMANDS) {
         bridge.on(bridge.events.GENERATION_AFTER_COMMANDS, (type) => bridge.updateBodyPromptInjection(type));
     }
 
     view.mount();
+    deviceMonitor.start();
     bridge.updateContinuityPrompt(metadata);
     bridge.updateBodyPromptInjection();
-    window.setTimeout(() => {
-        bindCoreAudio();
-        inlinePlayers.decorateAll();
-    }, 0);
+    window.setTimeout(() => inlinePlayers.decorateAll(), 0);
 
     const app = {
         version: APP_VERSION,
@@ -549,9 +632,12 @@ export async function createPhonieApp() {
         bridge,
         view,
         inlinePlayers,
+        providerCenter,
         dispose() {
             window.clearTimeout(callConnectTimer);
             bridge.dispose();
+            providerCenter.dispose();
+            deviceMonitor.dispose();
             inlinePlayers.dispose();
             audioFocus.dispose();
             view.dispose();

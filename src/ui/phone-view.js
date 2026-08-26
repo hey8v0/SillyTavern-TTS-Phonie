@@ -66,11 +66,11 @@ function messageTime(timestamp) {
     return formatClock(timestamp);
 }
 
-function callStatusLabel(state, elapsed = '') {
+function callStatusLabel(state, elapsed = '', direction = '') {
     const labels = {
         [CALL_STATES.IDLE]: '等待拨号',
         [CALL_STATES.DIALING]: '正在拨号',
-        [CALL_STATES.RINGING]: '等待接听',
+        [CALL_STATES.RINGING]: direction === 'incoming' ? '角色来电' : '等待接听',
         [CALL_STATES.CONNECTED]: elapsed ? `通话中  ${elapsed}` : '通话中',
         [CALL_STATES.GENERATING]: '正在组织语言',
         [CALL_STATES.SPEAKING]: '对方正在说话',
@@ -119,6 +119,27 @@ function renderMessage(message, showTranslation) {
         </article>`;
 }
 
+function providerFieldMarkup(field, provider) {
+    const value = provider.settings?.[field.key];
+    if (field.when && provider.settings?.[field.when[0]] !== field.when[1]) return '';
+    const label = `<span><strong>${escapeHtml(field.label)}</strong>${field.help ? `<small>${escapeHtml(field.help)}</small>` : ''}</span>`;
+    if (field.type === 'secret') {
+        return `<label class="phonie-provider-field phonie-provider-field--secret">${label}<span><input type="password" autocomplete="new-password" data-role="tts-secret-input" data-provider-id="${escapeHtml(provider.id)}" data-secret-key="${escapeHtml(field.key)}" placeholder="保存后不回显"><button type="button" data-action="save-tts-secret" data-provider-id="${escapeHtml(provider.id)}" data-secret-key="${escapeHtml(field.key)}">保存</button></span></label>`;
+    }
+    if (field.type === 'switch') {
+        return `<label class="phonie-provider-field">${label}<span class="phonie-switch"><input type="checkbox" data-provider-field="${escapeHtml(field.key)}"${value ? ' checked' : ''}><span class="phonie-switch__track" aria-hidden="true"></span></span></label>`;
+    }
+    const resources = field.type === 'resource' ? (provider.catalog?.[field.resource] || []) : [];
+    const options = field.type === 'select' ? (field.options || []) : resources.map((item) => [item.id, item.name || item.id]);
+    if (field.type === 'select' || field.type === 'resource') {
+        const choices = value && !options.some(([id]) => String(id) === String(value)) ? [[value, value], ...options] : options;
+        return `<label class="phonie-provider-field">${label}<select data-provider-field="${escapeHtml(field.key)}">${choices.length ? choices.map(([id, name]) => `<option value="${escapeHtml(id)}"${String(id) === String(value) ? ' selected' : ''}>${escapeHtml(name)}</option>`).join('') : '<option value="">请先同步资源</option>'}</select></label>`;
+    }
+    const inputType = field.type === 'range' ? 'range' : field.type === 'password' ? 'password' : field.type === 'url' ? 'url' : 'text';
+    const constraints = field.type === 'range' ? ` min="${field.min}" max="${field.max}" step="${field.step}"` : '';
+    return `<label class="phonie-provider-field">${label}<span class="phonie-provider-field__input"><input type="${inputType}" value="${escapeHtml(value ?? '')}" data-provider-field="${escapeHtml(field.key)}"${constraints}>${field.type === 'range' ? `<b>${escapeHtml(value)}</b>` : ''}</span></label>`;
+}
+
 export class PhoneView {
     #store;
     #actions;
@@ -165,7 +186,8 @@ export class PhoneView {
                         <time class="phonie-status__time" data-role="clock"></time>
                         <span class="phonie-dynamic-island" aria-hidden="true"><i></i><b></b></span>
                         <span class="phonie-status__signals" aria-label="网络与电量">
-                            <span>4G</span>${icon('wifi')}<span>80%</span>${icon('battery')}
+                            <span data-role="network-label">在线</span><span data-role="network-icon">${icon('wifi')}</span>
+                            <span data-role="battery-label">--%</span><span class="phonie-status__battery-icon">${icon('battery')}<i data-role="charging-icon" hidden>${icon('bolt')}</i></span>
                         </span>
                     </header>
                     <div class="phonie-header">
@@ -178,7 +200,7 @@ export class PhoneView {
                                 ${icon('back')}
                             </button>
                             <button class="phonie-icon-button phonie-icon-button--raised phonie-theme-button" type="button" data-action="cycle-theme" aria-label="切换当前主题">
-                                ${icon('theme')}
+                                ${icon('stars')}
                             </button>
                             <button class="phonie-icon-button" type="button" data-action="close" aria-label="收起 Phonie">
                                 ${icon('close')}
@@ -205,7 +227,7 @@ export class PhoneView {
                         </section>
                         <section class="phonie-screen" data-screen="call" aria-label="电话">
                             <div class="phonie-call-screen">
-                                <div class="phonie-contact-mark" data-role="call-initials">P</div>
+                                <div class="phonie-contact-mark" data-role="call-mark"><span data-role="call-initials">P</span></div>
                                 <div class="phonie-call-identity">
                                     <h2 data-role="call-contact">Character</h2>
                                     <p class="phonie-call-status" data-role="call-status">等待拨号</p>
@@ -218,7 +240,17 @@ export class PhoneView {
                                     </div>
                                 </div>
                                 <div class="phonie-call-idle-action" data-role="call-idle-action">
-                                    <button class="phonie-button" type="button" data-action="start-call">开始通话</button>
+                                    <button class="phonie-button" type="button" data-action="start-call">${icon('phone')}<span>拨打电话</span></button>
+                                    <button class="phonie-button phonie-button--secondary" type="button" data-action="start-incoming-call">${icon('signal')}<span>接收角色来电</span></button>
+                                </div>
+                                <div class="phonie-call-incoming-actions" data-role="call-incoming-actions" hidden>
+                                    <button type="button" data-action="decline-call" aria-label="拒接">${icon('end-call')}<span>拒接</span></button>
+                                    <button type="button" data-action="accept-call" aria-label="接听">${icon('accept-call')}<span>接听</span></button>
+                                </div>
+                                <div class="phonie-call-feature-controls" data-role="call-feature-controls" hidden>
+                                    <button type="button" data-action="toggle-call-control" data-call-control="muted">${icon('microphone')}<span>静音</span></button>
+                                    <button type="button" data-action="toggle-call-control" data-call-control="speaker">${icon('speaker')}<span>扬声器</span></button>
+                                    <button type="button" data-action="toggle-call-control" data-call-control="captions">${icon('caption')}<span>字幕</span></button>
                                 </div>
                                 <form class="phonie-call-controls" data-form="call" hidden>
                                     <input type="text" maxlength="1200" data-role="call-input" placeholder="输入这一轮要说的话" aria-label="通话输入">
@@ -297,7 +329,7 @@ export class PhoneView {
                         <div class="phonie-setting-row">
                             <span>
                                 <span class="phonie-setting-label">当前语音提供商</span>
-                                <span class="phonie-setting-description">读取并切换酒馆当前 TTS 引擎</span>
+                                <span class="phonie-setting-description">由 Phonie 自己合成正文、私信与电话</span>
                             </span>
                             <span class="phonie-provider-chip" data-role="provider-chip"></span>
                         </div>
@@ -431,6 +463,14 @@ export class PhoneView {
                 this.#submitChat(MESSAGE_KINDS.VOICE);
             } else if (action === 'start-call') {
                 this.#actions.startCall?.();
+            } else if (action === 'start-incoming-call') {
+                this.#actions.startIncomingCall?.();
+            } else if (action === 'accept-call') {
+                this.#actions.acceptCall?.();
+            } else if (action === 'decline-call') {
+                this.#actions.declineCall?.();
+            } else if (action === 'toggle-call-control') {
+                this.#actions.toggleCallControl?.(target.dataset.callControl);
             } else if (action === 'cycle-theme') {
                 this.#actions.cycleTheme?.();
             } else if (action === 'end-call') {
@@ -441,6 +481,26 @@ export class PhoneView {
                 this.#actions.playPhoneAudio?.(target.dataset.messageId);
             } else if (action === 'set-tts-provider') {
                 this.#actions.setTtsProvider?.(target.dataset.providerId);
+            } else if (action === 'check-tts-provider') {
+                this.#actions.checkTtsProvider?.(target.dataset.providerId);
+            } else if (action === 'sync-tts-resources') {
+                this.#actions.syncTtsResources?.(target.dataset.providerId);
+            } else if (action === 'save-tts-secret') {
+                const input = [...this.#root.querySelectorAll('[data-role="tts-secret-input"]')].find((candidate) => (
+                    candidate.dataset.providerId === (target.dataset.providerId || '')
+                    && candidate.dataset.secretKey === (target.dataset.secretKey || '')
+                ));
+                if (input instanceof HTMLInputElement) {
+                    this.#actions.saveTtsSecret?.(target.dataset.providerId, target.dataset.secretKey, input.value).then((saved) => {
+                        if (saved) input.value = '';
+                    });
+                }
+            } else if (action === 'save-character-route') {
+                const providerId = this.#root.querySelector('[data-role="character-provider-select"]')?.value || '';
+                const fallbackProviderId = this.#root.querySelector('[data-role="character-fallback-provider-select"]')?.value || '';
+                const voiceId = this.#root.querySelector('[data-role="character-voice-id"]')?.value || '';
+                const referenceAudio = this.#root.querySelector('[data-role="character-reference-audio"]')?.value || '';
+                this.#actions.updateCharacterRoute?.({ providerId, fallbackProviderId, voiceId, referenceAudio });
             } else if (action === 'set-generation-profile') {
                 this.#actions.updateSetting?.('generationMode', 'profile');
                 this.#actions.updateSetting?.('generationProfileId', target.dataset.profileId || '');
@@ -487,6 +547,14 @@ export class PhoneView {
             const target = event.target;
             if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
             const value = target instanceof HTMLInputElement && target.type === 'checkbox' ? target.checked : target.value;
+            const providerField = target.dataset.providerField;
+            if (providerField) {
+                const editor = target.closest('[data-provider-editor-id]');
+                const providerId = editor?.dataset.providerEditorId;
+                const nextValue = target instanceof HTMLInputElement && target.type === 'range' ? Number(value) : value;
+                if (providerId) this.#actions.updateTtsProvider?.(providerId, providerField, nextValue);
+                return;
+            }
             const presetField = target.dataset.promptPresetField;
             if (presetField) {
                 const { kind, preset } = this.#currentPromptPreset();
@@ -648,6 +716,12 @@ export class PhoneView {
             const nextLabels = { day: '夜间', night: '跟随酒馆', tavern: '日间' };
             themeButton.setAttribute('aria-label', `切换到${nextLabels[state.settings.theme] || '下一个'}主题`);
             themeButton.title = `当前：${state.settings.theme === 'day' ? '日间' : state.settings.theme === 'night' ? '夜间' : '跟随酒馆'}`;
+            if (themeButton.dataset.currentTheme !== state.settings.theme) {
+                themeButton.dataset.currentTheme = state.settings.theme;
+                themeButton.innerHTML = icon(state.settings.theme === 'day' ? 'sun' : state.settings.theme === 'night' ? 'moon' : 'stars');
+                themeButton.dataset.changing = 'true';
+                window.setTimeout(() => { if (themeButton.isConnected) themeButton.dataset.changing = 'false'; }, 180);
+            }
         }
         const screenCopy = SCREEN_COPY[state.screen] || SCREEN_COPY[SCREENS.HOME];
         this.#setText('[data-role="title"]', state.screen === SCREENS.CHAT ? state.contact.name : screenCopy.title);
@@ -675,6 +749,7 @@ export class PhoneView {
         this.#renderModelSettings(state);
         this.#renderPromptPreset(state);
         this.#renderSettings(state);
+        this.#renderDeviceStatus(state);
         this.#renderClocks();
         this.#renderToast(state.toast);
     }
@@ -700,7 +775,7 @@ export class PhoneView {
     #renderCall(state) {
         this.#setText('[data-role="call-initials"]', initials(state.contact.name));
         this.#setText('[data-role="call-contact"]', state.contact.name);
-        this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt)));
+        this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
 
         const captions = this.#root.querySelector('[data-role="call-captions"]');
         const empty = this.#root.querySelector('[data-role="call-empty"]');
@@ -713,12 +788,25 @@ export class PhoneView {
         this.#setText('[data-role="call-caption-translation"]', state.settings.showTranslation ? state.callCaption?.translation || '' : '');
 
         const active = ACTIVE_CALL_STATES.has(state.callState);
+        const connected = [CALL_STATES.CONNECTED, CALL_STATES.GENERATING, CALL_STATES.SPEAKING].includes(state.callState);
+        const incoming = state.callState === CALL_STATES.RINGING && state.callDirection === 'incoming';
         const callForm = this.#root.querySelector('[data-form="call"]');
         const idleAction = this.#root.querySelector('[data-role="call-idle-action"]');
         const endButton = this.#root.querySelector('[data-action="end-call"]');
-        if (callForm) callForm.hidden = !active;
+        const incomingActions = this.#root.querySelector('[data-role="call-incoming-actions"]');
+        const featureControls = this.#root.querySelector('[data-role="call-feature-controls"]');
+        const mark = this.#root.querySelector('[data-role="call-mark"]');
+        if (callForm) callForm.hidden = !connected;
         if (idleAction) idleAction.hidden = active;
-        if (endButton) endButton.hidden = !active;
+        if (endButton) endButton.hidden = !active || incoming;
+        if (incomingActions) incomingActions.hidden = !incoming;
+        if (featureControls) featureControls.hidden = !connected;
+        if (mark) mark.dataset.ringing = String(incoming || state.callState === CALL_STATES.DIALING);
+        if (captions) captions.hidden = connected && state.callControls?.captions === false;
+        for (const button of this.#root.querySelectorAll('[data-call-control]')) {
+            const pressed = Boolean(state.callControls?.[button.dataset.callControl]);
+            button.setAttribute('aria-pressed', String(pressed));
+        }
 
         const input = this.#root.querySelector('[data-role="call-input"]');
         if (input instanceof HTMLInputElement) {
@@ -745,13 +833,43 @@ export class PhoneView {
         this.#setText('[data-role="voice-language"]', state.settings.sourceLanguage);
         const providers = this.#root.querySelector('[data-role="tts-provider-list"]');
         if (providers) {
-            const list = Array.isArray(state.ttsProviders) ? state.ttsProviders : [];
-            providers.innerHTML = list.length ? list.map((provider) => `
+            const list = Array.isArray(state.providerSnapshot?.providers) ? state.providerSnapshot.providers : [];
+            const signature = JSON.stringify(list.map((provider) => [provider.id, provider.selected, provider.runtime?.status, provider.runtime?.message]));
+            if (providers.dataset.signature !== signature) {
+                providers.dataset.signature = signature;
+                providers.innerHTML = list.length ? list.map((provider) => `
                 <button class="phonie-profile-card${provider.selected ? ' is-current' : ''}" type="button" data-action="set-tts-provider" data-provider-id="${escapeHtml(provider.id)}" aria-pressed="${provider.selected}">
-                    <span class="phonie-profile-card__mark">${icon('signal')}</span>
-                    <span><strong>${escapeHtml(provider.name)}</strong><small>${provider.selected ? '酒馆当前语音引擎' : '点击切换并沿用酒馆配置'}</small></span>
-                    <b>${provider.selected ? '当前' : '选择'}</b>
-                </button>`).join('') : '<div class="phonie-record-empty">请先在酒馆 TTS 设置中启用至少一个提供商。</div>';
+                    <span class="phonie-profile-card__mark">${icon(provider.icon || 'signal')}</span>
+                    <span><strong>${escapeHtml(provider.name)}</strong><small>${escapeHtml(provider.runtime?.message || provider.mode)}</small></span>
+                    <b>${provider.selected ? '当前' : provider.category}</b>
+                </button>`).join('') : '<div class="phonie-record-empty">Phonie 语音引擎目录未载入。</div>';
+            }
+        }
+        const editor = this.#root.querySelector('[data-role="tts-provider-editor"]');
+        const current = state.providerSnapshot?.providers?.find((provider) => provider.selected);
+        if (editor && current) {
+            const signature = JSON.stringify([current.id, current.settings, current.catalog, current.runtime, state.providerSnapshot?.fallbackProvider]);
+            if (editor.dataset.signature !== signature) {
+                editor.dataset.signature = signature;
+                editor.dataset.providerEditorId = current.id;
+                editor.innerHTML = `
+                    <header class="phonie-provider-editor__header">
+                        <span class="phonie-profile-card__mark">${icon(current.icon || 'signal')}</span>
+                        <span><small>${escapeHtml(current.category)} · ${escapeHtml(current.mode)}</small><strong>${escapeHtml(current.name)} 配置</strong><i>${escapeHtml(current.runtime?.message || '等待检测')}</i></span>
+                    </header>
+                    <div class="phonie-provider-editor__actions">
+                        <button type="button" data-action="check-tts-provider" data-provider-id="${escapeHtml(current.id)}">${icon('signal')}<span>检测连接</span></button>
+                        ${['elevenlabs', 'minimax'].includes(current.id) ? `<button type="button" data-action="sync-tts-resources" data-provider-id="${escapeHtml(current.id)}">${icon('reset')}<span>同步模型与音色</span></button>` : ''}
+                    </div>
+                    <label class="phonie-provider-field">
+                        <span><strong>全局备用引擎</strong><small>当前引擎失败时自动尝试</small></span>
+                        <select data-setting="ttsFallbackProvider">
+                            <option value="">不使用备用引擎</option>
+                            ${state.providerSnapshot.providers.filter((provider) => provider.id !== current.id).map((provider) => '<option value="' + escapeHtml(provider.id) + '"' + (provider.id === state.providerSnapshot.fallbackProvider ? ' selected' : '') + '>' + escapeHtml(provider.name) + '</option>').join('')}
+                        </select>
+                    </label>
+                    <div class="phonie-provider-fields">${current.fields.map((field) => providerFieldMarkup(field, current)).join('')}</div>`;
+            }
         }
         const list = this.#root.querySelector('[data-role="voice-library"]');
         if (!list) return;
@@ -779,7 +897,7 @@ export class PhoneView {
         list.innerHTML = records.map((record) => `
             <article class="phonie-record-card phonie-record-card--call">
                 <span class="phonie-record-card__play" aria-hidden="true">${icon('phone')}</span>
-                <span class="phonie-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${escapeHtml(record.summary || '通话已结束')}</small></span>
+                <span class="phonie-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${record.direction === 'incoming' ? '来电' : '外呼'} · ${record.outcome === 'declined' ? '未接通' : '已结束'} · ${escapeHtml(record.summary || '通话已结束')}</small></span>
                 <time>${escapeHtml(formatDuration(record.startedAt, record.endedAt))}<br>${escapeHtml(formatRecordDate(record.startedAt))}</time>
             </article>`).join('');
     }
@@ -792,6 +910,25 @@ export class PhoneView {
         this.#setText('[data-role="character-target-language"]', state.settings.targetLanguage);
         this.#setText('[data-role="character-continuity"]', state.settings.injectContinuity ? '开启' : '关闭');
         setBackgroundImage(this.#root.querySelector('[data-role="character-portrait"]'), state.contact.avatarUrl);
+        const providers = state.providerSnapshot?.providers || [];
+        const route = state.settings.ttsCharacterRoutes?.[state.contact.name] || {};
+        const providerSelect = this.#root.querySelector('[data-role="character-provider-select"]');
+        const fallbackSelect = this.#root.querySelector('[data-role="character-fallback-provider-select"]');
+        if (providerSelect instanceof HTMLSelectElement) {
+            providerSelect.innerHTML = providers.map((provider) => `<option value="${escapeHtml(provider.id)}">${escapeHtml(provider.name)}</option>`).join('');
+            providerSelect.value = route.providerId || state.settings.ttsActiveProvider || '';
+        }
+        if (fallbackSelect instanceof HTMLSelectElement) {
+            fallbackSelect.innerHTML = [
+                '<option value="">沿用全局备用引擎</option>',
+                ...providers.filter((provider) => provider.id !== (route.providerId || state.settings.ttsActiveProvider)).map((provider) => '<option value="' + escapeHtml(provider.id) + '">' + escapeHtml(provider.name) + '</option>'),
+            ].join('');
+            fallbackSelect.value = route.fallbackProviderId || '';
+        }
+        const voice = this.#root.querySelector('[data-role="character-voice-id"]');
+        const reference = this.#root.querySelector('[data-role="character-reference-audio"]');
+        if (voice instanceof HTMLInputElement && document.activeElement !== voice) voice.value = route.voiceId || '';
+        if (reference instanceof HTMLInputElement && document.activeElement !== reference) reference.value = route.referenceAudio || '';
     }
 
     #renderModelSettings(state) {
@@ -868,6 +1005,26 @@ export class PhoneView {
         }
     }
 
+    #renderDeviceStatus(state) {
+        const battery = state.deviceStatus?.battery || {};
+        const network = state.deviceStatus?.network || {};
+        this.#setText('[data-role="network-label"]', network.label || '在线');
+        this.#setText('[data-role="battery-label"]', battery.available ? `${battery.percent}%` : '--%');
+        const networkIcon = this.#root.querySelector('[data-role="network-icon"]');
+        if (networkIcon) networkIcon.innerHTML = icon(network.kind === 'wifi' ? 'wifi' : 'signal');
+        const charging = this.#root.querySelector('[data-role="charging-icon"]');
+        if (charging) charging.hidden = !battery.charging;
+        const signals = this.#root.querySelector('.phonie-status__signals');
+        if (signals) {
+            signals.dataset.online = String(network.online !== false);
+            signals.title = [
+                network.label || '网络状态不可读',
+                network.downlink ? `${network.downlink} Mbps` : '',
+                battery.available ? `电量 ${battery.percent}%${battery.charging ? ' · 充电中' : ''}` : '浏览器不提供电量权限',
+            ].filter(Boolean).join(' · ');
+        }
+    }
+
     #renderClocks() {
         const now = new Date();
         const clock = formatClock(now.getTime());
@@ -880,7 +1037,7 @@ export class PhoneView {
         }).format(now));
         const state = this.#store.getState();
         if (state && ACTIVE_CALL_STATES.has(state.callState)) {
-            this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt)));
+            this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
         }
     }
 

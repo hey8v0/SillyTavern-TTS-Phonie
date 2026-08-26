@@ -32,12 +32,14 @@ export function createPhoneMessage({
     };
 }
 
-export function createCallRecord({ contactName, startedAt, endedAt, summary = '' }) {
+export function createCallRecord({ contactName, startedAt, endedAt, summary = '', direction = 'outgoing', outcome = 'completed' }) {
     return {
         id: createId('call'),
         contactName,
         startedAt,
         endedAt,
         summary: String(summary || '').trim(),
+        direction,
+        outcome,
     };
 }

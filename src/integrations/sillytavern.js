@@ -1,5 +1,4 @@
 import {
-    cancelTtsPlay,
     eventSource,
     event_types,
     extension_prompt_roles,
@@ -11,7 +10,6 @@ import {
     setExtensionPrompt,
 } from '/script.js';
 import { extension_settings, getContext } from '/scripts/extensions.js';
-import { executeSlashCommandsWithOptions } from '/scripts/slash-commands.js';
 
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
@@ -20,6 +18,7 @@ import { compileBodyPromptEntries, DEFAULT_BODY_PROMPT_PRESET } from '../dialogu
 import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
 import { createPhoneMetadata } from '../phone/chat-records.js';
 import { fetchCustomOpenAIModels, saveCustomOpenAIKey } from './openai-compatible.js';
+import { TTS_PROVIDERS, normalizeProviderSettings } from '../tts/provider-catalog.js';
 
 const PROMPT_KEY = 'phonie_private_channel';
 const BODY_PROMPT_PREFIX = 'phonie_body_tts_';
@@ -47,6 +46,14 @@ function mergeSettings(value = {}) {
     merged.bodyPromptPreset = normalizePhonePromptPreset(value.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET);
     merged.bodyPromptEnabled = value.bodyPromptEnabled !== false;
     merged.promptWorkflowKind = ['body', 'phone'].includes(value.promptWorkflowKind) ? value.promptWorkflowKind : 'body';
+    const providerIds = new Set(TTS_PROVIDERS.map((provider) => provider.id));
+    merged.ttsActiveProvider = providerIds.has(value.ttsActiveProvider) ? value.ttsActiveProvider : DEFAULT_SETTINGS.ttsActiveProvider;
+    merged.ttsFallbackProvider = providerIds.has(value.ttsFallbackProvider) && value.ttsFallbackProvider !== merged.ttsActiveProvider
+        ? value.ttsFallbackProvider
+        : '';
+    merged.ttsProviderSettings = normalizeProviderSettings(value.ttsProviderSettings);
+    merged.ttsCharacterRoutes = value.ttsCharacterRoutes && typeof value.ttsCharacterRoutes === 'object' ? value.ttsCharacterRoutes : {};
+    merged.ttsResourceCatalogs = value.ttsResourceCatalogs && typeof value.ttsResourceCatalogs === 'object' ? value.ttsResourceCatalogs : {};
     if (Number(value.schemaVersion || 0) < 3) {
         const defaults = new Map(DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => [entry.id, entry.content]));
         merged.promptPreset.entries = merged.promptPreset.entries.map((entry) => {
@@ -55,15 +62,6 @@ function mergeSettings(value = {}) {
         });
     }
     return merged;
-}
-
-function safeSlashValue(value) {
-    return String(value ?? '')
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\|/g, '\\|')
-        .replace(/[\r\n]+/g, ' ')
-        .trim();
 }
 
 export class SillyTavernBridge {
@@ -135,40 +133,6 @@ export class SillyTavernBridge {
         await saveChatConditional();
     }
 
-    getProviderLabel() {
-        const current = String(extension_settings.tts?.currentProvider || '');
-        const option = [...(document.querySelector('#tts_provider')?.options || [])]
-            .find((entry) => entry.value === current);
-        return String(option?.textContent?.trim() || current || 'TTS 未配置');
-    }
-
-    getTtsProviders() {
-        const current = String(extension_settings.tts?.currentProvider || '');
-        const select = document.querySelector('#tts_provider');
-        const options = select instanceof HTMLSelectElement ? [...select.options] : [];
-        const providers = options
-            .filter((option) => option.value && !option.disabled)
-            .map((option) => ({
-                id: option.value,
-                name: String(option.textContent || option.value).trim(),
-                selected: option.value === current,
-            }));
-        if (!providers.length && current) return [{ id: current, name: current, selected: true }];
-        return providers;
-    }
-
-    async setTtsProvider(providerId) {
-        const id = String(providerId || '').trim();
-        const select = document.querySelector('#tts_provider');
-        if (!(select instanceof HTMLSelectElement)) throw new Error('酒馆 TTS 设置尚未载入');
-        const option = [...select.options].find((entry) => entry.value === id && !entry.disabled);
-        if (!option) throw new Error('这个语音提供商当前不可用');
-        select.value = id;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        await new Promise((resolve) => window.setTimeout(resolve, 0));
-        return this.getTtsProviders();
-    }
-
     getGenerationProfiles() {
         return listConnectionProfiles(this.context);
     }
@@ -223,32 +187,6 @@ export class SillyTavernBridge {
             console.warn('[Phonie] Translation unavailable.', error);
             return '';
         }
-    }
-
-    async speakMessage(messageId) {
-        const button = document.querySelector(`#chat .mes[mesid="${Number(messageId)}"] .mes_narrate`);
-        if (button instanceof HTMLElement) {
-            button.click();
-            return;
-        }
-
-        const message = this.getMessage(messageId);
-        if (message?.mes) {
-            await this.speakText(message.mes, message.name || this.getContact().name);
-        }
-    }
-
-    async speakText(text, voiceName) {
-        const command = `/speak voice="${safeSlashValue(voiceName)}" ${safeSlashValue(text)}`;
-        return executeSlashCommandsWithOptions(command, {
-            handleParserErrors: true,
-            handleExecutionErrors: true,
-            source: 'phonie',
-        });
-    }
-
-    stopSpeech() {
-        cancelTtsPlay();
     }
 
     updateContinuityPrompt(metadata) {

@@ -32,6 +32,8 @@
     --phonie-glint: rgba(255, 255, 255, 0.72);
     --phonie-user-bubble: #684d70;
     --phonie-user-ink: #fff9ff;
+    --phonie-hardware: #242329;
+    --phonie-hardware-edge: #4a4650;
 }
 
 #phonie-root[data-theme="night"] {
@@ -51,6 +53,8 @@
     --phonie-glint: rgba(255, 255, 255, 0.12);
     --phonie-user-bubble: #493760;
     --phonie-user-ink: #fff9ff;
+    --phonie-hardware: #090a0f;
+    --phonie-hardware-edge: #373a49;
 }
 
 #phonie-root[data-theme="tavern"] {
@@ -70,4 +74,6 @@
     --phonie-glint: rgba(255, 255, 255, 0.15);
     --phonie-user-bubble: var(--SmartThemeQuoteColor, #58446d);
     --phonie-user-ink: var(--SmartThemeBlurTintColor, #ffffff);
+    --phonie-hardware: #15151a;
+    --phonie-hardware-edge: color-mix(in srgb, var(--SmartThemeBorderColor, #54545e) 65%, #222 35%);
 }

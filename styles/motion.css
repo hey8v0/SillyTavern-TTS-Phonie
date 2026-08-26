@@ -39,6 +39,15 @@
     transform: scale(0.97);
 }
 
+.phonie-theme-button .phonie-icon {
+    transition: transform 180ms var(--phonie-ease-out), opacity 140ms ease;
+}
+
+.phonie-theme-button[data-changing="true"] .phonie-icon {
+    opacity: 0.72;
+    transform: rotate(18deg) scale(0.86);
+}
+
 .phonie-screen {
     transition:
         transform 160ms var(--phonie-ease-out),
@@ -178,7 +187,8 @@
     .phonie-app-tile__icon,
     .phonie-dock-button,
     .phonie-service-card,
-    .phonie-record-card__play {
+    .phonie-record-card__play,
+    .phonie-contact-mark[data-ringing="true"]::before {
         animation: none !important;
         transition-duration: 1ms;
     }
