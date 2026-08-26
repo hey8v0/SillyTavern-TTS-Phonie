@@ -16,11 +16,18 @@ import { executeSlashCommandsWithOptions } from '/scripts/slash-commands.js';
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
 import { DEFAULT_PHONE_PROMPT_PRESET, normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
+import { compileBodyPromptEntries, DEFAULT_BODY_PROMPT_PRESET } from '../dialogue/body-speech.js';
 import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
 import { createPhoneMetadata } from '../phone/chat-records.js';
 import { fetchCustomOpenAIModels, saveCustomOpenAIKey } from './openai-compatible.js';
 
 const PROMPT_KEY = 'phonie_private_channel';
+const BODY_PROMPT_PREFIX = 'phonie_body_tts_';
+const BODY_PROMPT_ROLES = Object.freeze({
+    system: extension_prompt_roles.SYSTEM,
+    user: extension_prompt_roles.USER,
+    assistant: extension_prompt_roles.ASSISTANT,
+});
 
 function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
@@ -37,6 +44,9 @@ function mergeSettings(value = {}) {
     merged.customOpenAITemperature = Math.min(2, Math.max(0, Number(merged.customOpenAITemperature) || 0.8));
     merged.customOpenAIMaxTokens = Math.min(65536, Math.max(80, Math.round(Number(merged.customOpenAIMaxTokens) || 8192)));
     merged.promptPreset = normalizePhonePromptPreset(value.promptPreset);
+    merged.bodyPromptPreset = normalizePhonePromptPreset(value.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET);
+    merged.bodyPromptEnabled = value.bodyPromptEnabled !== false;
+    merged.promptWorkflowKind = ['body', 'phone'].includes(value.promptWorkflowKind) ? value.promptWorkflowKind : 'body';
     if (Number(value.schemaVersion || 0) < 3) {
         const defaults = new Map(DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => [entry.id, entry.content]));
         merged.promptPreset.entries = merged.promptPreset.entries.map((entry) => {
@@ -58,6 +68,7 @@ function safeSlashValue(value) {
 
 export class SillyTavernBridge {
     #listeners = [];
+    #bodyPromptKeys = new Set();
 
     get context() {
         return getContext();
@@ -125,7 +136,37 @@ export class SillyTavernBridge {
     }
 
     getProviderLabel() {
-        return String(extension_settings.tts?.currentProvider || 'TTS 未配置');
+        const current = String(extension_settings.tts?.currentProvider || '');
+        const option = [...(document.querySelector('#tts_provider')?.options || [])]
+            .find((entry) => entry.value === current);
+        return String(option?.textContent?.trim() || current || 'TTS 未配置');
+    }
+
+    getTtsProviders() {
+        const current = String(extension_settings.tts?.currentProvider || '');
+        const select = document.querySelector('#tts_provider');
+        const options = select instanceof HTMLSelectElement ? [...select.options] : [];
+        const providers = options
+            .filter((option) => option.value && !option.disabled)
+            .map((option) => ({
+                id: option.value,
+                name: String(option.textContent || option.value).trim(),
+                selected: option.value === current,
+            }));
+        if (!providers.length && current) return [{ id: current, name: current, selected: true }];
+        return providers;
+    }
+
+    async setTtsProvider(providerId) {
+        const id = String(providerId || '').trim();
+        const select = document.querySelector('#tts_provider');
+        if (!(select instanceof HTMLSelectElement)) throw new Error('酒馆 TTS 设置尚未载入');
+        const option = [...select.options].find((entry) => entry.value === id && !entry.disabled);
+        if (!option) throw new Error('这个语音提供商当前不可用');
+        select.value = id;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+        return this.getTtsProviders();
     }
 
     getGenerationProfiles() {
@@ -234,6 +275,42 @@ export class SillyTavernBridge {
         setExtensionPrompt(PROMPT_KEY, '', extension_prompt_types.IN_CHAT, 1, false, extension_prompt_roles.SYSTEM);
     }
 
+    updateBodyPromptInjection(generationType = 'normal') {
+        const settings = this.getSettings();
+        for (const entry of settings.bodyPromptPreset?.entries || []) {
+            this.#bodyPromptKeys.add(`${BODY_PROMPT_PREFIX}${entry.id}`);
+        }
+        this.clearBodyPrompt();
+        if (['quiet', 'impersonate'].includes(String(generationType || '').toLowerCase())) return;
+        if (!settings.bodyPromptEnabled) return;
+        const entries = compileBodyPromptEntries({
+            preset: settings.bodyPromptPreset,
+            characterName: this.getContact().name,
+            userName: this.getUserName(),
+            sourceLanguage: settings.sourceLanguage,
+            targetLanguage: settings.targetLanguage,
+        });
+        for (const entry of entries) {
+            const key = `${BODY_PROMPT_PREFIX}${entry.id}`;
+            this.#bodyPromptKeys.add(key);
+            setExtensionPrompt(
+                key,
+                entry.content,
+                extension_prompt_types.IN_CHAT,
+                entry.depth,
+                false,
+                BODY_PROMPT_ROLES[entry.role] ?? extension_prompt_roles.SYSTEM,
+            );
+        }
+    }
+
+    clearBodyPrompt() {
+        for (const key of this.#bodyPromptKeys) {
+            setExtensionPrompt(key, '', extension_prompt_types.IN_CHAT, 1, false, extension_prompt_roles.SYSTEM);
+        }
+        this.#bodyPromptKeys.clear();
+    }
+
     on(eventName, handler) {
         eventSource.on(eventName, handler);
         const dispose = () => eventSource.removeListener(eventName, handler);
@@ -248,5 +325,6 @@ export class SillyTavernBridge {
     dispose() {
         for (const dispose of this.#listeners.splice(0)) dispose();
         this.clearContinuityPrompt();
+        this.clearBodyPrompt();
     }
 }

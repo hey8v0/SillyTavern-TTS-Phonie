@@ -606,83 +606,36 @@
     transform: translateY(0) scale(1);
 }
 
-.phonie-inline-player {
+.phonie-inline-button--body {
     --phonie-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    --phonie-inline-surface: var(--SmartThemeBotMesBlurTintColor, rgba(30, 31, 36, 0.72));
-    --phonie-inline-ink: var(--SmartThemeBodyColor, #efebe5);
-    --phonie-inline-muted: var(--SmartThemeQuoteColor, #aaa49c);
     --phonie-inline-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
     --phonie-inline-signal: var(--SmartThemeQuoteColor, #b39ad8);
-    display: grid;
-    width: min(100%, 580px);
-    margin: 10px 0 4px;
-    padding: 10px 12px;
-    grid-template-columns: 38px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
+    display: inline-grid;
+    width: 25px;
+    height: 25px;
+    margin: 0 4px;
+    padding: 0;
     border: 1px solid var(--phonie-inline-border);
-    border-radius: 15px;
-    background: var(--phonie-inline-surface);
-    color: var(--phonie-inline-ink);
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--phonie-inline-signal) 72%, transparent);
-    font-family: var(--phonie-font-ui, sans-serif);
-    text-align: left;
-    text-shadow: none;
-}
-
-.phonie-inline-player[data-theme="day"] {
-    --phonie-inline-surface: #f7f0e6;
-    --phonie-inline-ink: #28231f;
-    --phonie-inline-muted: #766b61;
-    --phonie-inline-border: rgba(70, 58, 47, 0.16);
-    --phonie-inline-signal: #6b588b;
-}
-
-.phonie-inline-player[data-theme="night"] {
-    --phonie-inline-surface: #171a2d;
-    --phonie-inline-ink: #eee8dc;
-    --phonie-inline-muted: #a9aaa3;
-    --phonie-inline-border: rgba(221, 231, 227, 0.14);
-    --phonie-inline-signal: #b39ad8;
-}
-
-.phonie-inline-button {
-    width: 36px;
-    height: 36px;
-    border-color: var(--phonie-inline-border);
-    background: transparent;
+    border-radius: 9px;
+    vertical-align: -5px;
+    background: color-mix(in srgb, var(--SmartThemeBotMesBlurTintColor, rgba(30, 31, 36, 0.72)) 82%, transparent);
     color: var(--phonie-inline-signal);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    font-family: var(--phonie-font-ui, sans-serif);
+    text-shadow: none;
+    place-items: center;
 }
 
-.phonie-inline-copy {
-    min-width: 0;
+.phonie-inline-button--body .phonie-icon {
+    width: 13px;
+    height: 13px;
 }
 
-.phonie-inline-source {
-    margin: 0;
-    overflow: hidden;
-    color: var(--phonie-inline-ink);
-    font-family: var(--phonie-font-reading, serif);
-    font-size: 12px;
-    line-height: 1.45;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.phonie-inline-translation {
-    margin: 3px 0 0;
-    overflow: hidden;
-    color: var(--phonie-inline-muted);
-    font-size: 9px;
-    line-height: 1.4;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.phonie-inline-time {
-    color: var(--phonie-inline-muted);
-    font-size: 9px;
-    font-variant-numeric: tabular-nums;
+.phonie-inline-actions {
+    display: inline-flex;
+    margin-inline-start: 4px;
+    align-items: center;
+    gap: 3px;
 }
 
 .phonie-settings-launcher {

@@ -12,9 +12,12 @@ The **模型** app controls text generation for Phonie private chat and turn-bas
 - Custom OpenAI requests also expose temperature and a separate 80–65536 maximum-token limit.
 - Voice synthesis remains routed through SillyTavern TTS and is independent of the reply model.
 
-## Phone prompt preset
+## Prompt workflows
 
-The **提示词** app edits the active phone reply preset. Changes save automatically to `extension_settings.phonie`.
+The **提示词** app switches between two independently saved workflows. Changes save automatically to `extension_settings.phonie`.
+
+- **正文 TTS** is restored immediately before every normal SillyTavern generation. It asks the model to keep the natural Chinese translation in the visible body and append `[TTSVoice:角色:情绪:原语言文本]` only as a control tag. Phonie removes the tag from the rendered body and replaces it with a small play button.
+- **手机私信与电话** controls the separate quiet-generation requests used inside the handset.
 
 Each entry has:
 
@@ -24,7 +27,7 @@ Each entry has:
 - editable content;
 - explicit up/down ordering controls.
 
-**插入深度** counts backwards from the newest recent phone-history message. Depth `0` places the preset block after recent history; depth `2` places it before the newest two history messages. The value is clamped to 0–20.
+**插入深度** is clamped to 0–20. For正文 TTS it maps to SillyTavern's in-chat extension-prompt depth; for phone generation it counts backwards from the newest recent phone-history message.
 
 Available variables:
 

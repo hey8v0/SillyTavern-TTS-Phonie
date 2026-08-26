@@ -17,7 +17,17 @@ test('system app markup exposes real model and prompt controls', () => {
     assert.match(markup, /data-action="save-custom-key"/);
     assert.doesNotMatch(markup, /data-setting="customOpenAIKey"/);
     assert.match(markup, /data-prompt-preset-field="insertionDepth"/);
+    assert.match(markup, /data-setting="promptWorkflowKind"/);
+    assert.match(markup, /data-setting="bodyPromptEnabled"/);
     assert.match(markup, /\{\{角色\}\}/);
+});
+
+test('voice app exposes the live SillyTavern provider list target', async () => {
+    const home = await readFile(new URL('../src/ui/phone-home.js', import.meta.url), 'utf8');
+    const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
+    assert.match(home, /data-role="tts-provider-list"/);
+    assert.match(view, /data-action="set-tts-provider"/);
+    assert.match(view, /data-action="cycle-theme"/);
 });
 
 test('prompt entry editor exposes all message roles and ordering controls', () => {

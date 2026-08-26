@@ -22,7 +22,7 @@ Each theme has one dominant surface story, one signal accent, and a neutral hier
 - Handset entrance: 240 ms, strong ease-out, originating from the docked edge.
 - Handset exit: 180 ms.
 - Screen change: 160 ms opacity and 6 px translation.
-- Dragging is direct manipulation with boundary damping and pointer capture.
+- Dragging is direct manipulation with global pointer capture; release uses a 220 ms closest-edge snap and leaves the orb partially tucked outside the viewport.
 - Repeated navigation never waits for decorative motion.
 - Reduced motion removes spatial travel while keeping brief opacity feedback.
 
@@ -30,7 +30,7 @@ Only transform and opacity are animated continuously. The dynamic island changes
 
 ## Bilingual hierarchy
 
-The source line is authoritative and is the default TTS input. The Chinese translation is supporting text and is never spoken unless the user explicitly changes the speech language.
+The Chinese translation remains ordinary visible body text. The original-language line, speaker and normalized emotion are kept in an internal speech segment and sent to TTS only when its adjacent compact play button is used. Provider control tags never become visible copy.
 
 ## Responsive modes
 

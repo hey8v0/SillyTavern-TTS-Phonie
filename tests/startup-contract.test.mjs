@@ -6,7 +6,7 @@ import { APP_VERSION, EXTENSION_BASE, MODULE_ID } from '../src/core/constants.js
 
 test('Phonie uses a fresh data namespace and a folder-independent asset base', () => {
     assert.equal(MODULE_ID, 'phonie');
-    assert.equal(APP_VERSION, '0.4.0');
+    assert.equal(APP_VERSION, '0.5.0');
     assert.match(EXTENSION_BASE, /SillyTavern-TTS-/);
 });
 
@@ -16,6 +16,8 @@ test('startup integration does not statically import optional generation APIs', 
     assert.doesNotMatch(bridge, /from ['"]\/scripts\/extensions\/shared\.js['"]/);
     assert.match(bridge, /generateQuietPrompt/);
     assert.match(bridge, /requestPhoneGeneration/);
+    assert.match(bridge, /updateBodyPromptInjection/);
+    assert.match(bridge, /GENERATION_AFTER_COMMANDS|BODY_PROMPT_PREFIX/);
 });
 
 test('entrypoint removes an obsolete interface before mounting Phonie', async () => {

@@ -1,4 +1,4 @@
-import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCREENS } from './core/constants.js';
+import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from './core/constants.js';
 import { createStore } from './core/store.js';
 import { SillyTavernBridge } from './integrations/sillytavern.js';
 import { CallMachine } from './phone/call-machine.js';
@@ -53,6 +53,7 @@ export async function createPhonieApp() {
         messages: metadata.messages,
         calls: metadata.calls,
         providerLabel: bridge.getProviderLabel(),
+        ttsProviders: bridge.getTtsProviders(),
         generationProfiles: bridge.getGenerationProfiles(),
         generationTarget: bridge.getGenerationTarget(settings),
         customModelStatus: '',
@@ -280,6 +281,7 @@ export async function createPhonieApp() {
                 unread: 0,
                 settings: { ...currentSettings },
                 providerLabel: bridge.getProviderLabel(),
+                ttsProviders: bridge.getTtsProviders(),
                 generationProfiles: bridge.getGenerationProfiles(),
                 generationTarget: bridge.getGenerationTarget(currentSettings),
             });
@@ -295,6 +297,30 @@ export async function createPhonieApp() {
         startCall,
         endCall,
         playPhoneAudio,
+        cycleTheme() {
+            const order = [THEMES.DAY, THEMES.NIGHT, THEMES.TAVERN];
+            const current = store.getState().settings.theme;
+            const next = order[(Math.max(0, order.indexOf(current)) + 1) % order.length];
+            const nextSettings = bridge.updateSettings({ theme: next });
+            updateState({ settings: { ...nextSettings } });
+            inlinePlayers.updateSettings(nextSettings);
+            showToast(next === THEMES.DAY ? '已切换为日间主题' : next === THEMES.NIGHT ? '已切换为夜间主题' : '已跟随酒馆主题');
+        },
+        async setTtsProvider(providerId) {
+            try {
+                const providers = await bridge.setTtsProvider(providerId);
+                updateState({
+                    providerLabel: bridge.getProviderLabel(),
+                    ttsProviders: providers,
+                });
+                inlinePlayers.reset();
+                window.setTimeout(() => inlinePlayers.decorateAll(), 0);
+                showToast(`当前语音提供商：${bridge.getProviderLabel()}`);
+            } catch (error) {
+                console.error('[Phonie] Could not switch TTS provider.', error);
+                showToast(error?.message || '语音提供商切换失败');
+            }
+        },
         updateSetting(key, value) {
             const nextSettings = bridge.updateSettings({ [key]: value });
             updateState({
@@ -304,7 +330,12 @@ export async function createPhonieApp() {
             });
             inlinePlayers.updateSettings(nextSettings);
             if (key === 'autoDecorateMessages' && value) inlinePlayers.decorateAll();
+            if (key === 'sourceLanguage' && nextSettings.autoDecorateMessages) {
+                inlinePlayers.reset();
+                window.setTimeout(() => inlinePlayers.decorateAll(), 0);
+            }
             if (key === 'injectContinuity') persistPhoneState();
+            if (['bodyPromptEnabled', 'sourceLanguage', 'targetLanguage'].includes(key)) bridge.updateBodyPromptInjection();
         },
         async saveCustomKey(value) {
             try {
@@ -343,9 +374,11 @@ export async function createPhonieApp() {
                 showToast(error?.message || '自定义模型连接失败');
             }
         },
-        updatePromptPreset(promptPreset) {
-            const nextSettings = bridge.updateSettings({ promptPreset });
+        updatePromptPreset(kind, promptPreset) {
+            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const nextSettings = bridge.updateSettings({ [key]: promptPreset });
             updateState({ settings: { ...nextSettings } });
+            if (kind === 'body') bridge.updateBodyPromptInjection();
         },
         updateDock({ dockSide, dockY }) {
             const nextSettings = bridge.updateSettings({ dockSide, dockY });
@@ -401,11 +434,11 @@ export async function createPhonieApp() {
         coreAudioElement = element;
         element.addEventListener('play', () => {
             updateState({ audioState: 'speaking' });
-            if (coreAudioContext?.messageId != null) inlinePlayers.setCorePlaying(coreAudioContext.messageId, true);
+            if (coreAudioContext?.inlineKey) inlinePlayers.setCorePlayingByKey(coreAudioContext.inlineKey, true);
         });
         const onStopped = () => {
             updateState({ audioState: 'idle' });
-            if (coreAudioContext?.messageId != null) inlinePlayers.setCorePlaying(coreAudioContext.messageId, false);
+            if (coreAudioContext?.inlineKey) inlinePlayers.setCorePlayingByKey(coreAudioContext.inlineKey, false);
             if (coreAudioContext?.phoneMessageId) {
                 const messages = store.getState().messages.map((message) => ({
                     ...message,
@@ -454,6 +487,7 @@ export async function createPhonieApp() {
             calls: nextMetadata.calls,
             settings: { ...nextSettings },
             providerLabel: bridge.getProviderLabel(),
+            ttsProviders: bridge.getTtsProviders(),
             generationProfiles: bridge.getGenerationProfiles(),
             generationTarget: bridge.getGenerationTarget(nextSettings),
             customModelStatus: '',
@@ -463,18 +497,22 @@ export async function createPhonieApp() {
             unread: 0,
         });
         bridge.updateContinuityPrompt(nextMetadata);
+        bridge.updateBodyPromptInjection();
         window.setTimeout(() => inlinePlayers.decorateAll(), 0);
     });
+    for (const eventName of [bridge.events.CHAT_LOADED, bridge.events.SETTINGS_LOADED_AFTER, bridge.events.APP_READY].filter(Boolean)) {
+        bridge.on(eventName, () => bridge.updateBodyPromptInjection());
+    }
     bridge.on(bridge.events.TTS_JOB_STARTED, (event) => {
         coreAudioContext = { messageId: event?.messageId ?? null, phoneMessageId: null };
         updateState({ audioState: 'generating' });
     });
     bridge.on(bridge.events.TTS_AUDIO_READY, async (event) => {
         updateState({ audioState: 'speaking' });
-        if (event?.messageId != null) {
-            coreAudioContext = { messageId: Number(event.messageId), phoneMessageId: null };
-            await inlinePlayers.handleAudioReady(event);
-        } else {
+        const inlineContext = await inlinePlayers.handleAudioReady(event);
+        if (inlineContext) {
+            coreAudioContext = { inlineKey: inlineContext.key, messageId: inlineContext.messageId, phoneMessageId: null };
+        } else if (event?.messageId == null) {
             const text = normalizeSpeechText(event?.text);
             const pendingIndex = pendingPhoneSpeech.findIndex((pending) => pending.text === text || pending.text.includes(text) || text.includes(pending.text));
             const pending = pendingIndex >= 0 ? pendingPhoneSpeech.splice(pendingIndex, 1)[0] : pendingPhoneSpeech.shift();
@@ -493,8 +531,13 @@ export async function createPhonieApp() {
         window.setTimeout(bindCoreAudio, 0);
     });
 
+    if (bridge.events.GENERATION_AFTER_COMMANDS) {
+        bridge.on(bridge.events.GENERATION_AFTER_COMMANDS, (type) => bridge.updateBodyPromptInjection(type));
+    }
+
     view.mount();
     bridge.updateContinuityPrompt(metadata);
+    bridge.updateBodyPromptInjection();
     window.setTimeout(() => {
         bindCoreAudio();
         inlinePlayers.decorateAll();

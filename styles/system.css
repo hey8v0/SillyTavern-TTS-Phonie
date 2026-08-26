@@ -200,6 +200,28 @@
     gap: 9px;
 }
 
+.phonie-prompt-master {
+    display: flex;
+    min-height: 58px;
+    padding: 10px 12px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 78%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--phonie-surface-raised) 84%, transparent);
+}
+
+.phonie-prompt-master > span:first-child {
+    display: grid;
+    min-width: 0;
+}
+
+.phonie-prompt-master small {
+    color: var(--phonie-ink-muted);
+    font-size: 9px;
+}
+
 .phonie-profile-card {
     display: grid;
     width: 100%;

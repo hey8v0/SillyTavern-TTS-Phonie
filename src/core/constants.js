@@ -1,6 +1,6 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.4.0';
-export const SCHEMA_VERSION = 3;
+export const APP_VERSION = '0.5.0';
+export const SCHEMA_VERSION = 4;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
@@ -44,6 +44,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     sourceLanguage: 'ja-JP',
     targetLanguage: 'zh-CN',
     autoDecorateMessages: true,
+    bodyPromptEnabled: true,
+    promptWorkflowKind: 'body',
     autoTranslate: true,
     autoPlayPhoneReplies: true,
     injectContinuity: true,

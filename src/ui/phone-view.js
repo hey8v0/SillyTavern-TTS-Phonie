@@ -7,9 +7,10 @@ import {
     removePhonePromptEntry,
     updatePhonePromptEntry,
 } from '../dialogue/prompt-preset.js';
+import { DEFAULT_BODY_PROMPT_PRESET } from '../dialogue/body-speech.js';
 import { clamp, escapeHtml, formatClock, icon, initials } from './dom.js';
 import { auxiliaryScreensMarkup, dockMarkup, homeScreenMarkup } from './phone-home.js';
-import { isOrbTap, updateOrbDrag } from './orb-gesture.js';
+import { getOrbDockTarget, isOrbTap, shouldStartOrbDrag, updateOrbDrag } from './orb-gesture.js';
 import { promptEntryMarkup, systemSettingsScreensMarkup } from './system-settings.js';
 
 const ACTIVE_CALL_STATES = new Set([
@@ -129,6 +130,8 @@ export class PhoneView {
     #toastTimer = null;
     #drag = null;
     #suppressOrbClick = false;
+    #orbMoveHandler = null;
+    #orbEndHandler = null;
 
     constructor({ store, actions }) {
         this.#store = store;
@@ -174,8 +177,8 @@ export class PhoneView {
                             <button class="phonie-icon-button phonie-icon-button--raised phonie-back-button" type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">
                                 ${icon('back')}
                             </button>
-                            <button class="phonie-icon-button phonie-icon-button--raised phonie-header-call" type="button" data-action="start-call" aria-label="拨打电话">
-                                ${icon('phone')}
+                            <button class="phonie-icon-button phonie-icon-button--raised phonie-theme-button" type="button" data-action="cycle-theme" aria-label="切换当前主题">
+                                ${icon('theme')}
                             </button>
                             <button class="phonie-icon-button" type="button" data-action="close" aria-label="收起 Phonie">
                                 ${icon('close')}
@@ -267,7 +270,7 @@ export class PhoneView {
                             ['wand', '酒馆魔棒菜单'],
                             ['both', '两个入口都显示'],
                         ])}
-                        ${this.#switchRow('显示中文译文', '原文始终保留为主文本', 'showTranslation')}
+                        ${this.#switchRow('显示手机译文', '控制私信与电话中的辅助中文字幕', 'showTranslation')}
                     </div>
                 </section>
                 <section class="phonie-settings-section">
@@ -285,7 +288,7 @@ export class PhoneView {
                             ['en-US', 'English'],
                             ['ko-KR', '한국어'],
                         ])}
-                        ${this.#switchRow('自动翻译', '正文没有译文时调用酒馆翻译模块', 'autoTranslate')}
+                        ${this.#switchRow('正文双语格式', '生成时要求可见中文译文与原语言语音段', 'bodyPromptEnabled')}
                     </div>
                 </section>
                 <section class="phonie-settings-section">
@@ -294,11 +297,11 @@ export class PhoneView {
                         <div class="phonie-setting-row">
                             <span>
                                 <span class="phonie-setting-label">当前语音提供商</span>
-                                <span class="phonie-setting-description">第一版跟随酒馆 TTS 与角色声线映射</span>
+                                <span class="phonie-setting-description">读取并切换酒馆当前 TTS 引擎</span>
                             </span>
                             <span class="phonie-provider-chip" data-role="provider-chip"></span>
                         </div>
-                        ${this.#switchRow('正文播放器', '在角色消息下方附加双语播放器', 'autoDecorateMessages')}
+                        ${this.#switchRow('正文播放器', '在可见译文后附加逐句播放键', 'autoDecorateMessages')}
                         ${this.#switchRow('自动播放手机回复', '电话始终自动播放角色语音', 'autoPlayPhoneReplies')}
                         ${this.#switchRow('注入通信连续性', '只注入最近事件的短摘要', 'injectContinuity')}
                     </div>
@@ -428,12 +431,16 @@ export class PhoneView {
                 this.#submitChat(MESSAGE_KINDS.VOICE);
             } else if (action === 'start-call') {
                 this.#actions.startCall?.();
+            } else if (action === 'cycle-theme') {
+                this.#actions.cycleTheme?.();
             } else if (action === 'end-call') {
                 this.#actions.endCall?.();
             } else if (action === 'clear-cache') {
                 this.#actions.clearCache?.();
             } else if (action === 'play-phone-audio') {
                 this.#actions.playPhoneAudio?.(target.dataset.messageId);
+            } else if (action === 'set-tts-provider') {
+                this.#actions.setTtsProvider?.(target.dataset.providerId);
             } else if (action === 'set-generation-profile') {
                 this.#actions.updateSetting?.('generationMode', 'profile');
                 this.#actions.updateSetting?.('generationProfileId', target.dataset.profileId || '');
@@ -443,15 +450,20 @@ export class PhoneView {
                 const endpoint = this.#root.querySelector('[data-setting="customOpenAIEndpoint"]')?.value || '';
                 this.#actions.refreshCustomModels?.(endpoint);
             } else if (action === 'reset-prompt-preset') {
-                this.#actions.updatePromptPreset?.(normalizePhonePromptPreset(DEFAULT_PHONE_PROMPT_PRESET));
+                const kind = this.#store.getState().settings.promptWorkflowKind || 'body';
+                const defaults = kind === 'body' ? DEFAULT_BODY_PROMPT_PRESET : DEFAULT_PHONE_PROMPT_PRESET;
+                this.#actions.updatePromptPreset?.(kind, normalizePhonePromptPreset(defaults));
             } else if (action === 'add-prompt-entry') {
-                this.#actions.updatePromptPreset?.(addPhonePromptEntry(this.#store.getState().settings.promptPreset));
+                const { kind, preset } = this.#currentPromptPreset();
+                this.#actions.updatePromptPreset?.(kind, addPhonePromptEntry(preset));
             } else if (action === 'move-prompt-entry') {
                 const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
-                if (entryId) this.#actions.updatePromptPreset?.(movePhonePromptEntry(this.#store.getState().settings.promptPreset, entryId, target.dataset.direction));
+                const { kind, preset } = this.#currentPromptPreset();
+                if (entryId) this.#actions.updatePromptPreset?.(kind, movePhonePromptEntry(preset, entryId, target.dataset.direction));
             } else if (action === 'delete-prompt-entry') {
                 const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
-                if (entryId) this.#actions.updatePromptPreset?.(removePhonePromptEntry(this.#store.getState().settings.promptPreset, entryId));
+                const { kind, preset } = this.#currentPromptPreset();
+                if (entryId) this.#actions.updatePromptPreset?.(kind, removePhonePromptEntry(preset, entryId));
             }
         });
 
@@ -477,16 +489,16 @@ export class PhoneView {
             const value = target instanceof HTMLInputElement && target.type === 'checkbox' ? target.checked : target.value;
             const presetField = target.dataset.promptPresetField;
             if (presetField) {
-                const preset = normalizePhonePromptPreset(this.#store.getState().settings.promptPreset);
-                this.#actions.updatePromptPreset?.(normalizePhonePromptPreset({ ...preset, [presetField]: value }));
+                const { kind, preset } = this.#currentPromptPreset();
+                this.#actions.updatePromptPreset?.(kind, normalizePhonePromptPreset({ ...preset, [presetField]: value }));
                 return;
             }
             const entryField = target.dataset.promptEntryField;
             if (entryField) {
                 const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
                 if (entryId) {
-                    const preset = updatePhonePromptEntry(this.#store.getState().settings.promptPreset, entryId, { [entryField]: value });
-                    this.#actions.updatePromptPreset?.(preset);
+                    const { kind, preset } = this.#currentPromptPreset();
+                    this.#actions.updatePromptPreset?.(kind, updatePhonePromptEntry(preset, entryId, { [entryField]: value }));
                 }
                 return;
             }
@@ -506,7 +518,7 @@ export class PhoneView {
     }
 
     #startOrbDrag(event) {
-        if (event.button !== 0 || event.isPrimary === false) return;
+        if (this.#drag || !shouldStartOrbDrag(event)) return;
         const orb = event.currentTarget;
         if (!(orb instanceof HTMLElement)) return;
         try {
@@ -518,38 +530,53 @@ export class PhoneView {
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
+            orb,
             moved: false,
         };
-        const move = (moveEvent) => this.#moveOrb(moveEvent);
-        const end = (endEvent) => {
-            orb.removeEventListener('pointermove', move);
-            orb.removeEventListener('pointerup', end);
-            orb.removeEventListener('pointercancel', end);
-            this.#endOrbDrag(endEvent);
-        };
-        orb.addEventListener('pointermove', move);
-        orb.addEventListener('pointerup', end);
-        orb.addEventListener('pointercancel', end);
+        orb.dataset.dragging = 'false';
+        this.#orbMoveHandler = (moveEvent) => this.#moveOrb(moveEvent);
+        this.#orbEndHandler = (endEvent) => this.#endOrbDrag(endEvent);
+        window.addEventListener('pointermove', this.#orbMoveHandler, { capture: true, passive: false });
+        window.addEventListener('pointerup', this.#orbEndHandler, true);
+        window.addEventListener('pointercancel', this.#orbEndHandler, true);
     }
 
     #moveOrb(event) {
         if (!this.#drag || this.#drag.pointerId !== event.pointerId) return;
         this.#drag = updateOrbDrag(this.#drag, event.clientX, event.clientY);
         if (!this.#drag.moved) return;
-        const y = clamp(event.clientY / window.innerHeight, 0.07, 0.9);
-        this.#root.style.setProperty('--phonie-orb-y', `${y * 100}%`);
+        event.preventDefault();
+        const dx = event.clientX - this.#drag.startX;
+        const dy = event.clientY - this.#drag.startY;
+        this.#drag.orb.dataset.dragging = 'true';
+        this.#drag.orb.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.97)`;
     }
 
     #endOrbDrag(event) {
         if (!this.#drag) return;
+        if (this.#drag.pointerId !== event.pointerId) return;
         const drag = this.#drag;
+        this.#removeOrbWindowListeners();
         const shouldOpen = isOrbTap(drag, event.type);
         if (drag.moved && event.type === 'pointerup') {
-            const dockSide = event.clientX < window.innerWidth / 2 ? 'left' : 'right';
-            const dockY = clamp(event.clientY / window.innerHeight, 0.07, 0.9);
+            event.preventDefault();
+            const before = drag.orb.getBoundingClientRect();
+            const target = getOrbDockTarget(event.clientX, event.clientY, window.innerWidth, window.innerHeight);
             this.#suppressOrbClick = true;
-            window.setTimeout(() => { this.#suppressOrbClick = false; }, 0);
-            this.#actions.updateDock?.({ dockSide, dockY });
+            drag.orb.style.removeProperty('transform');
+            drag.orb.dataset.dragging = 'false';
+            this.#actions.updateDock?.(target);
+            const after = drag.orb.getBoundingClientRect();
+            if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches && typeof drag.orb.animate === 'function') {
+                drag.orb.animate([
+                    { transform: `translate3d(${before.left - after.left}px, ${before.top - after.top}px, 0) scale(0.97)` },
+                    { transform: 'translate3d(0, 0, 0) scale(1)' },
+                ], { duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+            }
+            window.setTimeout(() => { this.#suppressOrbClick = false; }, 40);
+        } else {
+            drag.orb.style.removeProperty('transform');
+            drag.orb.dataset.dragging = 'false';
         }
         this.#drag = null;
         if (shouldOpen) {
@@ -557,6 +584,25 @@ export class PhoneView {
             this.#actions.open?.();
             window.setTimeout(() => { this.#suppressOrbClick = false; }, 0);
         }
+    }
+
+    #removeOrbWindowListeners() {
+        if (this.#orbMoveHandler) window.removeEventListener('pointermove', this.#orbMoveHandler, true);
+        if (this.#orbEndHandler) {
+            window.removeEventListener('pointerup', this.#orbEndHandler, true);
+            window.removeEventListener('pointercancel', this.#orbEndHandler, true);
+        }
+        this.#orbMoveHandler = null;
+        this.#orbEndHandler = null;
+    }
+
+    #currentPromptPreset() {
+        const settings = this.#store.getState().settings;
+        const kind = settings.promptWorkflowKind === 'phone' ? 'phone' : 'body';
+        return {
+            kind,
+            preset: normalizePhonePromptPreset(kind === 'body' ? settings.bodyPromptPreset : settings.promptPreset),
+        };
     }
 
     #submitChat(kind) {
@@ -597,6 +643,12 @@ export class PhoneView {
         if (launcherSelect instanceof HTMLSelectElement) launcherSelect.value = state.settings.launcherMode || 'orb';
         this.#setText('[data-role="provider"]', state.providerLabel);
         this.#setText('[data-role="provider-chip"]', state.providerLabel);
+        const themeButton = this.#root.querySelector('.phonie-theme-button');
+        if (themeButton) {
+            const nextLabels = { day: '夜间', night: '跟随酒馆', tavern: '日间' };
+            themeButton.setAttribute('aria-label', `切换到${nextLabels[state.settings.theme] || '下一个'}主题`);
+            themeButton.title = `当前：${state.settings.theme === 'day' ? '日间' : state.settings.theme === 'night' ? '夜间' : '跟随酒馆'}`;
+        }
         const screenCopy = SCREEN_COPY[state.screen] || SCREEN_COPY[SCREENS.HOME];
         this.#setText('[data-role="title"]', state.screen === SCREENS.CHAT ? state.contact.name : screenCopy.title);
         this.#setText('[data-role="eyebrow"]', screenCopy.eyebrow);
@@ -691,6 +743,16 @@ export class PhoneView {
     #renderVoiceLibrary(state) {
         this.#setText('[data-role="voice-provider"]', state.providerLabel);
         this.#setText('[data-role="voice-language"]', state.settings.sourceLanguage);
+        const providers = this.#root.querySelector('[data-role="tts-provider-list"]');
+        if (providers) {
+            const list = Array.isArray(state.ttsProviders) ? state.ttsProviders : [];
+            providers.innerHTML = list.length ? list.map((provider) => `
+                <button class="phonie-profile-card${provider.selected ? ' is-current' : ''}" type="button" data-action="set-tts-provider" data-provider-id="${escapeHtml(provider.id)}" aria-pressed="${provider.selected}">
+                    <span class="phonie-profile-card__mark">${icon('signal')}</span>
+                    <span><strong>${escapeHtml(provider.name)}</strong><small>${provider.selected ? '酒馆当前语音引擎' : '点击切换并沿用酒馆配置'}</small></span>
+                    <b>${provider.selected ? '当前' : '选择'}</b>
+                </button>`).join('') : '<div class="phonie-record-empty">请先在酒馆 TTS 设置中启用至少一个提供商。</div>';
+        }
         const list = this.#root.querySelector('[data-role="voice-library"]');
         if (!list) return;
         const voices = state.messages.filter((message) => message.kind === MESSAGE_KINDS.VOICE).slice(-8).reverse();
@@ -779,13 +841,19 @@ export class PhoneView {
     }
 
     #renderPromptPreset(state) {
-        const preset = normalizePhonePromptPreset(state.settings.promptPreset);
+        const kind = state.settings.promptWorkflowKind === 'phone' ? 'phone' : 'body';
+        const preset = normalizePhonePromptPreset(kind === 'body' ? state.settings.bodyPromptPreset : state.settings.promptPreset);
         const name = this.#root.querySelector('[data-prompt-preset-field="name"]');
         const depth = this.#root.querySelector('[data-prompt-preset-field="insertionDepth"]');
         if (name instanceof HTMLInputElement) name.value = preset.name;
         if (depth instanceof HTMLInputElement) depth.value = String(preset.insertionDepth);
         const list = this.#root.querySelector('[data-role="prompt-entry-list"]');
         if (list) list.innerHTML = preset.entries.map((entry, index) => promptEntryMarkup(entry, index, preset.entries.length)).join('');
+        this.#setText('[data-role="prompt-intro"]', kind === 'body'
+            ? '正文生成前按顺序注入；译文保留在正文，TTSVoice 标签只作为角色、情绪和原语言的内部控制。'
+            : '手机私信与电话的静默生成工作流；每条可选择 system、user 或 assistant。');
+        const master = this.#root.querySelector('[data-role="body-prompt-master"]');
+        if (master) master.hidden = kind !== 'body';
     }
     #renderSettings(state) {
         for (const control of this.#root.querySelectorAll('[data-setting]')) {
@@ -846,6 +914,7 @@ export class PhoneView {
         window.clearInterval(this.#clockTimer);
         window.clearTimeout(this.#toastTimer);
         this.#unsubscribe?.();
+        this.#removeOrbWindowListeners();
         this.#launcher?.remove();
         this.#wandLauncher?.remove();
         this.#root?.remove();

@@ -72,6 +72,8 @@ export function auxiliaryScreensMarkup() {
                     <span><small>当前语音引擎</small><strong data-role="voice-provider">TTS 未配置</strong></span>
                     <i data-role="voice-language">ja-JP</i>
                 </section>
+                <div class="phonie-pane-heading"><span>语音提供商</span><small>直接读取酒馆 TTS 设置</small></div>
+                <div class="phonie-profile-list phonie-provider-list" data-role="tts-provider-list"></div>
                 <div class="phonie-pane-heading"><span>最近声线</span><small>手机与正文统一播放焦点</small></div>
                 <div class="phonie-record-list" data-role="voice-library"></div>
             </div>

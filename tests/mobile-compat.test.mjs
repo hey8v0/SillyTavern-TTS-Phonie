@@ -20,4 +20,7 @@ test('phone exposes a compact settings launcher and a wand-menu entry', async ()
     assert.match(view, /phonie-wand-menu-item/);
     assert.match(view, /createElement\('details'\)/);
     assert.match(view, /data-launcher-setting="launcherMode"/);
+    assert.match(view, /window\.addEventListener\('pointermove'/);
+    assert.match(view, /getOrbDockTarget/);
+    assert.match(view, /duration:\s*220/);
 });
