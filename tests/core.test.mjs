@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createStore } from '../src/core/store.js';
 import { ProviderRegistry } from '../src/tts/provider-registry.js';
 import { makeAudioCacheKey } from '../src/storage/audio-cache.js';
+import { makeInlineAudioSourceKey } from '../src/ui/inline-player.js';
 
 test('store publishes state changes', () => {
     const store = createStore({ count: 1 });
@@ -25,6 +26,9 @@ test('audio cache keys are stable and text-sensitive', () => {
     const first = makeAudioCacheKey({ chatId: 'chat', messageId: 1, text: 'hello', provider: 'a' });
     const same = makeAudioCacheKey({ chatId: 'chat', messageId: 1, text: 'hello', provider: 'a' });
     const changed = makeAudioCacheKey({ chatId: 'chat', messageId: 1, text: 'goodbye', provider: 'a' });
+    const nextChat = makeAudioCacheKey({ chatId: 'next-chat', messageId: 1, text: 'hello', provider: 'a' });
     assert.equal(first, same);
     assert.notEqual(first, changed);
+    assert.notEqual(first, nextChat);
+    assert.notEqual(makeInlineAudioSourceKey(first), makeInlineAudioSourceKey(changed));
 });

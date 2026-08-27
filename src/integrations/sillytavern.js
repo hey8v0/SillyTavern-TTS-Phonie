@@ -37,7 +37,8 @@ function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
     merged.phoneResponseLength = Math.min(1200, Math.max(80, Math.round(Number(merged.phoneResponseLength) || 420)));
     merged.callResponseLength = Math.min(420, Math.max(80, Math.round(Number(merged.callResponseLength) || 180)));
-    merged.callScriptResponseLength = Math.min(1600, Math.max(360, Math.round(Number(merged.callScriptResponseLength) || 960)));
+    merged.callScriptResponseLength = Math.min(6000, Math.max(1200, Math.round(Number(merged.callScriptResponseLength) || 2800)));
+    merged.callLength = ['short', 'normal', 'long'].includes(value.callLength) ? value.callLength : 'normal';
     merged.launcherMode = ['orb', 'wand', 'both'].includes(merged.launcherMode) ? merged.launcherMode : 'orb';
     merged.generationMode = !value.generationMode && value.generationProfileId
         ? 'profile'
@@ -240,7 +241,7 @@ export class SillyTavernBridge {
         return blocks.filter(Boolean).join('\n\n').slice(0, 9000);
     }
 
-    async generatePhoneReply({ history, callMode = false, participants = [], topic = '', strategy = 'context', scriptMode = false }) {
+    async generatePhoneReply({ history, callMode = false, participants = [], topic = '', strategy = 'context', scriptMode = false, callLength = 'normal' }) {
         const settings = this.getSettings();
         const storyContext = callMode ? await this.getCallPlanningContext({ participants, topic }) : '';
         const prompt = buildPhoneReplyMessages({
@@ -256,18 +257,42 @@ export class SillyTavernBridge {
             topic,
             strategy,
             scriptMode,
+            callLength,
         });
-
-        const result = await requestPhoneGeneration({
-            settings: callMode ? {
-                ...settings,
-                phoneResponseLength: scriptMode ? settings.callScriptResponseLength : settings.callResponseLength,
-            } : settings,
-            prompt,
-            jsonSchema: scriptMode ? PHONE_CALL_SCRIPT_SCHEMA : PHONE_REPLY_SCHEMA,
+        const participantCount = participants.length || 1;
+        const lengthBudget = participantCount > 1
+            ? 5600
+            : callLength === 'long' ? 4800 : callLength === 'short' ? 1600 : 2800;
+        const generationSettings = callMode ? {
+            ...settings,
+            phoneResponseLength: scriptMode
+                ? Math.max(settings.callScriptResponseLength, lengthBudget)
+                : settings.callResponseLength,
+        } : settings;
+        const jsonSchema = scriptMode ? PHONE_CALL_SCRIPT_SCHEMA : PHONE_REPLY_SCHEMA;
+        const request = (messages) => requestPhoneGeneration({
+            settings: generationSettings,
+            prompt: messages,
+            jsonSchema,
             generateQuietPrompt,
         });
-        return parsePhoneReply(result, { targetLanguage: settings.targetLanguage });
+        const result = await request(prompt);
+        try {
+            return parsePhoneReply(result, { targetLanguage: settings.targetLanguage });
+        } catch (firstError) {
+            const retryPrompt = [...prompt, {
+                role: 'system',
+                content: scriptMode
+                    ? '上一次输出无效。立即重新输出完整 JSON。turns 不得为空，每段 originalText 必须是可直接朗读的非空台词。禁止返回空对象。'
+                    : '上一次输出无效。立即重新输出完整 JSON，originalText 必须是可直接朗读的非空台词。禁止返回空对象。',
+            }];
+            const retry = await request(retryPrompt);
+            try {
+                return parsePhoneReply(retry, { targetLanguage: settings.targetLanguage });
+            } catch (retryError) {
+                throw new Error('模型连续两次返回空白电话内容', { cause: retryError || firstError });
+            }
+        }
     }
 
     async translate(text, targetLanguage) {

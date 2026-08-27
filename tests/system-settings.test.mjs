@@ -26,10 +26,13 @@ test('system app markup exposes real model and prompt controls', () => {
     assert.match(markup, /\{\{角色\}\}/);
 });
 
-test('voice app exposes the independent Phonie provider center', async () => {
+test('model app owns providers while voice app owns routed voices', async () => {
     const home = await readFile(new URL('../src/ui/phone-home.js', import.meta.url), 'utf8');
     const view = await readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8');
-    assert.match(home, /data-role="tts-provider-list"/);
+    const systemMarkup = systemSettingsScreensMarkup();
+    assert.match(systemMarkup, /data-role="tts-provider-list"/);
+    assert.doesNotMatch(home, /最近声线/);
+    assert.match(home, /data-role="voice-library"/);
     assert.match(home, /data-role="tts-provider-editor"/);
     assert.match(home, /data-screen="\$\{SCREENS\.PROVIDER\}"/);
     assert.match(home, /data-role="character-directory"/);

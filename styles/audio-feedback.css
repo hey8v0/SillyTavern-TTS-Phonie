@@ -9,9 +9,13 @@
     height: 100%;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    width: 13px;
+    justify-content: center;
+    gap: 1px;
 }
 
+.phonie-orb[data-dock='right'] .phonie-orb__wave { right: auto; left: 1px; }
+.phonie-orb[data-dock='left'] .phonie-orb__wave { right: 1px; left: auto; }
 .phonie-orb__wave i { flex: 0 0 2px; }
 
 .phonie-message__waveform {
@@ -42,11 +46,17 @@
 }
 
 .phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i {
-    animation: phonie-audio-wave 620ms ease-in-out infinite;
+    animation: none;
+    transform: scaleY(calc(0.18 + var(--phonie-audio-level, 0.34) * 0.82));
+    transition: transform 70ms linear, opacity 120ms ease;
 }
 
-.phonie-call-live-wave i:nth-child(3n + 2) { animation-delay: -180ms !important; }
-.phonie-call-live-wave i:nth-child(3n) { animation-delay: -360ms !important; }
+.phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i:nth-child(3n + 2) {
+    transform: scaleY(calc(0.25 + var(--phonie-audio-level, 0.34) * 0.58));
+}
+.phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i:nth-child(3n) {
+    transform: scaleY(calc(0.12 + var(--phonie-audio-level, 0.34) * 0.7));
+}
 
 @media (prefers-reduced-motion: reduce) {
     .phonie-call-live-wave i { animation: none !important; }

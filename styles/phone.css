@@ -55,7 +55,7 @@
     position: fixed;
     z-index: 31001;
     top: var(--phonie-orb-y, 48%);
-    right: -23px;
+    right: -34px;
     width: 48px;
     height: 48px;
     margin: 0;
@@ -78,7 +78,7 @@
 
 .phonie-orb[data-dock="left"] {
     right: auto;
-    left: -23px;
+    left: -34px;
     border-radius: 6px 17px 17px 6px;
 }
 
@@ -108,7 +108,8 @@
 .phonie-orb__seam {
     position: absolute;
     top: 9px;
-    right: 4px;
+    right: auto;
+    left: 4px;
     bottom: 9px;
     width: 2px;
     border-radius: 999px;
@@ -117,8 +118,8 @@
 }
 
 .phonie-orb[data-dock="left"] .phonie-orb__seam {
-    right: auto;
-    left: 4px;
+    right: 4px;
+    left: auto;
 }
 
 .phonie-orb__unread {

@@ -58,10 +58,8 @@ export function systemSettingsScreensMarkup() {
                 </section>
                 <div class="phonie-pane-heading" data-generation-source="profile"><span>可用连接</span></div>
                 <div class="phonie-profile-list" data-role="generation-profile-list" data-generation-source="profile"></div>
-                <section class="phonie-route-note">
-                    ${icon('signal')}
-                    <p><strong>Phonie 独立语音路由</strong><span data-role="model-tts-provider">语音未配置</span></p>
-                </section>
+                <div class="phonie-pane-heading"><span>Phonie 语音引擎</span><small data-role="model-tts-provider">语音未配置</small></div>
+                <div class="phonie-profile-list phonie-provider-list" data-role="tts-provider-list"></div>
             </div>
         </section>
         <section class="phonie-screen phonie-prompts-screen" data-screen="${SCREENS.PROMPTS}" aria-label="提示词预设">

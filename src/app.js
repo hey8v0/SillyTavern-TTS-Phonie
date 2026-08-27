@@ -82,8 +82,11 @@ export async function createPhonieApp() {
         callStartedAt: null,
         callCaption: { source: '', translation: '' },
         callParticipants: [contact],
+        chatParticipants: [contact],
+        callSpeaker: '',
         callTopic: '',
         callStrategy: 'context',
+        callLength: settings.callLength,
         callNumber: '',
         callScriptQueue: [],
         callScriptIndex: -1,
@@ -255,7 +258,7 @@ export async function createPhonieApp() {
             const reply = await bridge.generatePhoneReply({
                 history: withOutgoing,
                 callMode,
-                participants: state.callParticipants,
+                participants: callMode ? state.callParticipants : state.chatParticipants,
                 topic: state.callTopic,
                 strategy: state.callStrategy,
             });
@@ -263,7 +266,9 @@ export async function createPhonieApp() {
             const currentSettings = store.getState().settings;
             const incoming = createPhoneMessage({
                 direction: 'incoming',
-                author: reply.speaker || store.getState().callParticipants?.[0]?.name || store.getState().contact.name,
+                author: reply.speaker
+                    || (callMode ? store.getState().callParticipants?.[0]?.name : store.getState().chatParticipants?.[0]?.name)
+                    || store.getState().contact.name,
                 originalText: reply.originalText,
                 translationText: reply.translationText,
                 kind: callMode || currentSettings.autoPlayPhoneReplies ? MESSAGE_KINDS.VOICE : MESSAGE_KINDS.TEXT,
@@ -325,6 +330,7 @@ export async function createPhonieApp() {
         updateState({
             callScriptIndex: index,
             callCaption: { source: message.originalText, translation: message.translationText },
+            callSpeaker: message.author,
         });
         if ([CALL_STATES.CONNECTED, CALL_STATES.GENERATING].includes(callMachine.state)) {
             callMachine.transition(CALL_STATES.SPEAKING);
@@ -352,6 +358,7 @@ export async function createPhonieApp() {
                 participants: call.callParticipants,
                 topic: call.callTopic,
                 strategy: call.callStrategy,
+                callLength: call.callLength,
             });
             const fallbackSpeaker = call.callParticipants?.[0]?.name || call.contact.name;
             const turns = reply.turns?.length ? reply.turns : [reply];
@@ -405,6 +412,7 @@ export async function createPhonieApp() {
             callParticipants,
             callTopic: String(options.topic || ''),
             callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
+            callLength: ['short', 'normal', 'long'].includes(options.callLength) ? options.callLength : state.settings.callLength,
             callNumber: String(options.number || ''),
             callScriptQueue: [],
             callScriptIndex: -1,
@@ -437,6 +445,7 @@ export async function createPhonieApp() {
             callParticipants: selected.length ? selected : [state.contact],
             callTopic: String(options.topic || ''),
             callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
+            callLength: ['short', 'normal', 'long'].includes(options.callLength) ? options.callLength : state.settings.callLength,
             callNumber: String(options.number || ''),
             callScriptQueue: [],
             callScriptIndex: -1,
@@ -471,12 +480,12 @@ export async function createPhonieApp() {
         if (state.callDirection) {
             const endedAt = Date.now();
             const record = createCallRecord({
-                contactName: state.contact.name,
+                contactName: state.callParticipants?.map((entry) => entry.name).join('、') || state.contact.name,
                 startedAt: startedAt || endedAt,
                 endedAt,
                 direction: state.callDirection,
                 outcome,
-                summary: outcome === 'declined' ? '已拒绝来电' : buildCallSummary(state.messages, state.contact.name),
+                summary: outcome === 'declined' ? '已拒绝来电' : buildCallSummary(state.messages, state.callParticipants?.[0]?.name || state.contact.name),
             });
             const calls = [...state.calls, record];
             updateState({
@@ -487,6 +496,7 @@ export async function createPhonieApp() {
                 callScriptQueue: [],
                 callScriptIndex: -1,
                 callPreparationLabel: '',
+                callSpeaker: '',
             });
             persistPhoneState(state.messages, calls);
         }
@@ -631,6 +641,37 @@ export async function createPhonieApp() {
         selectCharacterRoute(characterId) {
             if (!store.getState().characters.some((entry) => entry.id === characterId)) return;
             updateState({ selectedCharacterId: characterId });
+        },
+        openContactChat(characterId) {
+            const character = store.getState().characters.find((entry) => entry.id === characterId);
+            if (!character) return;
+            updateState({
+                chatParticipants: [character],
+                selectedCharacterId: character.id,
+                screen: SCREENS.CHAT,
+                open: true,
+            });
+        },
+        toggleChatContact(characterId) {
+            const state = store.getState();
+            const character = state.characters.find((entry) => entry.id === characterId);
+            if (!character) return;
+            const current = Array.isArray(state.chatParticipants) ? state.chatParticipants : [];
+            const selected = current.some((entry) => entry.id === characterId)
+                ? current.filter((entry) => entry.id !== characterId)
+                : [...current.filter((entry) => state.characters.some((candidate) => candidate.id === entry.id)), character];
+            updateState({ chatParticipants: selected.length ? selected : [character] });
+        },
+        openGroupChat() {
+            const state = store.getState();
+            const participants = (state.chatParticipants || []).filter((entry) => (
+                state.characters.some((candidate) => candidate.id === entry.id)
+            ));
+            if (participants.length < 2) {
+                showToast('请先选择至少两位联系人');
+                return;
+            }
+            updateState({ chatParticipants: participants, screen: SCREENS.CHAT, open: true });
         },
         updateCharacterRoute(route) {
             const state = store.getState();
@@ -780,6 +821,14 @@ export async function createPhonieApp() {
             const nextSettings = bridge.updateSettings({ dockSide, dockY });
             updateState({ settings: { ...nextSettings } });
         },
+        deleteCallRecord(callId) {
+            const state = store.getState();
+            const calls = state.calls.filter((record) => record.id !== callId);
+            if (calls.length === state.calls.length) return;
+            updateState({ calls });
+            persistPhoneState(state.messages, calls);
+            showToast('通话记录已删除');
+        },
         async clearCache() {
             updateState({ cacheBusy: true });
             await audioCache.clear();
@@ -814,6 +863,7 @@ export async function createPhonieApp() {
     });
 
     audioFocus.subscribe((detail) => {
+        view.setAudioLevel(detail.level);
         if (detail.state === 'progress') return;
         const currentId = detail.current?.messageId;
         const messages = store.getState().messages.map((message) => ({
@@ -891,6 +941,9 @@ export async function createPhonieApp() {
             generating: false,
             callDirection: null,
             callCaption: { source: '', translation: '' },
+            callSpeaker: '',
+            callParticipants: [nextContact],
+            chatParticipants: [nextContact],
             audioState: 'idle',
             unread: 0,
         });

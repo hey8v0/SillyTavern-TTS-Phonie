@@ -16,6 +16,13 @@ function compactHistory(history, limit = 10) {
         }));
 }
 
+export function resolveCallTurnRange(callLength = 'normal', participantCount = 1) {
+    if (Number(participantCount) > 1) return { minimum: 20, maximum: 28, label: '多人通话' };
+    if (callLength === 'short') return { minimum: 4, maximum: 6, label: '短来电' };
+    if (callLength === 'long') return { minimum: 12, maximum: 18, label: '长来电' };
+    return { minimum: 7, maximum: 10, label: '普通来电' };
+}
+
 export function buildPhoneReplyMessages({
     contactName,
     userName = 'User',
@@ -29,6 +36,7 @@ export function buildPhoneReplyMessages({
     topic = '',
     strategy = 'context',
     scriptMode = false,
+    callLength = 'normal',
 }) {
     const compact = compactHistory(history);
     const historyMessages = compact.map((message) => ({
@@ -37,6 +45,7 @@ export function buildPhoneReplyMessages({
     }));
     const latestInput = [...history].reverse().find((message) => message.direction === 'outgoing')?.originalText || '';
     const participantNames = participants.map((entry) => String(entry?.name || entry || '').trim()).filter(Boolean);
+    const turnRange = resolveCallTurnRange(callLength, participantNames.length);
     const messages = assemblePhonePromptMessages({
         preset,
         history: historyMessages,
@@ -50,7 +59,7 @@ export function buildPhoneReplyMessages({
             input: latestInput,
             format: callMode
                 ? scriptMode
-                    ? `一次写完整段电话内容，turns 包含 4 到 8 段自然口语；每段 speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。不要让用户逐轮输入。`
+                    ? `一次写完整段电话内容。${turnRange.label}必须包含 ${turnRange.minimum} 到 ${turnRange.maximum} 段自然口语。每段 speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。不要让用户逐轮输入。`
                     : `只写一轮自然、适合直接朗读的简短口语；speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。`
                 : '像私人聊天消息一样回复；除非理解语音必须，否则不要写舞台指示。',
             context: storyContext,
@@ -67,7 +76,7 @@ export function buildPhoneReplyMessages({
                 `参与者：${participantNames.join('、') || contactName}`,
                 `编排方式：${strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划'}`,
                 `通话主题：${topic || '根据当前剧情自然继续'}`,
-                scriptMode ? '输出一段可连续播放的完整电话或电话留言。返回 turns 数组，每段都包含 speaker、originalText、translationText 与 emotion。' : '',
+                scriptMode ? `输出一段可连续播放的完整电话或电话留言。turns 必须有 ${turnRange.minimum} 到 ${turnRange.maximum} 段，每段都包含 speaker、originalText、translationText 与 emotion。禁止返回空对象、空数组、空台词或省略字段。` : '',
                 storyContext ? `[酒馆剧情、世界书与摘要]\n${storyContext}` : '',
                 '以上内容只用于保持剧情连续性，不要逐字复述。',
             ].filter(Boolean).join('\n'),
@@ -147,10 +156,15 @@ export function parsePhoneReply(value, { targetLanguage = 'zh-CN' } = {}) {
             action: PHONE_REPLY_SCHEMA.properties.action.enum.includes(data.action) ? data.action : 'reply',
             ...(speaker ? { speaker } : {}),
         };
-    } catch {
+    } catch (error) {
+        const fallback = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        const looksStructured = /^[{[]/.test(fallback);
+        if (!fallback || looksStructured) {
+            throw new Error('模型没有返回可播放的电话内容', { cause: error });
+        }
         return {
-            originalText: raw,
-            translationText: targetLanguage ? '' : raw,
+            originalText: fallback,
+            translationText: targetLanguage ? '' : fallback,
             emotion: 'neutral',
             action: 'reply',
         };

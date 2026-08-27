@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildContinuityPrompt, buildPhoneReplyMessages, buildPhoneReplyPrompt, parsePhoneReply } from '../src/dialogue/prompt-service.js';
+import { buildContinuityPrompt, buildPhoneReplyMessages, buildPhoneReplyPrompt, parsePhoneReply, resolveCallTurnRange } from '../src/dialogue/prompt-service.js';
 import { DEFAULT_PHONE_PROMPT_PRESET } from '../src/dialogue/prompt-preset.js';
 
 test('phone reply prompt declares both languages and channel', () => {
@@ -78,6 +78,14 @@ test('prepared call mode asks for one complete multi-turn script', () => {
     assert.match(content, /完整电话|完整段电话/);
     assert.match(content, /turns/);
     assert.match(content, /不要让用户逐轮输入/);
+    assert.match(content, /20 到 28/);
+});
+
+test('call length presets and group calls resolve to explicit turn ranges', () => {
+    assert.deepEqual(resolveCallTurnRange('short', 1), { minimum: 4, maximum: 6, label: '短来电' });
+    assert.deepEqual(resolveCallTurnRange('normal', 1), { minimum: 7, maximum: 10, label: '普通来电' });
+    assert.deepEqual(resolveCallTurnRange('long', 1), { minimum: 12, maximum: 18, label: '长来电' });
+    assert.deepEqual(resolveCallTurnRange('short', 3), { minimum: 20, maximum: 28, label: '多人通话' });
 });
 
 test('prepared call parser normalizes multiple bilingual turns', () => {
@@ -128,6 +136,11 @@ test('structured reply parser degrades to plain text', () => {
     const parsed = parsePhoneReply('今、話せる？');
     assert.equal(parsed.originalText, '今、話せる？');
     assert.equal(parsed.emotion, 'neutral');
+});
+
+test('structured reply parser rejects empty objects before TTS', () => {
+    assert.throws(() => parsePhoneReply({}), /没有返回可播放的电话内容/);
+    assert.throws(() => parsePhoneReply('{}'), /没有返回可播放的电话内容/);
 });
 
 test('continuity prompt is bounded', () => {

@@ -18,6 +18,10 @@ function publicSegment(segment) {
     };
 }
 
+export function makeInlineAudioSourceKey(cacheKey) {
+    return `inline:${String(cacheKey || '')}`;
+}
+
 export class InlinePlayerManager {
     #bridge;
     #settings;
@@ -67,8 +71,29 @@ export class InlinePlayerManager {
             messageId: id,
             preferredLanguage: this.#settings.sourceLanguage,
         });
-        const liveEntries = [...this.#entries.values()].filter((entry) => entry.messageId === id);
-        if (segments.length && liveEntries.length === segments.length && liveEntries.every((entry) => entry.element?.isConnected)) return;
+        const chatId = this.#bridge.getChatId();
+        const descriptors = segments.map((segment, index) => {
+            const speaker = segment.speaker || this.#bridge.getContact().name;
+            const providerLabel = this.#providerCenter.getLabelForSpeaker(speaker);
+            const spokenText = formatSpeechForProvider(segment, providerLabel);
+            const cacheKey = makeAudioCacheKey({
+                chatId,
+                messageId: `${id}-${index}`,
+                text: `${segment.emotion}:${spokenText}`,
+                provider: this.#providerCenter.getCacheSignature(speaker),
+            });
+            return { segment, spokenText, cacheKey, audioKey: makeInlineAudioSourceKey(cacheKey) };
+        });
+        const liveEntries = [...this.#entries.values()]
+            .filter((entry) => entry.messageId === id)
+            .sort((a, b) => a.index - b.index);
+        const unchanged = descriptors.length
+            && liveEntries.length === descriptors.length
+            && liveEntries.every((entry, index) => (
+                entry.element?.isConnected
+                && entry.cacheKey === descriptors[index].cacheKey
+            ));
+        if (unchanged) return;
         this.#dropMessageEntries(id, { restore: false });
         textElement.querySelectorAll('.phonie-inline-button--body, .phonie-inline-actions').forEach((element) => element.remove());
         if (!segments.length) return;
@@ -92,30 +117,23 @@ export class InlinePlayerManager {
         }
 
         for (let index = 0; index < segments.length; index += 1) {
-            const segment = segments[index];
+            const { segment, spokenText, cacheKey, audioKey } = descriptors[index];
             const entryKey = `${id}:${index}`;
-            const providerLabel = this.#providerCenter.getLabelForSpeaker(segment.speaker || this.#bridge.getContact().name);
-            const spokenText = formatSpeechForProvider(segment, providerLabel);
-            const cacheKey = makeAudioCacheKey({
-                chatId: this.#bridge.getChatId(),
-                messageId: `${id}-${index}`,
-                text: `${segment.emotion}:${spokenText}`,
-                provider: this.#providerCenter.getCacheSignature(segment.speaker || this.#bridge.getContact().name),
-            });
             const entry = {
                 key: entryKey,
+                audioKey,
                 messageId: id,
                 index,
                 element: buttons[index],
                 segment,
                 spokenText,
                 cacheKey,
-                chatId: this.#bridge.getChatId(),
+                chatId,
             };
             this.#entries.set(entryKey, entry);
             buttons[index]?.addEventListener('click', () => this.#play(entry));
             const cached = await this.#cache.get(cacheKey);
-            if (cached instanceof Blob) this.#audioFocus.setSource(`inline:${entryKey}`, cached);
+            if (cached instanceof Blob) this.#audioFocus.setSource(audioKey, cached);
         }
 
         const stored = segments.map(publicSegment);
@@ -222,7 +240,7 @@ export class InlinePlayerManager {
     }
 
     async #play(entry) {
-        const audioKey = `inline:${entry.key}`;
+        const audioKey = entry.audioKey;
         if (this.#audioFocus.hasSource(audioKey)) {
             await this.#audioFocus.play(audioKey, {
                 owner: 'inline',
@@ -270,6 +288,7 @@ export class InlinePlayerManager {
         for (const [key, entry] of this.#entries) {
             if (entry.messageId !== Number(messageId)) continue;
             if (restore && entry.element?.isConnected) entry.element.replaceWith(document.createTextNode(entry.segment.rawTag));
+            this.#audioFocus.deleteSource(entry.audioKey);
             this.#entries.delete(key);
         }
     }

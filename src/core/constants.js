@@ -62,7 +62,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     generationProfileId: '',
     phoneResponseLength: 420,
     callResponseLength: 180,
-    callScriptResponseLength: 960,
+    callScriptResponseLength: 2800,
+    callLength: 'normal',
     customOpenAIEndpoint: '',
     customOpenAIModel: '',
     customOpenAIModels: [],
@@ -104,7 +105,7 @@ export const PHONE_CALL_SCRIPT_SCHEMA = Object.freeze({
         turns: {
             type: 'array',
             minItems: 1,
-            maxItems: 10,
+            maxItems: 28,
             items: {
                 type: 'object',
                 additionalProperties: false,

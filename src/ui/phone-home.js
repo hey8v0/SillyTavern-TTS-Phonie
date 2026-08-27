@@ -7,7 +7,7 @@ export const HOME_APPS = Object.freeze([
     { id: 'voice', label: '声线', detailRole: 'home-voice-count', screen: SCREENS.VOICE, icon: 'wave', tone: 'amber' },
     { id: 'trace', label: '轨迹', detailRole: 'home-trace-count', screen: SCREENS.TRACE, icon: 'headphones', tone: 'violet' },
     { id: 'engine', label: '模型', detail: '生成连接', screen: SCREENS.MODEL, icon: 'spark', tone: 'blue' },
-    { id: 'character', label: '角色', detail: '声线路由', screen: SCREENS.CHARACTER, icon: 'person', tone: 'rose' },
+    { id: 'character', label: '通讯录', detail: '私信与声线', screen: SCREENS.CHARACTER, icon: 'person', tone: 'rose' },
     { id: 'format', label: '预设', detail: '提示词编排', screen: SCREENS.PROMPTS, icon: 'layers', tone: 'silver' },
     { id: 'settings', label: '设置', detail: '手机与编排', screen: SCREENS.SETTINGS, icon: 'settings', tone: 'graphite' },
     { id: 'guide', label: '说明', detail: '使用指南', screen: SCREENS.GUIDE, icon: 'book', tone: 'cobalt' },
@@ -59,7 +59,7 @@ export function homeScreenMarkup() {
                     </div>
                 </div>
                 <div class="phonie-page-rail" aria-label="桌面分页"><button type="button" data-action="set-home-page" data-page="0" aria-current="true" aria-label="第一页"></button><button type="button" data-action="set-home-page" data-page="1" aria-current="false" aria-label="第二页"></button></div>
-                <button class="phonie-service-card" type="button" data-action="navigate" data-target-screen="${SCREENS.VOICE}">
+                <button class="phonie-service-card" type="button" data-action="navigate" data-target-screen="${SCREENS.MODEL}">
                     <span class="phonie-service-card__mark">${icon('signal')}</span>
                     <span class="phonie-service-card__copy">
                         <small>语音服务</small>
@@ -77,12 +77,10 @@ export function auxiliaryScreensMarkup() {
             <div class="phonie-app-pane">
                 <section class="phonie-voice-hero">
                     <span class="phonie-voice-hero__mark">${icon('signal')}</span>
-                    <span><small>当前语音引擎</small><strong data-role="voice-provider">TTS 未配置</strong></span>
+                    <span><small>已保存声线</small><strong data-role="voice-provider">角色声线路由</strong></span>
                     <i data-role="voice-language">ja-JP</i>
                 </section>
-                <div class="phonie-pane-heading"><span>Phonie 语音引擎</span></div>
-                <div class="phonie-profile-list phonie-provider-list" data-role="tts-provider-list"></div>
-                <div class="phonie-pane-heading"><span>最近声线</span></div>
+                <div class="phonie-pane-heading"><span>角色与复刻声线</span><small data-role="voice-route-count">0 条</small></div>
                 <div class="phonie-record-list" data-role="voice-library"></div>
             </div>
         </section>
@@ -97,13 +95,14 @@ export function auxiliaryScreensMarkup() {
                 <div class="phonie-record-list" data-role="trace-list"></div>
             </div>
         </section>
-        <section class="phonie-screen phonie-character-screen" data-screen="${SCREENS.CHARACTER}" aria-label="角色声线">
+        <section class="phonie-screen phonie-character-screen" data-screen="${SCREENS.CHARACTER}" aria-label="通讯录">
             <div class="phonie-app-pane">
-                <div class="phonie-pane-heading"><span>角色声线路由</span><small data-role="character-directory-count">0 位角色</small></div>
+                <div class="phonie-pane-heading"><span>通讯录</span><small data-role="character-directory-count">0 位联系人</small></div>
                 <label class="phonie-character-search">
                     ${icon('person')}
-                    <input type="search" data-role="character-search" placeholder="搜索正文说话人" autocomplete="off">
+                    <input type="search" data-role="character-search" placeholder="搜索有声联系人" autocomplete="off">
                 </label>
+                <button class="phonie-contact-group-launch" type="button" data-action="open-group-chat">${icon('message')}<span>打开所选群聊</span></button>
                 <div class="phonie-character-directory" data-role="character-directory"></div>
                 <section class="phonie-character-card">
                     <span class="phonie-character-card__portrait" data-role="character-portrait"><b data-role="character-initials">P</b></span>

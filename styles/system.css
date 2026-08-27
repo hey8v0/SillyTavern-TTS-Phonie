@@ -883,12 +883,30 @@
     scrollbar-width: thin;
 }
 
+.phonie-contact-group-launch {
+    display: inline-flex;
+    width: 100%;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--phonie-signal) 32%, var(--phonie-border));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--phonie-signal) 9%, var(--phonie-surface-raised));
+    color: var(--phonie-signal);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 760;
+    gap: 8px;
+}
+
+.phonie-contact-group-launch .phonie-icon { width: 16px; height: 16px; }
+
 .phonie-character-route {
     display: grid;
     width: 100%;
     min-height: 58px;
-    padding: 7px 9px;
-    grid-template-columns: 42px minmax(0, 1fr) 22px;
+    padding: 6px;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 9px;
     border: 1px solid var(--phonie-border);
@@ -898,6 +916,47 @@
     font: inherit;
     text-align: left;
 }
+
+.phonie-character-route__main {
+    display: grid;
+    min-width: 0;
+    padding: 1px 3px;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.phonie-character-route__main > span:last-child { display: grid; min-width: 0; }
+
+.phonie-character-route__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.phonie-character-route__actions button {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--phonie-border);
+    border-radius: 10px;
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink-muted);
+    place-items: center;
+}
+
+.phonie-character-route__actions button[aria-pressed='true'] {
+    border-color: color-mix(in srgb, var(--phonie-signal) 42%, var(--phonie-border));
+    color: var(--phonie-signal);
+}
+
+.phonie-character-route__actions .phonie-icon { width: 14px; height: 14px; }
 
 .phonie-character-route[hidden] { display: none; }
 
@@ -919,7 +978,7 @@
 
 .phonie-character-route__avatar[style] b { visibility: hidden; }
 
-.phonie-character-route > span:nth-child(2) {
+.phonie-character-route__main > span:nth-child(2) {
     display: grid;
     min-width: 0;
 }
@@ -936,14 +995,8 @@
     font-size: 9px;
 }
 
-.phonie-character-route > i {
-    color: var(--phonie-signal);
-}
-
-.phonie-character-route > i .phonie-icon {
-    width: 16px;
-    height: 16px;
-}
+.phonie-language-control { display: grid; min-width: 126px; gap: 6px; }
+.phonie-language-control .phonie-setting-select { width: 100%; min-width: 0; }
 
 @media (max-width: 380px) {
     .phonie-provider-field,

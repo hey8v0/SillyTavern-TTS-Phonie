@@ -123,10 +123,33 @@
     50% { transform: scaleY(1); opacity: 1; }
 }
 
+@keyframes phonie-audio-idle {
+    0%, 100% { transform: scaleY(0.3); opacity: 0.46; }
+    50% { transform: scaleY(0.48); opacity: 0.64; }
+}
+
+.phonie-message__voice:not([data-audio-state='playing']):not([data-audio-state='generating']) .phonie-message__waveform i {
+    animation: phonie-audio-idle 2.7s ease-in-out infinite;
+}
+
 .phonie-message__voice[data-audio-state=playing] .phonie-message__waveform i,
 .phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave i,
 .phonie-orb[data-audio-state=speaking] .phonie-orb__wave i {
-    animation: phonie-audio-wave 620ms ease-in-out infinite;
+    animation: none;
+    transform: scaleY(calc(0.2 + var(--phonie-audio-level, 0.34) * 0.8));
+    transition: transform 70ms linear, opacity 100ms ease;
+}
+
+.phonie-message__voice[data-audio-state=playing] .phonie-message__waveform i:nth-child(3n + 2),
+.phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave i:nth-child(2),
+.phonie-orb[data-audio-state=speaking] .phonie-orb__wave i:nth-child(2) {
+    transform: scaleY(calc(0.28 + var(--phonie-audio-level, 0.34) * 0.58));
+}
+
+.phonie-message__voice[data-audio-state=playing] .phonie-message__waveform i:nth-child(3n),
+.phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave i:nth-child(3),
+.phonie-orb[data-audio-state=speaking] .phonie-orb__wave i:nth-child(3) {
+    transform: scaleY(calc(0.14 + var(--phonie-audio-level, 0.34) * 0.68));
 }
 
 .phonie-message__voice[data-audio-state=generating] .phonie-message__waveform i,
