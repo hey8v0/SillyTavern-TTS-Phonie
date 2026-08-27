@@ -61,7 +61,7 @@ export function systemSettingsScreensMarkup() {
         <section class="phonie-screen phonie-prompts-screen" data-screen="${SCREENS.PROMPTS}" aria-label="提示词预设">
             <div class="phonie-app-pane phonie-prompt-pane">
                 <section class="phonie-preset-toolbar">
-                    <div class="phonie-preset-switcher"><label><span>工作流</span><select data-setting="promptWorkflowKind"><option value="body">正文 TTS</option><option value="phone">私信与电话</option></select></label><label><span>当前预设</span><select data-role="prompt-preset-library"></select></label></div>
+                    <div class="phonie-preset-switcher"><label><span>工作流</span><select data-setting="promptWorkflowKind"><option value="body">正文 TTS</option><option value="chat">私信聊天</option><option value="call">电话编排</option></select></label><label><span>当前预设</span><select data-role="prompt-preset-library"></select></label></div>
                     <details class="phonie-preset-manage">
                         <summary>${icon('settings')}<span><strong>预设管理</strong></span>${icon('chevron')}</summary>
                         <div class="phonie-preset-manage__body">

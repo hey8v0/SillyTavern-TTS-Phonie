@@ -1,6 +1,6 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.12.0';
-export const SCHEMA_VERSION = 9;
+export const APP_VERSION = '0.13.0';
+export const SCHEMA_VERSION = 10;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
@@ -20,6 +20,7 @@ export const SCREENS = Object.freeze({
     MODEL: 'model',
     PROMPTS: 'prompts',
     GUIDE: 'guide',
+    NOVELAI: 'novelai',
     SETTINGS: 'settings',
 });
 
@@ -52,7 +53,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
     autoDecorateMessages: true,
     bodyPromptEnabled: true,
     promptWorkflowKind: 'body',
-    promptPresetLibraries: { body: [], phone: [] },
+    promptPresetLibraries: { body: [], chat: [], call: [] },
+    chatPromptPreset: null,
+    callPromptPreset: null,
     autoTranslate: true,
     autoPlayPhoneReplies: true,
     injectContinuity: true,
@@ -68,6 +71,14 @@ export const DEFAULT_SETTINGS = Object.freeze({
     customOpenAIModels: [],
     customOpenAITemperature: 0.8,
     customOpenAIMaxTokens: 8192,
+    novelAiModel: 'nai-diffusion-4-5-full',
+    novelAiSampler: 'k_euler_ancestral',
+    novelAiScheduler: 'karras',
+    novelAiWidth: 832,
+    novelAiHeight: 1216,
+    novelAiSteps: 28,
+    novelAiScale: 5,
+    novelAiNegativePrompt: 'lowres, bad anatomy, text, watermark, error',
     ttsActiveProvider: 'elevenlabs',
     ttsFallbackProvider: '',
     ttsProviderSettings: {},

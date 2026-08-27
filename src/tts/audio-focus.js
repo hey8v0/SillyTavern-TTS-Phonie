@@ -99,12 +99,14 @@ export class AudioFocusController {
     }
 
     #emit(state) {
+        const levels = this.#readLevels(18);
         const detail = {
             state,
             current: this.#current ? { ...this.#current } : null,
             currentTime: this.#audio.currentTime || 0,
             duration: Number.isFinite(this.#audio.duration) ? this.#audio.duration : 0,
-            level: this.#readLevel(),
+            level: levels.reduce((sum, value) => sum + value, 0) / Math.max(1, levels.length),
+            levels,
         };
         for (const listener of this.#listeners) listener(detail);
         if (['ended', 'error', 'stopped'].includes(state)) this.#current = null;
@@ -135,14 +137,21 @@ export class AudioFocusController {
         }
     }
 
-    #readLevel() {
+    #readLevels(count = 18) {
         if (!this.#analyser || !this.#frequencyData) {
-            return this.#audio.paused ? 0 : 0.34;
+            return Array.from({ length: count }, (_, index) => (
+                this.#audio.paused ? 0 : 0.18 + ((index * 7) % 5) * 0.045
+            ));
         }
         this.#analyser.getByteFrequencyData(this.#frequencyData);
         const audibleBins = this.#frequencyData.subarray(0, Math.max(8, Math.floor(this.#frequencyData.length * 0.72)));
-        const average = audibleBins.reduce((sum, value) => sum + value, 0) / Math.max(1, audibleBins.length);
-        return Math.min(1, Math.max(0.06, average / 148));
+        return Array.from({ length: count }, (_, index) => {
+            const position = index / Math.max(1, count - 1);
+            const bin = Math.min(audibleBins.length - 1, Math.floor(Math.pow(position, 1.35) * audibleBins.length));
+            const neighbour = audibleBins[Math.min(audibleBins.length - 1, bin + 1)] || 0;
+            const value = ((audibleBins[bin] || 0) * 0.72 + neighbour * 0.28) / 172;
+            return Math.min(1, Math.max(0.055, value));
+        });
     }
 
     #startLevelLoop() {

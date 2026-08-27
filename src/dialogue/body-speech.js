@@ -1,7 +1,7 @@
 import { normalizePhonePromptPreset, resolvePromptVariables } from './prompt-preset.js';
 import { detectLanguage } from './segmenter.js';
 
-export const BODY_TTS_TAG_PATTERN = /\[(?:TTSVoice|TTS)\s*[:：]\s*([^:：\]]+?)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([\s\S]*?)\]/gi;
+export const BODY_TTS_TAG_PATTERN = /\[(?:TTSVoice|TTS)\s*[:：]\s*([^:：\]\r\n]+?)\s*[:：]\s*([^:：\]\r\n]*?)\s*[:：]\s*([^\]]+?)\]/giu;
 
 const VISIBLE_QUOTE_PATTERN = /(?:“([^”]+)”|「([^」]+)」|『([^』]+)』|"([^"]+)")\s*$/u;
 const ELEVENLABS_AUDIO_TAG_PATTERN = /(^|\s)\((laughs|chuckle|humming|breath|inhale|exhale|pant|gasps|sighs|sniffs|snorts|coughs|clear-throat|groans|emm|lip-smacking|sneezes|burps)\)(?=\s|$)/gi;
@@ -99,7 +99,11 @@ export function parseBodySpeechSegments(sourceText, { messageId = 0, preferredLa
         const visibleText = visibleMatch ? visibleMatch.slice(1).find(Boolean) || '' : '';
         const speaker = String(match[1] || '').trim();
         const rawEmotion = String(match[2] || '').trim();
-        const speakText = String(match[3] || '').trim();
+        const speakText = String(match[3] || '')
+            .trim()
+            .replace(/^[「『“”]+|[」』“”]+$/gu, '')
+            .trim();
+        if (!speaker || !speakText || !/[\p{L}\p{N}]/u.test(speakText)) continue;
         const detected = detectLanguage(speakText);
         segments.push(Object.freeze({
             id: `body-${messageId}-${segments.length}`,

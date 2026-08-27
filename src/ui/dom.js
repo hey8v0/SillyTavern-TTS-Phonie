@@ -28,7 +28,6 @@ export function formatClock(timestamp = Date.now()) {
 }
 
 export function initials(value) {
-    const parts = String(value || 'P').trim().split(/\s+/).filter(Boolean);
-    if (parts.length > 1) return `${parts[0][0]}${parts.at(-1)[0]}`.toUpperCase();
-    return Array.from(parts[0] || 'P').slice(0, 2).join('').toUpperCase();
+    const first = Array.from(String(value || 'P').trim().replace(/^[@#\s]+/u, ''))[0] || 'P';
+    return first.toLocaleUpperCase();
 }

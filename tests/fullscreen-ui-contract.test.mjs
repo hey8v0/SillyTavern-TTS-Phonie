@@ -8,7 +8,8 @@ const phoneView = await readFile(new URL('../src/ui/phone-view.js', import.meta.
 const workflowCss = await readFile(new URL('../styles/workflows.css', import.meta.url), 'utf8');
 
 test('call screen owns the handset below the real status bar', () => {
-    assert.match(callCss, /data-screen='call'[^{}]*\.phonie-header[\s\S]*?data-screen='call'[^{}]*\.phonie-dock\s*\{\s*display:\s*none/);
+    assert.match(callCss, /data-screen='call'[^{}]*\.phonie-header\s*\{\s*display:\s*none/);
+    assert.match(callCss, /data-screen='call'[^{}]*\.phonie-dock\s*\{[\s\S]*?backdrop-filter:\s*blur/);
     assert.match(callCss, /\.phonie-screen\[data-screen='call'\]\s*\{[\s\S]*?margin:\s*0;[\s\S]*?border:\s*0;/);
 });
 

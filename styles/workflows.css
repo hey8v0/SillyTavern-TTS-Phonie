@@ -176,3 +176,7 @@
     .phonie-preset-manage > summary > .phonie-icon:last-child,
     .phonie-prompt-entry > summary > .phonie-icon:last-child { transition: none; }
 }
+
+@media (max-width: 520px) {
+    .phonie-preset-switcher { grid-template-columns: minmax(0, 1fr); }
+}

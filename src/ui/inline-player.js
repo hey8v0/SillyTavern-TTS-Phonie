@@ -4,6 +4,7 @@ import {
     parseBodySpeechSegments,
 } from '../dialogue/body-speech.js';
 import { makeAudioCacheKey } from '../storage/audio-cache.js';
+import { AudioActionMenu, downloadAudioSource } from './audio-action-menu.js';
 import { icon } from './dom.js';
 
 function publicSegment(segment) {
@@ -30,6 +31,7 @@ export class InlinePlayerManager {
     #providerCenter;
     #entries = new Map();
     #unsubscribeAudio = null;
+    #audioMenu = new AudioActionMenu();
 
     constructor({ bridge, settings, cache, audioFocus, providerCenter }) {
         this.#bridge = bridge;
@@ -99,24 +101,9 @@ export class InlinePlayerManager {
         if (!segments.length) return;
 
         const buttons = this.#replaceTags(textElement, segments);
-        for (let index = buttons.length; index < segments.length; index += 1) {
-            const rangedButton = this.#createButton(segments[index]);
-            if (this.#replaceAcrossTextNodes(textElement, segments[index].rawTag, rangedButton)) {
-                buttons.push(rangedButton);
-                continue;
-            }
-            let actions = textElement.querySelector('.phonie-inline-actions');
-            if (!actions) {
-                actions = document.createElement('span');
-                actions.className = 'phonie-inline-actions';
-                textElement.append(actions);
-            }
-            const button = this.#createButton(segments[index]);
-            actions.append(button);
-            buttons.push(button);
-        }
 
         for (let index = 0; index < segments.length; index += 1) {
+            if (!buttons[index]) continue;
             const { segment, spokenText, cacheKey, audioKey } = descriptors[index];
             const entryKey = `${id}:${index}`;
             const entry = {
@@ -130,12 +117,12 @@ export class InlinePlayerManager {
                 cacheKey,
                 chatId,
             };
-            const regenerate = this.#createRegenerateButton(segment);
-            buttons[index]?.after(regenerate);
-            entry.regenerateElement = regenerate;
             this.#entries.set(entryKey, entry);
             buttons[index]?.addEventListener('click', () => this.#play(entry));
-            regenerate.addEventListener('click', () => this.#regenerate(entry));
+            this.#audioMenu.bind(buttons[index], {
+                download: () => this.#download(entry),
+                regenerate: () => this.#regenerate(entry),
+            });
             const cached = await this.#cache.get(cacheKey);
             if (cached instanceof Blob) this.#audioFocus.setSource(audioKey, cached);
         }
@@ -152,71 +139,47 @@ export class InlinePlayerManager {
     #replaceTags(textElement, segments) {
         const nodes = [];
         const walker = document.createTreeWalker(textElement, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) nodes.push(walker.currentNode);
-        const buttons = [];
-
-        for (const node of nodes) {
-            if (buttons.length >= segments.length || node.parentElement?.closest('.phonie-inline-button--body')) continue;
-            const text = node.nodeValue || '';
-            BODY_TTS_TAG_PATTERN.lastIndex = 0;
-            if (!BODY_TTS_TAG_PATTERN.test(text)) {
-                BODY_TTS_TAG_PATTERN.lastIndex = 0;
-                continue;
-            }
-            BODY_TTS_TAG_PATTERN.lastIndex = 0;
-            const fragment = document.createDocumentFragment();
-            let cursor = 0;
-            let match;
-            while ((match = BODY_TTS_TAG_PATTERN.exec(text)) && buttons.length < segments.length) {
-                fragment.append(document.createTextNode(text.slice(cursor, match.index)));
-                const button = this.#createButton(segments[buttons.length]);
-                fragment.append(button);
-                buttons.push(button);
-                cursor = BODY_TTS_TAG_PATTERN.lastIndex;
-            }
-            fragment.append(document.createTextNode(text.slice(cursor)));
-            node.replaceWith(fragment);
-            BODY_TTS_TAG_PATTERN.lastIndex = 0;
-        }
-        return buttons;
-    }
-
-    #replaceAcrossTextNodes(root, needle, replacement) {
-        const nodes = [];
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
             if (!walker.currentNode.parentElement?.closest('.phonie-inline-button--body')) nodes.push(walker.currentNode);
         }
         const combined = nodes.map((node) => node.nodeValue || '').join('');
-        const startIndex = combined.indexOf(String(needle || ''));
-        if (startIndex < 0) return false;
-        const endIndex = startIndex + String(needle).length;
-        let offset = 0;
-        let startNode = null;
-        let endNode = null;
-        let startOffset = 0;
-        let endOffset = 0;
-        for (const node of nodes) {
-            const length = (node.nodeValue || '').length;
-            if (!startNode && startIndex >= offset && startIndex <= offset + length) {
-                startNode = node;
-                startOffset = startIndex - offset;
-            }
-            if (endIndex >= offset && endIndex <= offset + length) {
-                endNode = node;
-                endOffset = endIndex - offset;
-                break;
-            }
-            offset += length;
+        const matches = [];
+        BODY_TTS_TAG_PATTERN.lastIndex = 0;
+        let match;
+        while ((match = BODY_TTS_TAG_PATTERN.exec(combined)) && matches.length < segments.length) {
+            matches.push({ start: match.index, end: BODY_TTS_TAG_PATTERN.lastIndex, segment: segments[matches.length] });
         }
-        if (!startNode || !endNode) return false;
-        const range = document.createRange();
-        range.setStart(startNode, startOffset);
-        range.setEnd(endNode, endOffset);
-        range.deleteContents();
-        range.insertNode(replacement);
-        range.detach?.();
-        return true;
+        BODY_TTS_TAG_PATTERN.lastIndex = 0;
+        const locate = (absolute) => {
+            let offset = 0;
+            for (const node of nodes) {
+                const length = (node.nodeValue || '').length;
+                if (absolute <= offset + length) return { node, offset: Math.max(0, absolute - offset) };
+                offset += length;
+            }
+            return null;
+        };
+        const mapped = matches.map((item) => ({
+            ...item,
+            startPoint: locate(item.start),
+            endPoint: locate(item.end),
+        }));
+        const buttons = Array(segments.length).fill(null);
+        for (let index = mapped.length - 1; index >= 0; index -= 1) {
+            const item = mapped[index];
+            const start = item.startPoint;
+            const end = item.endPoint;
+            if (!start || !end) continue;
+            const button = this.#createButton(item.segment);
+            const range = document.createRange();
+            range.setStart(start.node, start.offset);
+            range.setEnd(end.node, end.offset);
+            range.deleteContents();
+            range.insertNode(button);
+            range.detach?.();
+            buttons[index] = button;
+        }
+        return buttons;
     }
 
     #createButton(segment) {
@@ -229,16 +192,6 @@ export class InlinePlayerManager {
         button.setAttribute('aria-label', `播放${segment.speaker || '角色'}这句原声`);
         button.title = `${segment.speaker || '角色'} · ${segment.rawEmotion || segment.emotion}`;
         button.innerHTML = `<span class='phonie-inline-button__icon'>${icon('play')}</span><span class='phonie-inline-button__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`;
-        return button;
-    }
-
-    #createRegenerateButton(segment) {
-        const button = document.createElement('button');
-        button.className = 'phonie-inline-button phonie-inline-button--regenerate';
-        button.type = 'button';
-        button.setAttribute('aria-label', `重新生成${segment.speaker || '角色'}这句原声`);
-        button.title = '用当前声线路由重新生成';
-        button.innerHTML = icon('reset');
         return button;
     }
 
@@ -294,6 +247,14 @@ export class InlinePlayerManager {
         await this.#play(entry);
     }
 
+    async #download(entry) {
+        if (!this.#audioFocus.hasSource(entry.audioKey)) await this.#play(entry);
+        downloadAudioSource(
+            this.#audioFocus.getSource(entry.audioKey),
+            `${entry.segment.speaker || '角色'}-${entry.messageId}-${entry.index + 1}`,
+        );
+    }
+
     #handleFocus(detail) {
         for (const entry of this.#entries.values()) {
             const matched = detail.current?.owner === 'inline' && detail.current?.entryKey === entry.key;
@@ -309,7 +270,6 @@ export class InlinePlayerManager {
         for (const [key, entry] of this.#entries) {
             if (entry.messageId !== Number(messageId)) continue;
             if (restore && entry.element?.isConnected) entry.element.replaceWith(document.createTextNode(entry.segment.rawTag));
-            entry.regenerateElement?.remove();
             this.#audioFocus.deleteSource(entry.audioKey);
             this.#entries.delete(key);
         }
@@ -327,6 +287,7 @@ export class InlinePlayerManager {
 
     dispose() {
         this.#unsubscribeAudio?.();
+        this.#audioMenu.dispose();
         this.reset();
     }
 }

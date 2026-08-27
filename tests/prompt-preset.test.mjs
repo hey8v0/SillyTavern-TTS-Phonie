@@ -22,10 +22,10 @@ test('default phone preset exposes editable roles and variables', () => {
 
 test('prompt preset library saves a named copy without replacing the active preset', () => {
     const original = normalizePhonePromptPreset(DEFAULT_PHONE_PROMPT_PRESET);
-    const library = normalizePromptPresetLibrary({ phone: [original] }, { phone: original });
-    const saved = savePromptPreset(library, 'phone', { ...original, name: '夜间电话' }, { asNew: true });
-    assert.equal(saved.library.phone.length, 2);
-    assert.equal(saved.preset.name, '夜间电话');
+    const library = normalizePromptPresetLibrary({ chat: [original] }, { chat: original });
+    const saved = savePromptPreset(library, 'chat', { ...original, name: '夜间私信' }, { asNew: true });
+    assert.equal(saved.library.chat.length, 2);
+    assert.equal(saved.preset.name, '夜间私信');
     assert.notEqual(saved.preset.id, original.id);
 });
 

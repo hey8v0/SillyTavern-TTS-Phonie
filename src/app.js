@@ -3,19 +3,27 @@ import { createStore } from './core/store.js';
 import { createDeviceStatusSnapshot, DeviceStatusMonitor } from './device/device-status.js';
 import { DEFAULT_BODY_PROMPT_PRESET } from './dialogue/body-speech.js';
 import {
-    DEFAULT_PHONE_PROMPT_PRESET,
+    DEFAULT_CALL_PROMPT_PRESET,
+    DEFAULT_CHAT_PROMPT_PRESET,
     importPromptPresetLibrary,
     removePromptPreset,
     savePromptPreset as savePromptPresetToLibrary,
 } from './dialogue/prompt-preset.js';
 import { SillyTavernBridge } from './integrations/sillytavern.js';
 import { CallMachine } from './phone/call-machine.js';
-import { createCallRecord, createPhoneMessage, recallPhoneMessage as markPhoneMessageRecalled } from './phone/chat-records.js';
+import {
+    createCallRecord,
+    createConversation,
+    createConversationId,
+    createPhoneMessage,
+    recallPhoneMessage as markPhoneMessageRecalled,
+} from './phone/chat-records.js';
 import { AudioCache, makeAudioCacheKey } from './storage/audio-cache.js';
 import { AudioFocusController } from './tts/audio-focus.js';
 import { PhonieProviderCenter } from './tts/provider-center.js';
 import { InlinePlayerManager } from './ui/inline-player.js';
 import { PhoneView } from './ui/phone-view.js';
+import { downloadAudioSource } from './ui/audio-action-menu.js';
 
 function buildCallSummary(messages, contactName) {
     const lines = messages.slice(-6).map((message) => {
@@ -23,6 +31,18 @@ function buildCallSummary(messages, contactName) {
         return `${speaker}: ${String(message.originalText || '').replace(/\s+/g, ' ').slice(0, 180)}`;
     });
     return lines.join(' / ').slice(0, 900);
+}
+
+function promptSettingKey(kind) {
+    if (kind === 'body') return 'bodyPromptPreset';
+    if (kind === 'call') return 'callPromptPreset';
+    return 'chatPromptPreset';
+}
+
+function defaultPromptForKind(kind) {
+    if (kind === 'body') return DEFAULT_BODY_PROMPT_PRESET;
+    if (kind === 'call') return DEFAULT_CALL_PROMPT_PRESET;
+    return DEFAULT_CHAT_PROMPT_PRESET;
 }
 
 export async function createPhonieApp() {
@@ -49,6 +69,10 @@ export async function createPhonieApp() {
     const metadata = bridge.getPhoneMetadata();
     const contact = bridge.getContact();
     const characters = bridge.getCharacterDirectory(settings);
+    const initialConversationId = createConversationId([contact]);
+    const initialConversation = metadata.conversations?.[initialConversationId];
+    const initialMessages = initialConversation?.messages || metadata.messages;
+    const initialPending = initialConversation?.pendingUserMessageIds || metadata.pendingUserMessageIds;
     const providerCenter = new PhonieProviderCenter({ bridge });
     const callMachine = new CallMachine();
     const audioCache = new AudioCache();
@@ -67,9 +91,11 @@ export async function createPhonieApp() {
         characters,
         selectedCharacterId: characters[0]?.id || '',
         selectedProviderId: settings.ttsActiveProvider,
-        messages: metadata.messages,
+        messages: initialMessages,
         calls: metadata.calls,
-        pendingUserMessageIds: metadata.pendingUserMessageIds,
+        pendingUserMessageIds: initialPending,
+        conversations: metadata.conversations || {},
+        activeConversationId: initialConversationId,
         providerLabel: providerCenter.getActiveLabel(),
         providerSnapshot: providerCenter.snapshot(),
         deviceStatus: createDeviceStatusSnapshot(),
@@ -94,6 +120,9 @@ export async function createPhonieApp() {
         audioState: 'idle',
         audioCacheStats: { count: 0, bytes: 0 },
         cacheBusy: false,
+        novelImage: '',
+        novelBusy: false,
+        novelStatus: '待命',
         unread: 0,
         toast: null,
     });
@@ -124,9 +153,48 @@ export async function createPhonieApp() {
         calls = store.getState().calls,
         pendingUserMessageIds = store.getState().pendingUserMessageIds,
     ) {
-        const nextMetadata = { schemaVersion: SCHEMA_VERSION, messages, calls, pendingUserMessageIds };
+        const state = store.getState();
+        const participants = state.chatParticipants?.length ? state.chatParticipants : [state.contact];
+        const activeConversationId = state.activeConversationId || createConversationId(participants);
+        const conversation = createConversation({
+            ...(state.conversations?.[activeConversationId] || {}),
+            id: activeConversationId,
+            participantIds: participants.map((entry) => entry.id),
+            title: participants.length > 1 ? participants.map((entry) => entry.name).join('、') : participants[0]?.name,
+            messages,
+            pendingUserMessageIds,
+            updatedAt: Date.now(),
+        });
+        const conversations = { ...(state.conversations || {}), [activeConversationId]: conversation };
+        updateState({ conversations, activeConversationId });
+        const nextMetadata = {
+            schemaVersion: SCHEMA_VERSION,
+            messages,
+            calls,
+            pendingUserMessageIds,
+            conversations,
+            activeConversationId,
+        };
         bridge.savePhoneMetadata(nextMetadata);
         bridge.updateContinuityPrompt(nextMetadata);
+    }
+
+    function openConversation(participants) {
+        const safeParticipants = (participants || []).filter(Boolean);
+        if (!safeParticipants.length) return;
+        persistPhoneState();
+        const state = store.getState();
+        const activeConversationId = createConversationId(safeParticipants);
+        const saved = state.conversations?.[activeConversationId];
+        updateState({
+            chatParticipants: safeParticipants,
+            selectedCharacterId: safeParticipants[0]?.id || state.selectedCharacterId,
+            activeConversationId,
+            messages: saved?.messages || [],
+            pendingUserMessageIds: saved?.pendingUserMessageIds || [],
+            screen: SCREENS.CHAT,
+            open: true,
+        });
     }
 
     async function preparePhoneAudio(message, voiceName, { autoplay = true, rateLimited = false, force = false } = {}) {
@@ -555,6 +623,21 @@ export async function createPhonieApp() {
         }
     }
 
+    async function downloadPhoneAudio(messageId) {
+        const state = store.getState();
+        const message = state.messages.find((entry) => entry.id === messageId);
+        if (!message) return;
+        try {
+            const speaker = message.direction === 'incoming' ? message.author : bridge.getUserName();
+            await preparePhoneAudio(message, speaker, { autoplay: false });
+            downloadAudioSource(audioFocus.getSource(`phone:${message.id}`), `${message.author || 'Phonie'}-${message.id}`);
+            showToast('音频已开始下载');
+        } catch (error) {
+            console.error('[Phonie] Could not download phone audio.', error);
+            showToast(error?.message || '音频下载失败');
+        }
+    }
+
     function replayCallRecord(callId) {
         const state = store.getState();
         const record = state.calls.find((entry) => entry.id === callId);
@@ -628,6 +711,7 @@ export async function createPhonieApp() {
         endCall,
         playPhoneAudio,
         regeneratePhoneAudio,
+        downloadPhoneAudio,
         replayCallRecord,
         cycleTheme() {
             const order = [THEMES.DAY, THEMES.NIGHT, THEMES.TAVERN];
@@ -720,12 +804,7 @@ export async function createPhonieApp() {
         openContactChat(characterId) {
             const character = store.getState().characters.find((entry) => entry.id === characterId);
             if (!character) return;
-            updateState({
-                chatParticipants: [character],
-                selectedCharacterId: character.id,
-                screen: SCREENS.CHAT,
-                open: true,
-            });
+            openConversation([character]);
         },
         toggleChatContact(characterId) {
             const state = store.getState();
@@ -746,7 +825,7 @@ export async function createPhonieApp() {
                 showToast('请先选择至少两位联系人');
                 return;
             }
-            updateState({ chatParticipants: participants, screen: SCREENS.CHAT, open: true });
+            openConversation(participants);
         },
         updateCharacterRoute(route) {
             const state = store.getState();
@@ -763,6 +842,26 @@ export async function createPhonieApp() {
                 characters: bridge.getCharacterDirectory(nextSettings),
             });
             showToast(character.name + ' 的专属声线已保存');
+        },
+        addManualCharacter(name) {
+            const cleanName = String(name || '').trim();
+            if (!cleanName) return;
+            const id = 'speaker:' + encodeURIComponent(cleanName.toLocaleLowerCase('zh-CN'));
+            providerCenter.setCharacterRoute({ id, name: cleanName }, {});
+            const nextSettings = bridge.getSettings();
+            const characters = bridge.getCharacterDirectory(nextSettings);
+            updateState({ settings: { ...nextSettings }, characters, selectedCharacterId: id });
+            showToast(cleanName + ' 已加入通讯录');
+        },
+        deleteCharacterRoute() {
+            const state = store.getState();
+            const character = state.characters.find((entry) => entry.id === state.selectedCharacterId);
+            if (!character) return;
+            providerCenter.deleteCharacterRoute(character);
+            const nextSettings = bridge.getSettings();
+            const characters = bridge.getCharacterDirectory(nextSettings);
+            updateState({ settings: { ...nextSettings }, characters, selectedCharacterId: characters[0]?.id || '' });
+            showToast(character.name + ' 的专属路由已删除');
         },
         updateSetting(key, value) {
             const nextSettings = bridge.updateSettings({ [key]: value });
@@ -817,8 +916,58 @@ export async function createPhonieApp() {
                 showToast(error?.message || '自定义模型连接失败');
             }
         },
+        async saveNovelAiToken(value) {
+            try {
+                await bridge.saveNovelAiToken(value);
+                updateState({ novelStatus: 'Token 已安全保存' });
+                showToast('NovelAI Token 已保存到酒馆安全密钥槽');
+                return true;
+            } catch (error) {
+                showToast(error?.message || 'NovelAI Token 保存失败');
+                return false;
+            }
+        },
+        async generateNovelAiImage(payload) {
+            updateState({ novelBusy: true, novelStatus: '正在生成影像…' });
+            try {
+                const image = await bridge.generateNovelAiImage(payload);
+                updateState({ novelImage: image, novelBusy: false, novelStatus: '生成完成' });
+                showToast('NovelAI 图片已生成');
+                return image;
+            } catch (error) {
+                console.error('[Phonie] NovelAI image generation failed.', error);
+                updateState({ novelBusy: false, novelStatus: error?.message || '生成失败' });
+                showToast(error?.message || 'NovelAI 图片生成失败');
+                return '';
+            }
+        },
+        sendNovelAiImage() {
+            const state = store.getState();
+            if (!state.novelImage) return;
+            const message = createPhoneMessage({
+                direction: 'outgoing',
+                author: bridge.getUserName(),
+                originalText: '分享了一张图片',
+                kind: MESSAGE_KINDS.IMAGE,
+                attachmentName: 'NovelAI 生成图片',
+                description: '用户在私人频道分享了一张生成图片',
+                imageUrl: state.novelImage,
+            });
+            const messages = [...state.messages, message];
+            updateState({ messages, screen: SCREENS.CHAT });
+            persistPhoneState(messages, state.calls, [...state.pendingUserMessageIds, message.id]);
+            showToast('图片已发送到当前会话');
+        },
+        downloadNovelAiImage() {
+            const image = store.getState().novelImage;
+            if (!image) return;
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `phonie-novelai-${Date.now()}.png`;
+            link.click();
+        },
         updatePromptPreset(kind, promptPreset) {
-            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const key = promptSettingKey(kind);
             const nextSettings = bridge.updateSettings({ [key]: promptPreset });
             updateState({ settings: { ...nextSettings } });
             if (kind === 'body') bridge.updateBodyPromptInjection();
@@ -826,7 +975,7 @@ export async function createPhonieApp() {
         savePromptPreset(kind, promptPreset, asNew = false) {
             const settings = store.getState().settings;
             const saved = savePromptPresetToLibrary(settings.promptPresetLibraries, kind, promptPreset, { asNew });
-            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const key = promptSettingKey(kind);
             const nextSettings = bridge.updateSettings({
                 promptPresetLibraries: saved.library,
                 [key]: saved.preset,
@@ -840,7 +989,7 @@ export async function createPhonieApp() {
             const settings = store.getState().settings;
             const preset = settings.promptPresetLibraries?.[kind]?.find((entry) => entry.id === presetId);
             if (!preset) return;
-            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const key = promptSettingKey(kind);
             const nextSettings = bridge.updateSettings({ [key]: preset });
             updateState({ settings: { ...nextSettings } });
             if (kind === 'body') bridge.updateBodyPromptInjection();
@@ -848,10 +997,10 @@ export async function createPhonieApp() {
         },
         deletePromptPreset(kind, presetId) {
             const settings = store.getState().settings;
-            const fallback = kind === 'body' ? DEFAULT_BODY_PROMPT_PRESET : DEFAULT_PHONE_PROMPT_PRESET;
+            const fallback = defaultPromptForKind(kind);
             const library = removePromptPreset(settings.promptPresetLibraries, kind, presetId, fallback);
             const nextPreset = library[kind][0];
-            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const key = promptSettingKey(kind);
             const nextSettings = bridge.updateSettings({ promptPresetLibraries: library, [key]: nextPreset });
             updateState({ settings: { ...nextSettings } });
             if (kind === 'body') bridge.updateBodyPromptInjection();
@@ -862,9 +1011,10 @@ export async function createPhonieApp() {
                 const settings = store.getState().settings;
                 const imported = importPromptPresetLibrary(payload, {
                     body: settings.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET,
-                    phone: settings.promptPreset || DEFAULT_PHONE_PROMPT_PRESET,
+                    chat: settings.chatPromptPreset || DEFAULT_CHAT_PROMPT_PRESET,
+                    call: settings.callPromptPreset || DEFAULT_CALL_PROMPT_PRESET,
                 });
-                const library = Object.fromEntries(['body', 'phone'].map((kind) => {
+                const library = Object.fromEntries(['body', 'chat', 'call'].map((kind) => {
                     const merged = [...(settings.promptPresetLibraries?.[kind] || []), ...(imported[kind] || [])];
                     return [kind, [...new Map(merged.map((preset) => [preset.id, preset])).values()]];
                 }));
@@ -903,6 +1053,29 @@ export async function createPhonieApp() {
             persistPhoneState(state.messages, calls);
             showToast('通话记录已删除');
         },
+        clearCurrentConversation() {
+            const state = store.getState();
+            updateState({ messages: [], pendingUserMessageIds: [] });
+            persistPhoneState([], state.calls, []);
+            showToast('当前会话已清空');
+        },
+        deleteCurrentConversation() {
+            const state = store.getState();
+            const conversations = { ...(state.conversations || {}) };
+            delete conversations[state.activeConversationId];
+            const nextMetadata = {
+                schemaVersion: SCHEMA_VERSION,
+                messages: [],
+                calls: state.calls,
+                pendingUserMessageIds: [],
+                conversations,
+                activeConversationId: state.activeConversationId,
+            };
+            updateState({ messages: [], pendingUserMessageIds: [], conversations });
+            bridge.savePhoneMetadata(nextMetadata);
+            bridge.updateContinuityPrompt(nextMetadata);
+            showToast('当前会话已删除');
+        },
         async clearCache() {
             updateState({ cacheBusy: true });
             await audioCache.clear();
@@ -937,7 +1110,7 @@ export async function createPhonieApp() {
     });
 
     audioFocus.subscribe((detail) => {
-        view.setAudioLevel(detail.level);
+        view.setAudioLevel(detail.level, detail.levels);
         if (detail.state === 'progress') return;
         const currentId = detail.current?.messageId;
         const messages = store.getState().messages.map((message) => ({
@@ -998,6 +1171,8 @@ export async function createPhonieApp() {
         const nextMetadata = bridge.getPhoneMetadata();
         const nextSettings = bridge.getSettings();
         const nextContact = bridge.getContact();
+        const nextConversationId = createConversationId([nextContact]);
+        const nextConversation = nextMetadata.conversations?.[nextConversationId];
         inlinePlayers.reset();
         inlinePlayers.updateSettings(nextSettings);
         updateState({
@@ -1006,9 +1181,11 @@ export async function createPhonieApp() {
             characters: bridge.getCharacterDirectory(nextSettings),
             selectedCharacterId: bridge.getCharacterDirectory(nextSettings)[0]?.id || '',
             selectedProviderId: nextSettings.ttsActiveProvider,
-            messages: nextMetadata.messages,
+            messages: nextConversation?.messages || nextMetadata.messages,
             calls: nextMetadata.calls,
-            pendingUserMessageIds: nextMetadata.pendingUserMessageIds,
+            pendingUserMessageIds: nextConversation?.pendingUserMessageIds || nextMetadata.pendingUserMessageIds,
+            conversations: nextMetadata.conversations || {},
+            activeConversationId: nextConversationId,
             settings: { ...nextSettings },
             providerLabel: providerCenter.getActiveLabel(),
             providerSnapshot: providerCenter.snapshot(),

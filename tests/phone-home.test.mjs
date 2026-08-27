@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { SCREENS } from '../src/core/constants.js';
 import { DOCK_ITEMS, HOME_APPS, homeScreenMarkup } from '../src/ui/phone-home.js';
 
-test('home exposes nine unique application tiles across two pages', () => {
-    assert.equal(HOME_APPS.length, 9);
+test('home exposes ten unique application tiles across two pages', () => {
+    assert.equal(HOME_APPS.length, 10);
     assert.equal(new Set(HOME_APPS.map((app) => app.id)).size, HOME_APPS.length);
 });
 

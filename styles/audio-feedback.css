@@ -9,14 +9,41 @@
     height: 100%;
     align-items: center;
     justify-content: center;
-    width: 13px;
+    width: 14px;
     justify-content: center;
     gap: 1px;
 }
 
-.phonie-orb[data-dock='right'] .phonie-orb__wave { right: auto; left: 1px; }
-.phonie-orb[data-dock='left'] .phonie-orb__wave { right: 1px; left: auto; }
+.phonie-orb[data-dock='right'] .phonie-orb__wave { right: auto; left: 0; }
+.phonie-orb[data-dock='left'] .phonie-orb__wave { right: 0; left: auto; }
+.phonie-orb[data-awake='true'] .phonie-orb__wave,
+.phonie-orb[data-dragging='true'] .phonie-orb__wave {
+    left: 50%;
+    right: auto;
+    width: 28px;
+    transform: translateX(-50%);
+    gap: 2px;
+}
 .phonie-orb__wave i { flex: 0 0 2px; }
+
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) > .phonie-icon { opacity: 0; }
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__wave {
+    display: flex;
+    opacity: .82;
+}
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__wave i {
+    height: 18px;
+    animation: phonie-edge-resonance 1.8s ease-in-out infinite alternate;
+}
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__wave i:nth-child(1) { transform: scaleY(.78); }
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__wave i:nth-child(2) { animation-delay: -1.1s; }
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__wave i:nth-child(3) { animation-delay: -.45s; }
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__wave i:nth-child(4) { animation-delay: -1.45s; }
+.phonie-orb:not([data-awake='true']):not([data-dragging='true']) .phonie-orb__seam { opacity: .34; }
+@keyframes phonie-edge-resonance {
+    from { transform: scaleY(.24); opacity: .45; }
+    to { transform: scaleY(.74); opacity: .92; }
+}
 
 .phonie-message__waveform {
     display: grid;
@@ -57,17 +84,44 @@
     flex: 0 0 2px;
 }
 
-.phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i {
-    animation: none;
-    transform: scaleY(calc(0.18 + var(--phonie-audio-level, 0.34) * 0.82));
-    transition: transform 70ms linear, opacity 120ms ease;
+.phonie-audio-action-menu {
+    position: fixed;
+    z-index: 33020;
+    display: flex;
+    width: 176px;
+    padding: 7px;
+    gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--phonie-border, #789) 72%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--phonie-surface-raised, #151923) 90%, transparent);
+    box-shadow: 0 18px 46px rgba(4, 7, 13, .34), inset 0 1px rgba(255,255,255,.12);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    transform-origin: 50% 100%;
+    animation: phonie-audio-menu-in 150ms cubic-bezier(.22,.8,.24,1) both;
 }
 
-.phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i:nth-child(3n + 2) {
-    transform: scaleY(calc(0.25 + var(--phonie-audio-level, 0.34) * 0.58));
+.phonie-audio-action-menu[hidden] { display: none; }
+.phonie-audio-action-menu button {
+    flex: 1;
+    min-width: 0;
+    min-height: 50px;
+    display: grid;
+    place-items: center;
+    gap: 2px;
+    border: 0;
+    border-radius: 13px;
+    color: var(--phonie-text, #fff);
+    background: color-mix(in srgb, var(--phonie-accent, #5fa5b8) 15%, transparent);
 }
-.phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i:nth-child(3n) {
-    transform: scaleY(calc(0.12 + var(--phonie-audio-level, 0.34) * 0.7));
+.phonie-audio-action-menu button .phonie-icon { width: 17px; height: 17px; }
+.phonie-audio-action-menu button span { font-size: 11px; }
+@keyframes phonie-audio-menu-in { from { opacity: 0; transform: translateY(6px) scale(.96); } }
+
+.phonie-call-screen[data-audio-state='speaking'] .phonie-call-live-wave i {
+    animation: none;
+    transform: scaleY(calc(0.12 + var(--bar-live, .18) * 0.88));
+    transition: transform 70ms linear, opacity 120ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

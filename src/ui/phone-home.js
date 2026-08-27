@@ -11,6 +11,7 @@ export const HOME_APPS = Object.freeze([
     { id: 'format', label: '预设', detail: '提示词编排', screen: SCREENS.PROMPTS, icon: 'layers', tone: 'silver' },
     { id: 'settings', label: '设置', detail: '手机与编排', screen: SCREENS.SETTINGS, icon: 'settings', tone: 'graphite' },
     { id: 'guide', label: '说明', detail: '使用指南', screen: SCREENS.GUIDE, icon: 'book', tone: 'cobalt' },
+    { id: 'novelai', label: '绘图', detail: 'NovelAI', screen: SCREENS.NOVELAI, icon: 'image', tone: 'coral' },
 ]);
 
 export const DOCK_ITEMS = Object.freeze([
@@ -102,6 +103,7 @@ export function auxiliaryScreensMarkup() {
                     ${icon('person')}
                     <input type="search" data-role="character-search" placeholder="搜索有声联系人" autocomplete="off">
                 </label>
+                <div class="phonie-character-add"><input type="text" maxlength="80" data-role="manual-character-name" placeholder="手动添加说话人"><button type="button" data-action="add-manual-character">${icon('plus')}<span>添加</span></button></div>
                 <button class="phonie-contact-group-launch" type="button" data-action="open-group-chat">${icon('message')}<span>打开所选群聊</span></button>
                 <div class="phonie-character-directory" data-role="character-directory"></div>
                 <section class="phonie-character-card">
@@ -123,7 +125,7 @@ export function auxiliaryScreensMarkup() {
                     <label><span>自定义 Voice ID</span><input type="text" data-role="character-voice-id" placeholder="目录没有时手动填写"></label>
                     <label><span>台词语言</span><input type="text" data-role="character-text-language" placeholder="ja-JP"></label>
                     <label><span>参考音频</span><input type="text" data-role="character-reference-audio" placeholder="本地路径或音频 URL"></label>
-                    <button type="button" data-action="save-character-route">保存角色声线路由</button>
+                    <div class="phonie-route-editor__actions"><button type="button" data-action="save-character-route">保存角色声线路由</button><button type="button" data-action="delete-character-route">${icon('trash')}<span>删除路由</span></button></div>
                 </section>
             </div>
         </section>
@@ -134,6 +136,21 @@ export function auxiliaryScreensMarkup() {
                 <section class="phonie-guide-card"><b>03</b><div><h2>声线路由</h2><p>正文说话人首次出现后即可绑定声线。保存的路由会持续保留。</p></div></section>
                 <section class="phonie-guide-card"><b>04</b><div><h2>电话</h2><p>从正文联系人拨号，或生成角色电话留言。通话读取当前上下文、摘要和已启用世界书。</p></div></section>
                 <section class="phonie-guide-card"><b>05</b><div><h2>提示词</h2><p>正文、私信和电话工作流可分别保存、编辑、导入和导出。</p></div></section>
+            </div>
+        </section>
+        <section class="phonie-screen phonie-novelai-screen" data-screen="${SCREENS.NOVELAI}" aria-label="NovelAI 文生图">
+            <div class="phonie-app-pane phonie-novelai-pane">
+                <section class="phonie-novelai-hero"><span>${icon('image')}</span><div><small>NovelAI Diffusion</small><strong>角色影像工坊</strong></div><i data-role="novelai-status">待命</i></section>
+                <label class="phonie-novelai-field"><span>画面描述</span><textarea rows="5" maxlength="6000" data-role="novelai-prompt" placeholder="例如：角色在雨后的东京街头分享一张随手拍，柔和街灯，生活感"></textarea></label>
+                <details class="phonie-novelai-options"><summary>${icon('sliders')}<span>生成参数</span>${icon('chevron')}</summary><div>
+                    <label><span>模型</span><select data-setting="novelAiModel"><option value="nai-diffusion-4-5-full">Anime V4.5 Full</option><option value="nai-diffusion-4-5-curated">Anime V4.5 Curated</option><option value="nai-diffusion-4-full">Anime V4 Full</option><option value="nai-diffusion-3">Anime V3</option><option value="nai-diffusion-furry-3">Furry V3</option></select></label>
+                    <label><span>尺寸</span><select data-role="novelai-size"><option value="832x1216">竖图 · 832×1216</option><option value="1216x832">横图 · 1216×832</option><option value="1024x1024">方图 · 1024×1024</option></select></label>
+                    <label><span>负面提示词</span><textarea rows="3" data-setting="novelAiNegativePrompt"></textarea></label>
+                    <div class="phonie-novelai-numbers"><label><span>步数</span><input type="number" min="1" max="50" data-setting="novelAiSteps"></label><label><span>引导</span><input type="number" min="1" max="10" step="0.1" data-setting="novelAiScale"></label></div>
+                    <label><span>Persistent API Token</span><div class="phonie-novelai-secret"><input type="password" autocomplete="new-password" data-role="novelai-token" placeholder="保存后不会回显"><button type="button" data-action="save-novelai-token">安全保存</button></div></label>
+                </div></details>
+                <button class="phonie-novelai-generate" type="button" data-action="generate-novelai-image">${icon('spark')}<span>生成图片</span></button>
+                <figure class="phonie-novelai-result" data-role="novelai-result" hidden><img alt="NovelAI 生成结果"><figcaption><button type="button" data-action="download-novelai-image">${icon('download')}<span>下载</span></button><button type="button" data-action="send-novelai-image">${icon('send')}<span>发到当前私信</span></button></figcaption></figure>
             </div>
         </section>`;
 }

@@ -38,12 +38,27 @@ const DEFAULT_ENTRIES = [
     },
 ];
 
-export const DEFAULT_PHONE_PROMPT_PRESET = Object.freeze({
-    id: 'phonie-default',
-    name: 'Phonie 默认预设',
+export const DEFAULT_CHAT_PROMPT_PRESET = Object.freeze({
+    id: 'phonie-chat-default',
+    name: '私信默认预设',
     insertionDepth: 0,
     entries: Object.freeze(DEFAULT_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
 });
+
+export const DEFAULT_CALL_PROMPT_PRESET = Object.freeze({
+    id: 'phonie-call-default',
+    name: '电话默认预设',
+    insertionDepth: 0,
+    entries: Object.freeze(DEFAULT_ENTRIES.map((entry) => Object.freeze({
+        ...entry,
+        id: `call-${entry.id}`,
+        content: entry.id === 'recent-channel'
+            ? ['请规划一段自然、连贯、可以连续收听的电话内容。', '通话参与者：{{参与者}}', '通话主题：{{通话主题}}', '{{格式}}'].join('\n')
+            : entry.content,
+    }))),
+});
+
+export const DEFAULT_PHONE_PROMPT_PRESET = DEFAULT_CHAT_PROMPT_PRESET;
 
 function cloneDefaultPreset() {
     return {
@@ -79,9 +94,10 @@ export function normalizePhonePromptPreset(value = {}) {
 export function normalizePromptPresetLibrary(value = {}, fallbacks = {}) {
     const source = value && typeof value === 'object' ? value : {};
     const result = {};
-    for (const kind of ['body', 'phone']) {
+    for (const kind of ['body', 'chat', 'call']) {
         const seen = new Set();
-        const entries = Array.isArray(source[kind]) ? source[kind] : [];
+        const sourceEntries = kind === 'chat' && !Array.isArray(source.chat) ? source.phone : source[kind];
+        const entries = Array.isArray(sourceEntries) ? sourceEntries : [];
         const fallback = normalizePhonePromptPreset(fallbacks[kind]);
         const candidates = entries.length ? entries : [fallback];
         result[kind] = candidates.map((preset, index) => {
@@ -96,33 +112,38 @@ export function normalizePromptPresetLibrary(value = {}, fallbacks = {}) {
 }
 
 export function savePromptPreset(library, kind, preset, { asNew = false } = {}) {
-    const normalizedLibrary = normalizePromptPresetLibrary(library, { [kind]: preset });
+    const normalizedKind = kind === 'phone' ? 'chat' : kind;
+    const safeKind = ['body', 'chat', 'call'].includes(normalizedKind) ? normalizedKind : 'chat';
+    const normalizedLibrary = normalizePromptPresetLibrary(library, { [safeKind]: preset });
     const normalized = normalizePhonePromptPreset(preset);
-    const id = asNew ? kind + '-preset-' + Date.now().toString(36) : normalized.id;
+    const id = asNew ? safeKind + '-preset-' + Date.now().toString(36) : normalized.id;
     const saved = { ...normalized, id };
-    const list = normalizedLibrary[kind] || [];
+    const list = normalizedLibrary[safeKind] || [];
     const index = asNew ? -1 : list.findIndex((entry) => entry.id === id);
     const next = index >= 0
         ? list.map((entry, itemIndex) => itemIndex === index ? saved : entry)
         : [...list, saved];
     return {
-        library: { ...normalizedLibrary, [kind]: next },
+        library: { ...normalizedLibrary, [safeKind]: next },
         preset: saved,
     };
 }
 
 export function removePromptPreset(library, kind, presetId, fallback) {
-    const normalizedLibrary = normalizePromptPresetLibrary(library, { [kind]: fallback });
-    const filtered = (normalizedLibrary[kind] || []).filter((entry) => entry.id !== presetId);
+    const normalizedKind = kind === 'phone' ? 'chat' : kind;
+    const safeKind = ['body', 'chat', 'call'].includes(normalizedKind) ? normalizedKind : 'chat';
+    const normalizedLibrary = normalizePromptPresetLibrary(library, { [safeKind]: fallback });
+    const filtered = (normalizedLibrary[safeKind] || []).filter((entry) => entry.id !== presetId);
     const next = filtered.length ? filtered : [normalizePhonePromptPreset(fallback)];
-    return { ...normalizedLibrary, [kind]: next };
+    return { ...normalizedLibrary, [safeKind]: next };
 }
 
 export function importPromptPresetLibrary(value, fallbacks = {}) {
     const payload = value?.promptPresetLibraries || value?.presets || value;
     if (!payload || typeof payload !== 'object') throw new Error('预设文件格式无效');
     if (Array.isArray(payload)) {
-        const kind = value?.kind === 'body' || payload[0]?.kind === 'body' ? 'body' : 'phone';
+        const requested = value?.kind || payload[0]?.kind;
+        const kind = requested === 'phone' ? 'chat' : ['body', 'chat', 'call'].includes(requested) ? requested : 'chat';
         return normalizePromptPresetLibrary({ [kind]: payload }, fallbacks);
     }
     return normalizePromptPresetLibrary(payload, fallbacks);

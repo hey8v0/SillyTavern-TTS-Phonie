@@ -48,3 +48,11 @@ test('ElevenLabs receives compatible audio tags while MiniMax keeps parenthetica
     assert.equal(formatSpeechForProvider(segment, 'ElevenLabs'), '[laughs] 今日は楽しい。');
     assert.equal(formatSpeechForProvider(segment, 'MiniMax'), '(laughs) 今日は楽しい。');
 });
+
+test('Japanese corner quotes inside TTSVoice remain playable and empty quoted tags are ignored', () => {
+    const source = '“你回来了吗？”[TTSVoice:露比:quiet:「ただいま……って、言ってもいい？」]\n[TTSVoice:Nana:calm:「」]';
+    const segments = parseBodySpeechSegments(source, { messageId: 8, preferredLanguage: 'ja-JP' });
+    assert.equal(segments.length, 1);
+    assert.equal(segments[0].speakText, 'ただいま……って、言ってもいい？');
+    assert.equal(segments[0].speaker, '露比');
+});

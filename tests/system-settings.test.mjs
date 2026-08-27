@@ -53,7 +53,8 @@ test('model app owns providers while voice app owns routed voices', async () => 
     assert.match(view, /data-role="audio-cache-size"/);
     assert.match(view, /data-action="open-chat-preset"/);
     assert.match(view, /data-action="open-chat-settings"/);
-    assert.match(view, /data-action="regenerate-phone-audio"/);
+    assert.match(view, /AudioActionMenu/);
+    assert.match(view, /#audioMenu\.bind[\s\S]*?regenerate:/);
     assert.match(view, /data-action="replay-call-record"/);
     assert.match(view, /data-action="delete-call-record"/);
 });

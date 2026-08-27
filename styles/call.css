@@ -195,7 +195,7 @@
     padding: 0 8px 22px;
     flex: 1;
     flex-direction: column;
-    gap: clamp(12px, 2vh, 22px);
+    gap: clamp(9px, 1.35vh, 15px);
     overflow-y: auto;
     scrollbar-width: none;
 }
@@ -226,6 +226,38 @@
 }
 
 .phonie-call-contacts > div::-webkit-scrollbar { display: none; }
+
+.phonie-call-contacts--select .phonie-call-contact-picker {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0;
+    overflow: visible;
+    gap: 8px;
+}
+.phonie-call-contact-picker select {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0 38px 0 14px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 16px;
+    color: var(--phonie-ink);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 84%, transparent);
+    font: inherit;
+}
+.phonie-call-contacts .phonie-call-contact-picker button {
+    min-width: 94px;
+    min-height: 48px;
+    display: inline-flex;
+    padding: 0 12px;
+    grid-template-columns: none;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 16px;
+    color: var(--phonie-signal);
+}
+.phonie-call-contact-picker button .phonie-icon { width: 15px; opacity: 1; }
+.phonie-call-contact-picker button[data-selected='true'] { color: var(--phonie-danger); }
 
 .phonie-call-contacts button {
     display: grid;
@@ -484,9 +516,17 @@
 }
 
 /* Full-screen phone states: the call owns everything below the real status bar. */
-#phonie-root[data-screen='call'] .phonie-header,
-#phonie-root[data-screen='call'] .phonie-dock {
+#phonie-root[data-screen='call'] .phonie-header {
     display: none;
+}
+
+#phonie-root[data-screen='call'] .phonie-dock {
+    z-index: 22;
+    border-top-color: color-mix(in srgb, var(--phonie-border) 68%, transparent);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 72%, transparent);
+    box-shadow: 0 -12px 34px color-mix(in srgb, var(--phonie-shadow) 18%, transparent);
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
 }
 
 #phonie-root[data-screen='call'] .phonie-screen-stack {

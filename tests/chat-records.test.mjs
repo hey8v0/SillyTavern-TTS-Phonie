@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createCallRecord, createPhoneMessage, createPhoneMetadata, recallPhoneMessage } from '../src/phone/chat-records.js';
+import { createCallRecord, createConversationId, createPhoneMessage, createPhoneMetadata, recallPhoneMessage } from '../src/phone/chat-records.js';
+
+test('conversation ids separate private chats and keep group identity stable', () => {
+    assert.equal(createConversationId([{ id: 'hitomi' }]), 'private:hitomi');
+    assert.equal(createConversationId([{ id: 'ruby' }, { id: 'hitomi' }]), 'group:hitomi|ruby');
+    assert.equal(createConversationId([{ id: 'hitomi' }, { id: 'ruby' }]), 'group:hitomi|ruby');
+});
 
 test('phone metadata preserves the pending multi-message reply queue', () => {
     const metadata = createPhoneMetadata({

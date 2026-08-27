@@ -5,6 +5,7 @@ import {
     extension_prompt_types,
     generateQuietPrompt,
     getCurrentChatId,
+    getRequestHeaders,
     saveChatConditional,
     saveSettingsDebounced,
     setExtensionPrompt,
@@ -14,6 +15,8 @@ import { extension_settings, getContext } from '/scripts/extensions.js';
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_CALL_SCRIPT_SCHEMA, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, requestPhoneGeneration } from './generation-compat.js';
 import {
+    DEFAULT_CALL_PROMPT_PRESET,
+    DEFAULT_CHAT_PROMPT_PRESET,
     DEFAULT_PHONE_PROMPT_PRESET,
     normalizePhonePromptPreset,
     normalizePromptPresetLibrary,
@@ -48,14 +51,31 @@ function mergeSettings(value = {}) {
         : [];
     merged.customOpenAITemperature = Math.min(2, Math.max(0, Number(merged.customOpenAITemperature) || 0.8));
     merged.customOpenAIMaxTokens = Math.min(65536, Math.max(80, Math.round(Number(merged.customOpenAIMaxTokens) || 8192)));
-    merged.promptPreset = normalizePhonePromptPreset(value.promptPreset);
+    merged.novelAiModel = String(merged.novelAiModel || DEFAULT_SETTINGS.novelAiModel);
+    merged.novelAiSampler = String(merged.novelAiSampler || DEFAULT_SETTINGS.novelAiSampler);
+    merged.novelAiScheduler = String(merged.novelAiScheduler || DEFAULT_SETTINGS.novelAiScheduler);
+    merged.novelAiWidth = Math.min(1536, Math.max(256, Math.round(Number(merged.novelAiWidth) || 832)));
+    merged.novelAiHeight = Math.min(1536, Math.max(256, Math.round(Number(merged.novelAiHeight) || 1216)));
+    merged.novelAiSteps = Math.min(50, Math.max(1, Math.round(Number(merged.novelAiSteps) || 28)));
+    merged.novelAiScale = Math.min(10, Math.max(1, Number(merged.novelAiScale) || 5));
+    merged.novelAiNegativePrompt = String(merged.novelAiNegativePrompt || DEFAULT_SETTINGS.novelAiNegativePrompt).slice(0, 6000);
+    const legacyPrompt = value.promptPreset || DEFAULT_PHONE_PROMPT_PRESET;
+    merged.chatPromptPreset = normalizePhonePromptPreset(value.chatPromptPreset || legacyPrompt || DEFAULT_CHAT_PROMPT_PRESET);
+    merged.callPromptPreset = normalizePhonePromptPreset(value.callPromptPreset || legacyPrompt || DEFAULT_CALL_PROMPT_PRESET);
+    merged.promptPreset = merged.chatPromptPreset;
     merged.bodyPromptPreset = normalizePhonePromptPreset(value.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET);
-    merged.promptPresetLibraries = normalizePromptPresetLibrary(value.promptPresetLibraries, {
+    const sourceLibraries = { ...(value.promptPresetLibraries || {}) };
+    if (!sourceLibraries.chat && sourceLibraries.phone) sourceLibraries.chat = sourceLibraries.phone;
+    if (!sourceLibraries.call && sourceLibraries.phone) sourceLibraries.call = sourceLibraries.phone;
+    merged.promptPresetLibraries = normalizePromptPresetLibrary(sourceLibraries, {
         body: merged.bodyPromptPreset,
-        phone: merged.promptPreset,
+        chat: merged.chatPromptPreset,
+        call: merged.callPromptPreset,
     });
     merged.bodyPromptEnabled = value.bodyPromptEnabled !== false;
-    merged.promptWorkflowKind = ['body', 'phone'].includes(value.promptWorkflowKind) ? value.promptWorkflowKind : 'body';
+    merged.promptWorkflowKind = ['body', 'chat', 'call'].includes(value.promptWorkflowKind)
+        ? value.promptWorkflowKind
+        : value.promptWorkflowKind === 'phone' ? 'chat' : 'body';
     const providerIds = new Set(TTS_PROVIDERS.map((provider) => provider.id));
     merged.ttsActiveProvider = providerIds.has(value.ttsActiveProvider) ? value.ttsActiveProvider : DEFAULT_SETTINGS.ttsActiveProvider;
     merged.ttsFallbackProvider = providerIds.has(value.ttsFallbackProvider) && value.ttsFallbackProvider !== merged.ttsActiveProvider
@@ -66,7 +86,7 @@ function mergeSettings(value = {}) {
     merged.ttsResourceCatalogs = value.ttsResourceCatalogs && typeof value.ttsResourceCatalogs === 'object' ? value.ttsResourceCatalogs : {};
     if (Number(value.schemaVersion || 0) < 3) {
         const defaults = new Map(DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => [entry.id, entry.content]));
-        merged.promptPreset.entries = merged.promptPreset.entries.map((entry) => {
+        merged.chatPromptPreset.entries = merged.chatPromptPreset.entries.map((entry) => {
             const isLegacyDefault = /Continue an in-world|Write originalText|Reply naturally/.test(entry.content);
             return isLegacyDefault && defaults.has(entry.id) ? { ...entry, content: defaults.get(entry.id) } : entry;
         });
@@ -200,6 +220,51 @@ export class SillyTavernBridge {
         return fetchCustomOpenAIModels(endpoint);
     }
 
+    async saveNovelAiToken(value) {
+        const token = String(value || '').trim();
+        if (!token) throw new Error('请输入 NovelAI Persistent API Token');
+        const secrets = await import('/scripts/secrets.js');
+        if (!secrets.SECRET_KEYS?.NOVEL || typeof secrets.writeSecret !== 'function') {
+            throw new Error('当前酒馆版本没有 NovelAI 安全密钥槽');
+        }
+        await secrets.writeSecret(secrets.SECRET_KEYS.NOVEL, token, 'Phonie · NovelAI Diffusion');
+        return true;
+    }
+
+    async generateNovelAiImage({ prompt, negativePrompt, model, width, height, steps, scale, seed } = {}) {
+        const cleanPrompt = String(prompt || '').trim();
+        if (!cleanPrompt) throw new Error('请先填写画面描述');
+        const response = await fetch('/api/novelai/generate-image', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                prompt: cleanPrompt,
+                negative_prompt: String(negativePrompt || ''),
+                model: model || 'nai-diffusion-4-5-full',
+                sampler: 'k_euler_ancestral',
+                scheduler: 'karras',
+                steps: Number(steps) || 28,
+                scale: Number(scale) || 5,
+                width: Number(width) || 832,
+                height: Number(height) || 1216,
+                seed: Number.isFinite(Number(seed)) ? Number(seed) : undefined,
+                upscale_ratio: 1,
+                decrisper: false,
+                variety_boost: true,
+                sm: false,
+                sm_dyn: false,
+            }),
+        });
+        if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            if (response.status === 400) throw new Error('NovelAI Token 尚未保存或不可用');
+            throw new Error(detail || `NovelAI 生成失败（HTTP ${response.status}）`);
+        }
+        const base64 = (await response.text()).trim();
+        if (!base64) throw new Error('NovelAI 没有返回图片');
+        return `data:image/png;base64,${base64}`;
+    }
+
     async getCallPlanningContext({ participants = [], topic = '' } = {}) {
         const context = this.context || {};
         const chat = this.getMessages();
@@ -256,7 +321,7 @@ export class SillyTavernBridge {
             targetLanguage: settings.targetLanguage,
             history,
             callMode,
-            preset: settings.promptPreset,
+            preset: callMode ? settings.callPromptPreset : settings.chatPromptPreset,
             storyContext,
             participants,
             topic,

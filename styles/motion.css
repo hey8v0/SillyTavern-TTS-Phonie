@@ -136,21 +136,14 @@
 .phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave i,
 .phonie-orb[data-audio-state=speaking] .phonie-orb__wave i {
     animation: none;
-    transform: scaleY(calc(0.2 + var(--phonie-audio-level, 0.34) * 0.8));
+    transform: scaleY(calc(0.14 + var(--bar-live, var(--phonie-audio-level, .18)) * 0.86));
     transition: transform 70ms linear, opacity 100ms ease;
 }
 
-.phonie-message__voice[data-audio-state=playing] .phonie-message__waveform i:nth-child(3n + 2),
-.phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave i:nth-child(2),
-.phonie-orb[data-audio-state=speaking] .phonie-orb__wave i:nth-child(2) {
-    transform: scaleY(calc(0.28 + var(--phonie-audio-level, 0.34) * 0.58));
-}
-
-.phonie-message__voice[data-audio-state=playing] .phonie-message__waveform i:nth-child(3n),
-.phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave i:nth-child(3),
-.phonie-orb[data-audio-state=speaking] .phonie-orb__wave i:nth-child(3) {
-    transform: scaleY(calc(0.14 + var(--phonie-audio-level, 0.34) * 0.68));
-}
+.phonie-inline-button__wave i:nth-child(1), .phonie-orb__wave i:nth-child(1) { --bar-live: var(--phonie-audio-bar-2, .2); }
+.phonie-inline-button__wave i:nth-child(2), .phonie-orb__wave i:nth-child(2) { --bar-live: var(--phonie-audio-bar-6, .34); }
+.phonie-inline-button__wave i:nth-child(3), .phonie-orb__wave i:nth-child(3) { --bar-live: var(--phonie-audio-bar-11, .26); }
+.phonie-inline-button__wave i:nth-child(4), .phonie-orb__wave i:nth-child(4) { --bar-live: var(--phonie-audio-bar-15, .42); }
 
 .phonie-message__voice[data-audio-state=generating] .phonie-message__waveform i,
 .phonie-inline-button[data-audio-state=generating] .phonie-inline-button__wave i,

@@ -1100,12 +1100,121 @@
 
 .phonie-reply-composer,
 .phonie-chat-tools,
-.phonie-chat-action-sheet {
+.phonie-chat-action-sheet,
+.phonie-chat-settings-sheet {
     flex: 0 0 auto;
     margin: 0 12px;
     border: 1px solid var(--phonie-border);
     background: color-mix(in srgb, var(--phonie-surface-raised) 94%, transparent);
 }
+
+.phonie-chat-settings-sheet {
+    position: absolute;
+    z-index: 16;
+    top: 72px;
+    right: 10px;
+    width: min(292px, calc(100% - 20px));
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--phonie-surface-raised) 92%, transparent);
+    box-shadow: 0 22px 54px color-mix(in srgb, var(--phonie-shadow) 52%, transparent), inset 0 1px var(--phonie-glint);
+    backdrop-filter: blur(22px) saturate(1.18);
+}
+.phonie-chat-settings-sheet[hidden] { display: none; }
+.phonie-chat-settings-sheet header { display: flex; min-height: 42px; align-items: center; justify-content: space-between; padding: 0 5px 8px 10px; }
+.phonie-chat-settings-sheet header button { width: 34px; height: 34px; border: 0; border-radius: 12px; color: inherit; background: var(--phonie-surface-muted); }
+.phonie-chat-settings-sheet > div > button {
+    width: 100%;
+    min-height: 62px;
+    display: grid;
+    padding: 8px 10px;
+    grid-template-columns: 30px minmax(0, 1fr) 18px;
+    gap: 9px;
+    align-items: center;
+    border: 0;
+    border-radius: 15px;
+    color: var(--phonie-ink);
+    background: transparent;
+    text-align: left;
+}
+.phonie-chat-settings-sheet > div > button:hover { background: color-mix(in srgb, var(--phonie-accent) 9%, transparent); }
+.phonie-chat-settings-sheet button span { display: grid; gap: 3px; min-width: 0; }
+.phonie-chat-settings-sheet button small { color: var(--phonie-ink-muted); font-size: 10px; }
+.phonie-chat-settings-sheet .phonie-danger-action { color: var(--phonie-danger); }
+
+.phonie-character-add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+.phonie-character-add input {
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 13px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 15px;
+    color: var(--phonie-ink);
+    background: var(--phonie-surface-muted);
+}
+.phonie-character-add button,
+.phonie-route-editor__actions button {
+    min-height: 44px;
+    display: inline-flex;
+    padding: 0 14px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 15px;
+    color: var(--phonie-accent-ink);
+    background: linear-gradient(135deg, var(--phonie-accent), var(--phonie-signal));
+}
+.phonie-character-add .phonie-icon,
+.phonie-route-editor__actions .phonie-icon { width: 16px; height: 16px; }
+.phonie-route-editor__actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.phonie-route-editor__actions button:last-child { color: var(--phonie-danger); background: color-mix(in srgb, var(--phonie-danger) 11%, var(--phonie-surface-muted)); }
+
+.phonie-message__generated-image { margin: 0; overflow: hidden; border-radius: 16px; background: var(--phonie-surface-muted); }
+.phonie-message__generated-image img { display: block; width: 100%; max-height: 280px; object-fit: cover; }
+.phonie-message__generated-image figcaption { padding: 7px 10px; color: var(--phonie-ink-muted); font-size: 9px; }
+
+.phonie-novelai-pane { gap: 12px; }
+.phonie-novelai-hero {
+    display: grid;
+    min-height: 86px;
+    padding: 15px;
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 12% 12%, color-mix(in srgb, var(--phonie-point) 22%, transparent), transparent 44%),
+        linear-gradient(135deg, color-mix(in srgb, var(--phonie-emphasis) 12%, var(--phonie-surface-raised)), color-mix(in srgb, var(--phonie-accent) 8%, var(--phonie-surface-raised)));
+    box-shadow: inset 0 1px var(--phonie-glint);
+}
+.phonie-novelai-hero > span { display: grid; width: 54px; height: 54px; border-radius: 18px; color: var(--phonie-accent-ink); background: linear-gradient(145deg, var(--phonie-point), var(--phonie-accent)); place-items: center; }
+.phonie-novelai-hero > span .phonie-icon { width: 24px; height: 24px; }
+.phonie-novelai-hero div { display: grid; gap: 3px; }
+.phonie-novelai-hero small, .phonie-novelai-hero i { color: var(--phonie-ink-muted); font-size: 9px; font-style: normal; }
+.phonie-novelai-hero strong { font-family: var(--phonie-font-reading); font-size: 17px; }
+.phonie-novelai-field, .phonie-novelai-options label { display: grid; gap: 6px; color: var(--phonie-ink-muted); font-size: 10px; }
+.phonie-novelai-field textarea, .phonie-novelai-options textarea, .phonie-novelai-options select, .phonie-novelai-options input {
+    width: 100%; min-width: 0; padding: 11px; border: 1px solid var(--phonie-border); border-radius: 14px; color: var(--phonie-ink); background: var(--phonie-surface-muted); font: inherit; resize: vertical;
+}
+.phonie-novelai-options { border: 1px solid var(--phonie-border); border-radius: 18px; background: color-mix(in srgb, var(--phonie-surface-raised) 76%, transparent); }
+.phonie-novelai-options summary { display: grid; min-height: 48px; padding: 0 13px; grid-template-columns: 20px minmax(0,1fr) 18px; align-items: center; gap: 8px; list-style: none; }
+.phonie-novelai-options summary::-webkit-details-marker { display: none; }
+.phonie-novelai-options > div { display: grid; padding: 0 12px 12px; gap: 10px; }
+.phonie-novelai-numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.phonie-novelai-secret { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
+.phonie-novelai-secret button { border: 0; border-radius: 13px; color: var(--phonie-accent-ink); background: var(--phonie-accent); }
+.phonie-novelai-generate { min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 18px; color: var(--phonie-accent-ink); background: linear-gradient(120deg, var(--phonie-accent), var(--phonie-signal), var(--phonie-point)); box-shadow: 0 13px 28px color-mix(in srgb, var(--phonie-accent) 24%, transparent); }
+.phonie-novelai-result { margin: 0; overflow: hidden; border: 1px solid var(--phonie-border); border-radius: 22px; background: var(--phonie-surface-raised); }
+.phonie-novelai-result img { display: block; width: 100%; max-height: 420px; object-fit: contain; background: var(--phonie-canvas); }
+.phonie-novelai-result figcaption { display: grid; padding: 9px; grid-template-columns: 1fr 1fr; gap: 8px; }
+.phonie-novelai-result button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 14px; color: var(--phonie-ink); background: var(--phonie-surface-muted); }
 
 .phonie-reply-composer {
     display: flex;

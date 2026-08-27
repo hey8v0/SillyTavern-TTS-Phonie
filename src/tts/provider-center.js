@@ -249,6 +249,22 @@ export class PhonieProviderCenter {
         return routes[key];
     }
 
+    deleteCharacterRoute(character) {
+        const identity = typeof character === 'string' ? { id: character, name: character } : (character || {});
+        const settings = this.#bridge.getSettings();
+        const routes = { ...(settings.ttsCharacterRoutes || {}) };
+        const keys = Object.keys(routes).filter((key) => (
+            key === identity.id
+            || key === identity.name
+            || routes[key]?.characterId === identity.id
+            || routes[key]?.characterName === identity.name
+        ));
+        for (const key of keys) delete routes[key];
+        this.#bridge.updateSettings({ ttsCharacterRoutes: routes });
+        this.#emit();
+        return keys.length > 0;
+    }
+
     resolveRoute(character) {
         const settings = this.#bridge.getSettings();
         const identity = typeof character === 'string' ? { name: character } : (character || {});
