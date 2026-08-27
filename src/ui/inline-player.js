@@ -203,10 +203,22 @@ export class InlinePlayerManager {
         button.type = 'button';
         button.dataset.phonieBodySegment = String(segment.index);
         button.dataset.emotion = segment.emotion;
+        button.dataset.audioState = 'idle';
         button.setAttribute('aria-label', `播放${segment.speaker || '角色'}这句原声`);
         button.title = `${segment.speaker || '角色'} · ${segment.rawEmotion || segment.emotion}`;
-        button.innerHTML = icon('play');
+        button.innerHTML = `<span class='phonie-inline-button__icon'>${icon('play')}</span><span class='phonie-inline-button__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`;
         return button;
+    }
+
+    #setButtonState(entry, state) {
+        const button = entry?.element;
+        if (!(button instanceof HTMLElement)) return;
+        button.dataset.audioState = state;
+        const slot = button.querySelector('.phonie-inline-button__icon');
+        if (slot) slot.innerHTML = icon(state === 'playing' ? 'pause' : 'play');
+        button.setAttribute('aria-pressed', String(state === 'playing'));
+        const labels = { generating: '正在生成这句原声', playing: '暂停这句原声', paused: '继续播放这句原声', error: '语音生成失败，点击重试' };
+        button.setAttribute('aria-label', labels[state] || `播放${entry.segment.speaker || '角色'}这句原声`);
     }
 
     async #play(entry) {
@@ -220,7 +232,7 @@ export class InlinePlayerManager {
             });
             return;
         }
-        entry.element.innerHTML = icon('pause');
+        this.#setButtonState(entry, 'generating');
         try {
             const result = await this.#providerCenter.synthesize({
                 text: entry.spokenText,
@@ -237,17 +249,20 @@ export class InlinePlayerManager {
                 entryKey: entry.key,
             });
         } catch (error) {
-            entry.element.innerHTML = icon('play');
+            this.#setButtonState(entry, 'error');
+            window.setTimeout(() => this.#setButtonState(entry, 'idle'), 1200);
             throw error;
         }
     }
 
     #handleFocus(detail) {
         for (const entry of this.#entries.values()) {
-            const active = detail.current?.owner === 'inline'
-                && detail.current?.entryKey === entry.key
-                && detail.state === 'playing';
-            if (entry.element) entry.element.innerHTML = icon(active ? 'pause' : 'play');
+            const matched = detail.current?.owner === 'inline' && detail.current?.entryKey === entry.key;
+            if (matched) {
+                this.#setButtonState(entry, detail.state === 'playing' ? 'playing' : detail.state === 'paused' ? 'paused' : 'idle');
+            } else if (entry.element?.dataset.audioState !== 'generating') {
+                this.#setButtonState(entry, 'idle');
+            }
         }
     }
 

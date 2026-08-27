@@ -149,6 +149,14 @@ export function resolvePromptVariables(template, variables = {}) {
         '历史': variables.history,
         input: variables.input,
         '输入': variables.input,
+        context: variables.context,
+        '上下文': variables.context,
+        participants: variables.participants,
+        '参与者': variables.participants,
+        topic: variables.topic,
+        '通话主题': variables.topic,
+        strategy: variables.strategy,
+        '编排方式': variables.strategy,
     };
 
     return String(template || '').replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, key) => {

@@ -10,6 +10,14 @@ const MINIMAX_MODELS = Object.freeze([
     { id: 'speech-02-turbo', name: 'Speech 02 Turbo' },
 ]);
 
+export const ELEVENLABS_MODELS = Object.freeze([
+    { id: 'eleven_v3', name: 'Eleven v3' },
+    { id: 'eleven_v3_conversational', name: 'Eleven v3 Conversational' },
+    { id: 'eleven_multilingual_v2', name: 'Eleven Multilingual v2' },
+    { id: 'eleven_flash_v2_5', name: 'Eleven Flash v2.5' },
+    { id: 'eleven_flash_v2', name: 'Eleven Flash v2' },
+]);
+
 const MINIMAX_VOICES = Object.freeze([
     { id: 'Chinese (Mandarin)_Unrestrained_Young_Man', name: '不羁青年男声' },
     { id: 'Chinese (Mandarin)_Gentleman', name: '沉稳绅士' },
@@ -182,7 +190,9 @@ export class PhonieProviderCenter {
                 runtime: { ...this.#runtime.get(provider.id) },
                 catalog: catalogs[provider.id] || (provider.id === 'minimax'
                     ? { models: MINIMAX_MODELS, voices: MINIMAX_VOICES }
-                    : { models: [], voices: [] }),
+                    : provider.id === 'elevenlabs'
+                        ? { models: ELEVENLABS_MODELS, voices: [] }
+                        : { models: [], voices: [] }),
             })),
         };
     }
@@ -289,11 +299,7 @@ export class PhonieProviderCenter {
                     id: String(voice.voice_id || ''),
                     name: String(voice.name || voice.voice_id || ''),
                 })).filter((voice) => voice.id);
-                catalog.models = [
-                    { id: 'eleven_v3', name: 'Eleven v3' },
-                    { id: 'eleven_multilingual_v2', name: 'Eleven Multilingual v2' },
-                    { id: 'eleven_flash_v2_5', name: 'Eleven Flash v2.5' },
-                ];
+                catalog.models = [...ELEVENLABS_MODELS];
             } else if (providerId === 'minimax') {
                 if (config.credentialMode === 'direct') {
                     if (!config.directApiKey) throw new Error('请先填写 MiniMax 直连 API Key');

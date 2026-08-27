@@ -45,14 +45,18 @@ test('preset normalization clamps depth and rejects invalid roles', () => {
 });
 
 test('prompt variables resolve Chinese and English aliases', () => {
-    const text = resolvePromptVariables('{{角色}}/{{char}} {{用户}} {{语言}} {{译文语言}} {{模式}}', {
+    const text = resolvePromptVariables('{{角色}}/{{char}} {{用户}} {{语言}} {{译文语言}} {{模式}} {{上下文}} {{参与者}} {{通话主题}} {{编排方式}}', {
         character: 'Aoi',
         user: 'Nana',
         sourceLanguage: 'ja-JP',
         targetLanguage: 'zh-CN',
         mode: '电话',
+        context: '剧情摘要',
+        participants: 'Aoi、Ren',
+        topic: '周末约会',
+        strategy: '指定内容优先',
     });
-    assert.equal(text, 'Aoi/Aoi Nana ja-JP zh-CN 电话');
+    assert.equal(text, 'Aoi/Aoi Nana ja-JP zh-CN 电话 剧情摘要 Aoi、Ren 周末约会 指定内容优先');
 });
 
 test('prompt entries are inserted at the configured depth with roles preserved', () => {

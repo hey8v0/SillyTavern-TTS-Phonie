@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { TTS_PROVIDERS, normalizeProviderSettings } from '../src/tts/provider-catalog.js';
-import { PhonieProviderCenter, normalizeMiniMaxCatalog } from '../src/tts/provider-center.js';
+import { ELEVENLABS_MODELS, PhonieProviderCenter, normalizeMiniMaxCatalog } from '../src/tts/provider-center.js';
 
 function makeBridge(overrides = {}) {
     let settings = {
@@ -23,6 +23,13 @@ test('catalog contains the seven Phonie-owned engines from the handoff', () => {
     assert.deepEqual(TTS_PROVIDERS.map((provider) => provider.id), [
         'indextts2', 'gpt_sovits', 'voxcpm2', 'doubao', 'edge', 'elevenlabs', 'minimax',
     ]);
+});
+
+test('ElevenLabs keeps the conversational v3 model in the local catalog', () => {
+    assert.ok(ELEVENLABS_MODELS.some((model) => model.id === 'eleven_v3_conversational'));
+    const center = new PhonieProviderCenter({ bridge: makeBridge() });
+    const elevenLabs = center.snapshot().providers.find((provider) => provider.id === 'elevenlabs');
+    assert.ok(elevenLabs.catalog.models.some((model) => model.id === 'eleven_v3_conversational'));
 });
 
 test('provider defaults preserve user configuration', () => {

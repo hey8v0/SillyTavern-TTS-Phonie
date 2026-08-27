@@ -44,7 +44,7 @@ export async function requestPhoneGeneration({
             endpoint: settings.customOpenAIEndpoint,
             model: settings.customOpenAIModel,
             messages: prompt,
-            maxTokens: settings.customOpenAIMaxTokens,
+            maxTokens: Math.min(settings.customOpenAIMaxTokens, settings.phoneResponseLength),
             temperature: settings.customOpenAITemperature,
             jsonSchema,
         });

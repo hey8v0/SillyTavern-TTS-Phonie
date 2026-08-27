@@ -24,6 +24,10 @@ export function buildPhoneReplyMessages({
     history = [],
     callMode = false,
     preset = DEFAULT_PHONE_PROMPT_PRESET,
+    storyContext = '',
+    participants = [],
+    topic = '',
+    strategy = 'context',
 }) {
     const compact = compactHistory(history);
     const historyMessages = compact.map((message) => ({
@@ -31,7 +35,8 @@ export function buildPhoneReplyMessages({
         content: JSON.stringify(message),
     }));
     const latestInput = [...history].reverse().find((message) => message.direction === 'outgoing')?.originalText || '';
-    return assemblePhonePromptMessages({
+    const participantNames = participants.map((entry) => String(entry?.name || entry || '').trim()).filter(Boolean);
+    const messages = assemblePhonePromptMessages({
         preset,
         history: historyMessages,
         variables: {
@@ -43,10 +48,28 @@ export function buildPhoneReplyMessages({
             history: JSON.stringify(compact),
             input: latestInput,
             format: callMode
-                ? '只写一轮自然、适合直接朗读的简洁口语。'
+                ? `只写一轮自然、适合直接朗读的简短口语；speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。`
                 : '像私人聊天消息一样回复；除非理解语音必须，否则不要写舞台指示。',
+            context: storyContext,
+            participants: participantNames.join('、') || contactName,
+            topic: topic || '根据当前剧情自然继续',
+            strategy: strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划',
         },
     });
+    if (callMode) {
+        messages.unshift({
+            role: 'system',
+            content: [
+                '[通话编排上下文]',
+                `参与者：${participantNames.join('、') || contactName}`,
+                `编排方式：${strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划'}`,
+                `通话主题：${topic || '根据当前剧情自然继续'}`,
+                storyContext ? `[酒馆剧情、世界书与摘要]\n${storyContext}` : '',
+                '以上内容只用于保持剧情连续性，不要逐字复述。',
+            ].filter(Boolean).join('\n'),
+        });
+    }
+    return messages;
 }
 
 export function buildPhoneReplyPrompt(options) {
@@ -95,12 +118,14 @@ export function parsePhoneReply(value, { targetLanguage = 'zh-CN' } = {}) {
         const data = unwrapPhoneReply(value);
         const originalText = String(data?.originalText || '').trim();
         if (!originalText) throw new Error('Missing originalText');
+        const speaker = String(data.speaker || '').trim();
 
         return {
             originalText,
             translationText: String(data.translationText || '').trim(),
             emotion: PHONE_REPLY_SCHEMA.properties.emotion.enum.includes(data.emotion) ? data.emotion : 'neutral',
             action: PHONE_REPLY_SCHEMA.properties.action.enum.includes(data.action) ? data.action : 'reply',
+            ...(speaker ? { speaker } : {}),
         };
     } catch {
         return {

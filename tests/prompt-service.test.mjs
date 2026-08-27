@@ -33,6 +33,36 @@ test('phone reply messages preserve preset roles for raw generation', () => {
     assert.match(messages.map((message) => message.content).join('\n'), /ja-JP/);
 });
 
+test('call prompt carries story context, participants, and a user topic', () => {
+    const messages = buildPhoneReplyMessages({
+        contactName: 'Aoi',
+        userName: 'Nana',
+        sourceLanguage: 'ja-JP',
+        targetLanguage: 'zh-CN',
+        history: [],
+        callMode: true,
+        storyContext: '[当前摘要]\n两人刚刚约好见面。',
+        participants: [{ name: 'Aoi' }, { name: 'Ren' }],
+        topic: '确认集合地点',
+        strategy: 'topic',
+    });
+    const content = messages.map((message) => message.content).join('\n');
+    assert.match(content, /两人刚刚约好见面/);
+    assert.match(content, /Aoi、Ren/);
+    assert.match(content, /确认集合地点/);
+});
+
+test('structured call reply preserves an optional speaker', () => {
+    const parsed = parsePhoneReply({
+        originalText: '今から向かうよ。',
+        translationText: '我现在过去。',
+        emotion: 'warm',
+        action: 'reply',
+        speaker: 'Ren',
+    });
+    assert.equal(parsed.speaker, 'Ren');
+});
+
 test('structured reply parser accepts fenced JSON', () => {
     const parsed = parsePhoneReply('```json\n{"originalText":"もしもし","translationText":"喂","emotion":"warm","action":"reply"}\n```');
     assert.deepEqual(parsed, {

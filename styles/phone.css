@@ -55,7 +55,7 @@
     position: fixed;
     z-index: 31001;
     top: var(--phonie-orb-y, 48%);
-    right: -17px;
+    right: -23px;
     width: 48px;
     height: 48px;
     margin: 0;
@@ -78,7 +78,7 @@
 
 .phonie-orb[data-dock="left"] {
     right: auto;
-    left: -17px;
+    left: -23px;
     border-radius: 6px 17px 17px 6px;
 }
 

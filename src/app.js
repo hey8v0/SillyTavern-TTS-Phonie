@@ -82,6 +82,10 @@ export async function createPhonieApp() {
         callStartedAt: null,
         callCaption: { source: '', translation: '' },
         callControls: { muted: false, speaker: false, captions: true },
+        callParticipants: [contact],
+        callTopic: '',
+        callStrategy: 'context',
+        callNumber: '',
         audioState: 'idle',
         audioCacheStats: { count: 0, bytes: 0 },
         cacheBusy: false,
@@ -101,6 +105,13 @@ export async function createPhonieApp() {
         const audioCacheStats = await audioCache.getStats();
         updateState({ audioCacheStats });
         return audioCacheStats;
+    }
+
+    function setMessageAudioStatus(messageId, audioStatus) {
+        const messages = store.getState().messages.map((message) => (
+            message.id === messageId ? { ...message, audioStatus } : message
+        ));
+        updateState({ messages });
     }
 
     function persistPhoneState(
@@ -137,17 +148,26 @@ export async function createPhonieApp() {
             return true;
         }
 
-        const result = await providerCenter.synthesize({
-            text: message.originalText,
-            speaker: voiceName,
-            emotion: message.emotion,
-            language: message.language || store.getState().settings.sourceLanguage,
-        });
+        setMessageAudioStatus(message.id, 'generating');
+        let result;
+        try {
+            result = await providerCenter.synthesize({
+                text: message.originalText,
+                speaker: voiceName,
+                emotion: message.emotion,
+                language: message.language || store.getState().settings.sourceLanguage,
+            });
+        } catch (error) {
+            setMessageAudioStatus(message.id, 'error');
+            throw error;
+        }
         audioFocus.setSource(`phone:${message.id}`, result.blob);
         await audioCache.put(key, result.blob);
         refreshAudioCacheStats();
         if (autoplay) {
             await audioFocus.play(`phone:${message.id}`, { owner: 'phone', messageId: message.id });
+        } else {
+            setMessageAudioStatus(message.id, 'idle');
         }
         return true;
     }
@@ -230,12 +250,18 @@ export async function createPhonieApp() {
         }
 
         try {
-            const reply = await bridge.generatePhoneReply({ history: withOutgoing, callMode });
+            const reply = await bridge.generatePhoneReply({
+                history: withOutgoing,
+                callMode,
+                participants: state.callParticipants,
+                topic: state.callTopic,
+                strategy: state.callStrategy,
+            });
             if (bridge.getChatId() !== originChatId) return;
             const currentSettings = store.getState().settings;
             const incoming = createPhoneMessage({
                 direction: 'incoming',
-                author: store.getState().contact.name,
+                author: reply.speaker || store.getState().callParticipants?.[0]?.name || store.getState().contact.name,
                 originalText: reply.originalText,
                 translationText: reply.translationText,
                 kind: callMode || currentSettings.autoPlayPhoneReplies ? MESSAGE_KINDS.VOICE : MESSAGE_KINDS.TEXT,
@@ -260,7 +286,7 @@ export async function createPhonieApp() {
                     callMachine.transition(CALL_STATES.SPEAKING);
                 }
                 try {
-                    await preparePhoneAudio(incoming, store.getState().contact, { autoplay: true });
+                    await preparePhoneAudio(incoming, incoming.author, { autoplay: true });
                 } catch (error) {
                     console.warn('[Phonie] Character phone audio synthesis failed.', error);
                     updateState({ audioState: 'idle' });
@@ -294,10 +320,11 @@ export async function createPhonieApp() {
         updateState({ generating: true, audioState: 'generating' });
         callMachine.transition(CALL_STATES.GENERATING);
         try {
-            const reply = await bridge.generatePhoneReply({ history: store.getState().messages, callMode: true });
+            const call = store.getState();
+            const reply = await bridge.generatePhoneReply({ history: call.messages, callMode: true, participants: call.callParticipants, topic: call.callTopic, strategy: call.callStrategy });
             const incoming = createPhoneMessage({
                 direction: 'incoming',
-                author: store.getState().contact.name,
+                author: reply.speaker || call.callParticipants?.[0]?.name || call.contact.name,
                 originalText: reply.originalText,
                 translationText: reply.translationText,
                 kind: MESSAGE_KINDS.VOICE,
@@ -311,7 +338,7 @@ export async function createPhonieApp() {
             });
             persistPhoneState(messages, store.getState().calls);
             callMachine.transition(CALL_STATES.SPEAKING);
-            await preparePhoneAudio(incoming, store.getState().contact, { autoplay: true });
+            await preparePhoneAudio(incoming, incoming.author, { autoplay: true });
         } catch (error) {
             console.error('[Phonie] Incoming call opener failed.', error);
             updateState({ generating: false, audioState: 'idle' });
@@ -322,12 +349,14 @@ export async function createPhonieApp() {
         }
     }
 
-    function startCall() {
+    function startCall(options = {}) {
         const state = store.getState();
         if ([CALL_STATES.DIALING, CALL_STATES.RINGING, CALL_STATES.CONNECTED, CALL_STATES.GENERATING, CALL_STATES.SPEAKING].includes(callMachine.state)) {
             updateState({ screen: SCREENS.CALL, open: true });
             return;
         }
+        const selected = (state.characters || []).filter((entry) => options.participantIds?.includes(entry.id));
+        const callParticipants = selected.length ? selected : [state.contact];
         window.clearTimeout(callConnectTimer);
         callMachine.transition(CALL_STATES.DIALING, { contact: state.contact.name });
         updateState({
@@ -336,6 +365,10 @@ export async function createPhonieApp() {
             callDirection: 'outgoing',
             callCaption: { source: '', translation: '' },
             callControls: { muted: false, speaker: false, captions: true },
+            callParticipants,
+            callTopic: String(options.topic || ''),
+            callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
+            callNumber: String(options.number || ''),
         });
         callConnectTimer = window.setTimeout(() => {
             if (callMachine.state === CALL_STATES.DIALING) {
@@ -349,8 +382,10 @@ export async function createPhonieApp() {
         }, 420);
     }
 
-    function startIncomingCall() {
+    function startIncomingCall(options = {}) {
         if (![CALL_STATES.IDLE, CALL_STATES.ENDED].includes(callMachine.state)) return;
+        const state = store.getState();
+        const selected = (state.characters || []).filter((entry) => options.participantIds?.includes(entry.id));
         window.clearTimeout(callConnectTimer);
         callMachine.transition(CALL_STATES.RINGING, { contact: store.getState().contact.name, direction: 'incoming' });
         updateState({
@@ -359,6 +394,10 @@ export async function createPhonieApp() {
             callDirection: 'incoming',
             callCaption: { source: '', translation: '' },
             callControls: { muted: false, speaker: false, captions: true },
+            callParticipants: selected.length ? selected : [state.contact],
+            callTopic: String(options.topic || ''),
+            callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
+            callNumber: String(options.number || ''),
         });
         globalThis.navigator?.vibrate?.([160, 90, 160, 360, 160, 90, 160]);
     }
@@ -739,6 +778,9 @@ export async function createPhonieApp() {
         const messages = store.getState().messages.map((message) => ({
             ...message,
             isPlaying: message.id === currentId && detail.state === 'playing',
+            audioStatus: message.id === currentId
+                ? (detail.state === 'playing' ? 'playing' : detail.state === 'paused' ? 'paused' : ['ended', 'stopped'].includes(detail.state) ? 'idle' : detail.state === 'error' ? 'error' : message.audioStatus)
+                : message.audioStatus === 'playing' ? 'idle' : message.audioStatus,
             durationLabel: message.id === currentId && detail.duration
                 ? `${Math.floor(detail.duration / 60).toString().padStart(2, '0')}:${Math.floor(detail.duration % 60).toString().padStart(2, '0')}`
                 : message.durationLabel,

@@ -36,6 +36,7 @@ const BODY_PROMPT_ROLES = Object.freeze({
 function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
     merged.phoneResponseLength = Math.min(1200, Math.max(80, Math.round(Number(merged.phoneResponseLength) || 420)));
+    merged.callResponseLength = Math.min(420, Math.max(80, Math.round(Number(merged.callResponseLength) || 180)));
     merged.launcherMode = ['orb', 'wand', 'both'].includes(merged.launcherMode) ? merged.launcherMode : 'orb';
     merged.generationMode = !value.generationMode && value.generationProfileId
         ? 'profile'
@@ -191,20 +192,72 @@ export class SillyTavernBridge {
     async refreshCustomOpenAIModels(endpoint) {
         return fetchCustomOpenAIModels(endpoint);
     }
-    async generatePhoneReply({ history, callMode = false }) {
+
+    async getCallPlanningContext({ participants = [], topic = '' } = {}) {
+        const context = this.context || {};
+        const chat = this.getMessages();
+        const lastInContext = Number(context.chatMetadata?.lastInContextMessageId);
+        const start = Number.isFinite(lastInContext) && lastInContext >= 0
+            ? Math.min(chat.length, lastInContext)
+            : Math.max(0, chat.length - 18);
+        const recent = chat.slice(start).slice(-18);
+        const summary = [...chat].reverse()
+            .map((message) => message?.extra?.memory || message?.extra?.summary || '')
+            .find(Boolean);
+        const lines = recent.map((message) => {
+            const name = message?.name || (message?.is_user ? this.getUserName() : this.getContact().name);
+            return `${name}: ${String(message?.mes || '').replace(/\s+/g, ' ').slice(0, 520)}`;
+        });
+        let worldInfo = '';
+        if (typeof context.getWorldInfoPrompt === 'function' && recent.length) {
+            try {
+                const scan = recent.map((message) => (
+                    `${message?.name || (message?.is_user ? this.getUserName() : this.getContact().name)}: ${message?.mes || ''}`
+                )).reverse();
+                const result = await context.getWorldInfoPrompt(
+                    scan,
+                    Math.min(Number(context.maxContext) || 8192, 8192),
+                    true,
+                    { ...(context.getCharacterCardFields?.() || {}), trigger: 'normal' },
+                );
+                worldInfo = [
+                    result?.worldInfoBefore,
+                    result?.worldInfoAfter,
+                    ...(Array.isArray(result?.worldInfoDepth) ? result.worldInfoDepth.map((entry) => entry?.content || entry) : []),
+                ].filter(Boolean).join('\n');
+            } catch (error) {
+                console.warn('[Phonie] Worldbook context scan unavailable.', error);
+            }
+        }
+        const blocks = [
+            summary ? `[当前摘要]\n${String(summary).slice(0, 3200)}` : '',
+            worldInfo ? `[已启用世界书命中]\n${worldInfo.slice(0, 4200)}` : '',
+            lines.length ? `[当前上下文]\n${lines.join('\n')}` : '',
+            participants.length ? `[通话参与者]\n${participants.map((entry) => entry?.name || entry).join('、')}` : '',
+            topic ? `[用户指定主题]\n${String(topic).slice(0, 600)}` : '',
+        ];
+        return blocks.filter(Boolean).join('\n\n').slice(0, 9000);
+    }
+
+    async generatePhoneReply({ history, callMode = false, participants = [], topic = '', strategy = 'context' }) {
         const settings = this.getSettings();
+        const storyContext = callMode ? await this.getCallPlanningContext({ participants, topic }) : '';
         const prompt = buildPhoneReplyMessages({
-            contactName: this.getContact().name,
+            contactName: participants.map((entry) => entry?.name || entry).filter(Boolean).join('、') || this.getContact().name,
             userName: this.getUserName(),
             sourceLanguage: settings.sourceLanguage,
             targetLanguage: settings.targetLanguage,
             history,
             callMode,
             preset: settings.promptPreset,
+            storyContext,
+            participants,
+            topic,
+            strategy,
         });
 
         const result = await requestPhoneGeneration({
-            settings,
+            settings: callMode ? { ...settings, phoneResponseLength: settings.callResponseLength } : settings,
             prompt,
             jsonSchema: PHONE_REPLY_SCHEMA,
             generateQuietPrompt,

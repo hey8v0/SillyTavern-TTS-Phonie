@@ -15,6 +15,30 @@
     transform: translate(-54%, -50%);
 }
 
+.phonie-orb__wave {
+    position: absolute;
+    display: none;
+    left: 13px;
+    height: 20px;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none;
+}
+
+.phonie-orb__wave i,
+.phonie-inline-button__wave i {
+    width: 2px;
+    height: 12px;
+    border-radius: 999px;
+    background: currentColor;
+    transform: scaleY(0.35);
+}
+
+.phonie-orb[data-audio-state=speaking] > .phonie-icon,
+.phonie-orb[data-audio-state=generating] > .phonie-icon { opacity: 0; }
+.phonie-orb[data-audio-state=speaking] .phonie-orb__wave,
+.phonie-orb[data-audio-state=generating] .phonie-orb__wave { display: flex; }
+
 .phonie-icon-button,
 .phonie-inline-button,
 .phonie-voice-action {
@@ -393,9 +417,35 @@
 
 .phonie-call-idle-action {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: 0;
+    padding: 2px;
+    overflow-y: auto;
+    grid-template-columns: 1fr;
     gap: 8px;
 }
+
+.phonie-call-number,
+.phonie-call-setup-field input,
+.phonie-call-setup-field select {
+    width: 100%;
+    min-height: 38px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 13px;
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
+}
+
+.phonie-call-number { text-align: center; letter-spacing: 0.14em; }
+.phonie-call-dialpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.phonie-call-dialpad button {
+    min-height: 34px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 999px;
+    background: var(--phonie-surface-raised);
+    color: var(--phonie-ink);
+}
+.phonie-call-setup-field { display: grid; gap: 4px; color: var(--phonie-ink-muted); font-size: 10px; }
+.phonie-call-setup-field select[multiple] { min-height: 66px; }
 
 .phonie-call-idle-action[hidden],
 .phonie-call-incoming-actions[hidden],
@@ -894,6 +944,18 @@
     width: 13px;
     height: 13px;
 }
+
+.phonie-inline-button__wave {
+    display: none;
+    height: 13px;
+    align-items: center;
+    gap: 1px;
+}
+
+.phonie-inline-button[data-audio-state=playing] .phonie-inline-button__icon,
+.phonie-inline-button[data-audio-state=generating] .phonie-inline-button__icon { display: none; }
+.phonie-inline-button[data-audio-state=playing] .phonie-inline-button__wave,
+.phonie-inline-button[data-audio-state=generating] .phonie-inline-button__wave { display: flex; }
 
 .phonie-inline-actions {
     display: inline-flex;

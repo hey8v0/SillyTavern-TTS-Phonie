@@ -96,6 +96,12 @@ function makeWaveBars(seed = '') {
     }).join('');
 }
 
+function callDialPadMarkup() {
+    return ['1','2','3','4','5','6','7','8','9','*','0','#']
+        .map((digit) => `<button type=button data-action=call-digit data-digit=${digit}>${digit}</button>`)
+        .join('');
+}
+
 function renderMessage(message, showTranslation, state) {
     const outgoing = message.direction === 'outgoing';
     const recalled = message.kind === MESSAGE_KINDS.RECALLED;
@@ -353,8 +359,11 @@ export class PhoneView {
             + '<span class="phonie-orb__seam" aria-hidden="true"></span>'
             + '<span class="phonie-orb__unread" data-role="unread" hidden></span>';
 
+        orb.querySelector('.phonie-orb__seam')?.insertAdjacentHTML('beforebegin', `<span class='phonie-orb__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`);
         document.body.append(root, orb);
         this.#root = root;
+        const callSetup = root.querySelector('[data-role=call-idle-action]');
+        callSetup?.insertAdjacentHTML('afterbegin', `<input class='phonie-call-number' data-role='call-number' inputmode='tel' readonly placeholder='选择联系人或拨号'><div class='phonie-call-dialpad' aria-label='模拟拨号盘'>${callDialPadMarkup()}</div><label class='phonie-call-setup-field'><span>声线联系人，可多选</span><select data-role='call-participants' multiple></select></label><label class='phonie-call-setup-field'><span>电话内容</span><input data-role='call-topic' maxlength='600' placeholder='留空则根据剧情规划'></label><label class='phonie-call-setup-field'><span>编排方式</span><select data-role='call-strategy'><option value='context'>根据上下文</option><option value='topic'>指定内容优先</option></select></label>`);
         this.#orb = orb;
         this.#bindEvents();
         this.#mountSettingsLauncher();
@@ -386,18 +395,8 @@ export class PhoneView {
                 <section class="phonie-settings-section">
                     <h2 class="phonie-settings-section__title">语言</h2>
                     <div class="phonie-settings-card">
-                        ${this.#selectRow('角色语言', '静默回复与语音默认语言', 'sourceLanguage', [
-                            ['ja-JP', '日本語'],
-                            ['zh-CN', '简体中文'],
-                            ['en-US', 'English'],
-                            ['ko-KR', '한국어'],
-                        ])}
-                        ${this.#selectRow('翻译语言', '手机与正文的辅助字幕', 'targetLanguage', [
-                            ['zh-CN', '简体中文'],
-                            ['ja-JP', '日本語'],
-                            ['en-US', 'English'],
-                            ['ko-KR', '한국어'],
-                        ])}
+                        ${this.#languageRow('角色语言', '可选常用语言，也可输入粤语、德语或任意 BCP 47 代码', 'sourceLanguage')}
+                        ${this.#languageRow('翻译语言', '手机与正文的辅助字幕语言，可自由输入', 'targetLanguage')}
                         ${this.#switchRow('正文双语格式', '生成时要求可见中文译文与原语言语音段', 'bodyPromptEnabled')}
                     </div>
                 </section>
@@ -455,6 +454,10 @@ export class PhoneView {
                 </span>
                 <select class="phonie-setting-select" data-setting="${escapeHtml(key)}">${options}</select>
             </label>`;
+    }
+
+    #languageRow(label, description, key) {
+        return `<label class='phonie-setting-row'><span><span class='phonie-setting-label'>${escapeHtml(label)}</span><span class='phonie-setting-description'>${escapeHtml(description)}</span></span><input class='phonie-setting-select' type='text' data-setting='${escapeHtml(key)}' placeholder='ja-JP / yue-HK / de-DE'></label>`;
     }
 
     #mountSettingsLauncher() {
@@ -571,10 +574,13 @@ export class PhoneView {
                 this.#renderReplyComposer(this.#store.getState());
             } else if (action === 'recall-phone-message') {
                 this.#actions.recallPhoneMessage?.(target.dataset.messageId);
+            } else if (action === 'call-digit') {
+                const number = this.#root.querySelector('[data-role=call-number]');
+                if (number instanceof HTMLInputElement) number.value = (number.value + (target.dataset.digit || '')).slice(-18);
             } else if (action === 'start-call') {
-                this.#actions.startCall?.();
+                this.#actions.startCall?.(this.#callSetup());
             } else if (action === 'start-incoming-call') {
-                this.#actions.startIncomingCall?.();
+                this.#actions.startIncomingCall?.(this.#callSetup());
             } else if (action === 'accept-call') {
                 this.#actions.acceptCall?.();
             } else if (action === 'decline-call') {
@@ -969,6 +975,16 @@ export class PhoneView {
         this.#actions.sendMessage?.(text, MESSAGE_KINDS.TEXT, true);
     }
 
+    #callSetup() {
+        const select = this.#root.querySelector('[data-role=call-participants]');
+        return {
+            participantIds: select instanceof HTMLSelectElement ? [...select.selectedOptions].map((option) => option.value) : [],
+            topic: this.#root.querySelector('[data-role=call-topic]')?.value?.trim() || '',
+            strategy: this.#root.querySelector('[data-role=call-strategy]')?.value || 'context',
+            number: this.#root.querySelector('[data-role=call-number]')?.value || '',
+        };
+    }
+
     render(state) {
         if (!this.#root) return;
         this.#root.dataset.theme = state.settings.theme;
@@ -983,6 +999,7 @@ export class PhoneView {
         if (this.#orb) {
             this.#orb.dataset.theme = state.settings.theme;
             this.#orb.dataset.dock = state.settings.dockSide;
+            this.#orb.dataset.audioState = state.audioState || 'idle';
             this.#orb.hidden = state.open || state.settings.launcherMode === 'wand';
             this.#positionOrb(state.settings);
         }
@@ -1081,7 +1098,7 @@ export class PhoneView {
         const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
         const previousTop = list.scrollTop;
         const signature = JSON.stringify(state.messages.map((message) => [
-            message.id, message.kind, message.originalText, message.translationText, message.isPlaying,
+            message.id, message.kind, message.originalText, message.translationText, message.isPlaying, message.audioStatus,
             message.durationLabel, message.amount, message.note, message.recalledAt,
             message.replySnapshot?.content,
         ]));
@@ -1100,6 +1117,11 @@ export class PhoneView {
         }
         const generating = this.#root.querySelector('[data-role="generating"]');
         if (generating) generating.hidden = !state.generating;
+        for (const message of state.messages) {
+            const action = [...list.querySelectorAll('[data-action=play-phone-audio]')].find((button) => button.dataset.messageId === String(message.id));
+            const voice = action?.closest('.phonie-message__voice');
+            if (voice) voice.dataset.audioState = message.audioStatus || (message.isPlaying ? 'playing' : 'idle');
+        }
         this.#renderReplyComposer(state);
         requestAnimationFrame(() => {
             list.scrollTop = nearBottom || state.messages.length <= 1 ? list.scrollHeight : previousTop;
@@ -1138,7 +1160,7 @@ export class PhoneView {
         if (incomingActions) incomingActions.hidden = !incoming;
         if (featureControls) featureControls.hidden = !connected;
         if (mark) mark.dataset.ringing = String(incoming || state.callState === CALL_STATES.DIALING);
-        if (captions) captions.hidden = connected && state.callControls?.captions === false;
+        if (captions) captions.hidden = !connected || state.callControls?.captions === false;
         for (const button of this.#root.querySelectorAll('[data-call-control]')) {
             const pressed = Boolean(state.callControls?.[button.dataset.callControl]);
             button.setAttribute('aria-pressed', String(pressed));
@@ -1147,6 +1169,19 @@ export class PhoneView {
         const input = this.#root.querySelector('[data-role="call-input"]');
         if (input instanceof HTMLInputElement) {
             input.disabled = ![CALL_STATES.CONNECTED, CALL_STATES.SPEAKING].includes(state.callState) || state.generating;
+        }
+        const picker = this.#root.querySelector('[data-role=call-participants]');
+        if (picker instanceof HTMLSelectElement && !active) {
+            const signature = (state.characters || []).map((entry) => entry.id + ':' + entry.name).join('|');
+            if (picker.dataset.signature !== signature) {
+                picker.dataset.signature = signature;
+                picker.innerHTML = (state.characters || []).map((entry, index) => `<option value='${escapeHtml(entry.id)}'${index === 0 ? ' selected' : ''}>${escapeHtml(entry.name)}</option>`).join('');
+            }
+        }
+        if (active && state.callParticipants?.length) {
+            const names = state.callParticipants.map((entry) => entry.name).join('、');
+            this.#setText('[data-role=call-contact]', names);
+            this.#setText('[data-role=call-initials]', state.callParticipants.length > 1 ? String(state.callParticipants.length) : initials(names));
         }
     }
 

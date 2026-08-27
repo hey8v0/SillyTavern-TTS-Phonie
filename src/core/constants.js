@@ -1,6 +1,6 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.8.0';
-export const SCHEMA_VERSION = 6;
+export const APP_VERSION = '0.9.0';
+export const SCHEMA_VERSION = 7;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
@@ -60,6 +60,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     generationMode: 'tavern',
     generationProfileId: '',
     phoneResponseLength: 420,
+    callResponseLength: 180,
     customOpenAIEndpoint: '',
     customOpenAIModel: '',
     customOpenAIModels: [],
@@ -89,5 +90,6 @@ export const PHONE_REPLY_SCHEMA = Object.freeze({
             type: 'string',
             enum: ['reply', 'pause', 'end_call'],
         },
+        speaker: { type: 'string' },
     },
 });
