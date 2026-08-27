@@ -1,6 +1,6 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.9.0';
-export const SCHEMA_VERSION = 7;
+export const APP_VERSION = '0.10.0';
+export const SCHEMA_VERSION = 8;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
@@ -61,6 +61,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     generationProfileId: '',
     phoneResponseLength: 420,
     callResponseLength: 180,
+    callScriptResponseLength: 960,
     customOpenAIEndpoint: '',
     customOpenAIModel: '',
     customOpenAIModels: [],
@@ -91,5 +92,34 @@ export const PHONE_REPLY_SCHEMA = Object.freeze({
             enum: ['reply', 'pause', 'end_call'],
         },
         speaker: { type: 'string' },
+    },
+});
+
+export const PHONE_CALL_SCRIPT_SCHEMA = Object.freeze({
+    type: 'object',
+    additionalProperties: false,
+    required: ['turns', 'action'],
+    properties: {
+        turns: {
+            type: 'array',
+            minItems: 1,
+            maxItems: 10,
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['speaker', 'originalText', 'translationText', 'emotion'],
+                properties: {
+                    speaker: { type: 'string' },
+                    originalText: { type: 'string' },
+                    translationText: { type: 'string' },
+                    emotion: {
+                        type: 'string',
+                        enum: ['neutral', 'warm', 'bright', 'quiet', 'tense', 'sad', 'angry'],
+                    },
+                },
+            },
+        },
+        action: { type: 'string', enum: ['reply', 'end_call'] },
+        summary: { type: 'string' },
     },
 });

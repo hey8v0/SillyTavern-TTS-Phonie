@@ -28,6 +28,7 @@ export function buildPhoneReplyMessages({
     participants = [],
     topic = '',
     strategy = 'context',
+    scriptMode = false,
 }) {
     const compact = compactHistory(history);
     const historyMessages = compact.map((message) => ({
@@ -48,7 +49,9 @@ export function buildPhoneReplyMessages({
             history: JSON.stringify(compact),
             input: latestInput,
             format: callMode
-                ? `只写一轮自然、适合直接朗读的简短口语；speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。`
+                ? scriptMode
+                    ? `一次写完整段电话内容，turns 包含 4 到 8 段自然口语；每段 speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。不要让用户逐轮输入。`
+                    : `只写一轮自然、适合直接朗读的简短口语；speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。`
                 : '像私人聊天消息一样回复；除非理解语音必须，否则不要写舞台指示。',
             context: storyContext,
             participants: participantNames.join('、') || contactName,
@@ -64,6 +67,7 @@ export function buildPhoneReplyMessages({
                 `参与者：${participantNames.join('、') || contactName}`,
                 `编排方式：${strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划'}`,
                 `通话主题：${topic || '根据当前剧情自然继续'}`,
+                scriptMode ? '输出一段可连续播放的完整电话或电话留言。返回 turns 数组，每段都包含 speaker、originalText、translationText 与 emotion。' : '',
                 storyContext ? `[酒馆剧情、世界书与摘要]\n${storyContext}` : '',
                 '以上内容只用于保持剧情连续性，不要逐字复述。',
             ].filter(Boolean).join('\n'),
@@ -116,6 +120,22 @@ export function parsePhoneReply(value, { targetLanguage = 'zh-CN' } = {}) {
 
     try {
         const data = unwrapPhoneReply(value);
+        const turns = Array.isArray(data?.turns)
+            ? data.turns.slice(0, 10).map((turn) => ({
+                speaker: String(turn?.speaker || '').trim(),
+                originalText: String(turn?.originalText || '').trim(),
+                translationText: String(turn?.translationText || '').trim(),
+                emotion: PHONE_REPLY_SCHEMA.properties.emotion.enum.includes(turn?.emotion) ? turn.emotion : 'neutral',
+            })).filter((turn) => turn.speaker && turn.originalText)
+            : [];
+        if (turns.length) {
+            return {
+                ...turns[0],
+                turns,
+                action: data.action === 'end_call' ? 'end_call' : 'reply',
+                summary: String(data.summary || '').trim(),
+            };
+        }
         const originalText = String(data?.originalText || '').trim();
         if (!originalText) throw new Error('Missing originalText');
         const speaker = String(data.speaker || '').trim();

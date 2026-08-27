@@ -1,0 +1,178 @@
+.phonie-preset-toolbar {
+    display: block;
+    padding: 9px;
+}
+
+.phonie-preset-switcher {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 8px;
+}
+
+.phonie-preset-switcher label,
+.phonie-preset-manage__body > label,
+.phonie-prompt-entry__name,
+.phonie-prompt-entry__enabled {
+    display: grid;
+    min-width: 0;
+    gap: 5px;
+}
+
+.phonie-preset-switcher label > span,
+.phonie-preset-manage__body label > span,
+.phonie-prompt-entry__name > span,
+.phonie-prompt-entry__enabled > span {
+    color: var(--phonie-ink-muted);
+    font-size: 9px;
+}
+
+.phonie-preset-manage {
+    margin-top: 9px;
+    border-top: 1px solid var(--phonie-border);
+}
+
+.phonie-preset-manage > summary,
+.phonie-prompt-entry > summary {
+    display: grid;
+    min-width: 0;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+}
+
+.phonie-preset-manage > summary::-webkit-details-marker,
+.phonie-prompt-entry > summary::-webkit-details-marker { display: none; }
+
+.phonie-preset-manage > summary {
+    min-height: 52px;
+    padding: 8px 5px 0;
+    grid-template-columns: 24px minmax(0, 1fr) 18px;
+    gap: 8px;
+}
+
+.phonie-preset-manage > summary > .phonie-icon:first-child { color: var(--phonie-signal); }
+.phonie-preset-manage > summary > .phonie-icon:last-child,
+.phonie-prompt-entry > summary > .phonie-icon:last-child { color: var(--phonie-ink-muted); transition: transform 180ms var(--phonie-ease-out); }
+.phonie-preset-manage[open] > summary > .phonie-icon:last-child,
+.phonie-prompt-entry[open] > summary > .phonie-icon:last-child { transform: rotate(90deg); }
+.phonie-preset-manage summary span { display: grid; }
+.phonie-preset-manage summary strong { font-size: 11px; }
+.phonie-preset-manage summary small { color: var(--phonie-ink-muted); font-size: 8px; }
+
+.phonie-preset-manage__body {
+    display: grid;
+    padding: 10px 2px 2px;
+    grid-template-columns: minmax(0, 1fr) 82px;
+    gap: 8px;
+}
+
+.phonie-preset-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.phonie-preset-actions button {
+    min-width: 0;
+    min-height: 38px;
+    padding: 4px 2px;
+    flex-direction: column;
+    border-radius: 11px;
+    font-size: 8px;
+    gap: 2px;
+}
+
+.phonie-preset-actions .phonie-icon { width: 14px; height: 14px; }
+
+.phonie-prompt-entry {
+    padding: 0;
+    overflow: hidden;
+}
+
+.phonie-prompt-entry > summary {
+    min-height: 58px;
+    padding: 8px 10px;
+    grid-template-columns: 20px 22px minmax(0, 1fr) 18px;
+    gap: 7px;
+}
+
+.phonie-prompt-entry__summary {
+    display: grid;
+    min-width: 0;
+}
+
+.phonie-prompt-entry__summary strong,
+.phonie-prompt-entry__summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phonie-prompt-entry__summary strong { font-size: 11px; }
+.phonie-prompt-entry__summary small { color: var(--phonie-ink-muted); font-size: 8px; }
+
+.phonie-prompt-entry__body {
+    display: grid;
+    padding: 0 10px 10px;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 9px;
+    border-top: 1px solid color-mix(in srgb, var(--phonie-border) 70%, transparent);
+}
+
+.phonie-prompt-entry__name,
+.phonie-prompt-entry__enabled { padding-top: 9px; }
+.phonie-prompt-entry__enabled { align-content: start; justify-items: end; }
+.phonie-prompt-entry__controls,
+.phonie-prompt-entry__content { grid-column: 1 / -1; }
+.phonie-prompt-entry__content { margin-top: 0; }
+.phonie-prompt-entry textarea { min-height: 160px; max-height: 42vh; resize: vertical; overflow: auto; }
+
+/* Compact app chrome and hard overflow boundaries for native selects. */
+#phonie-root[data-screen='chat'] .phonie-header,
+#phonie-root[data-screen='prompts'] .phonie-header {
+    display: none;
+}
+
+#phonie-root[data-screen='chat'] .phonie-screen[data-screen='chat'],
+#phonie-root[data-screen='prompts'] .phonie-screen[data-screen='prompts'] {
+    margin-top: 0;
+}
+
+.phonie-prompt-pane,
+.phonie-preset-toolbar,
+.phonie-preset-switcher,
+.phonie-preset-switcher label,
+.phonie-preset-switcher select,
+.phonie-preset-manage,
+.phonie-preset-manage__body {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.phonie-prompt-pane,
+.phonie-preset-toolbar {
+    overflow-x: hidden;
+}
+
+.phonie-preset-switcher {
+    width: 100%;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    overflow: hidden;
+}
+
+.phonie-preset-switcher label {
+    overflow: hidden;
+}
+
+.phonie-preset-switcher select {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phonie-preset-switcher option {
+    max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phonie-preset-manage > summary > .phonie-icon:last-child,
+    .phonie-prompt-entry > summary > .phonie-icon:last-child { transition: none; }
+}

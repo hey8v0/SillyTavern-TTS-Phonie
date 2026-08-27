@@ -68,20 +68,24 @@ export function systemSettingsScreensMarkup() {
             <div class="phonie-app-pane phonie-prompt-pane">
                 <p class="phonie-prompt-intro" data-role="prompt-intro">条目按顺序注入。每条可选择 system、user 或 assistant，并统一设置插入深度。</p>
                 <section class="phonie-preset-toolbar">
-                    <label><span>工作流</span><select data-setting="promptWorkflowKind"><option value="body">正文 TTS</option><option value="phone">手机私信与电话</option></select></label>
-                    <label><span>已保存预设</span><select data-role="prompt-preset-library"></select></label>
-                    <label><span>预设名称</span><input type="text" maxlength="80" data-prompt-preset-field="name"></label>
-                    <label><span>插入深度</span><input type="number" min="0" max="20" inputmode="numeric" data-prompt-preset-field="insertionDepth"></label>
-                    <div class="phonie-preset-actions">
-                        <button type="button" data-action="reset-prompt-preset">${icon('reset')}<span>恢复默认</span></button>
-                        <button type="button" data-action="add-prompt-entry">${icon('plus')}<span>添加条目</span></button>
-                        <button type="button" data-action="save-prompt-preset">${icon('check')}<span>保存预设</span></button>
-                        <button type="button" data-action="save-as-prompt-preset">${icon('layers')}<span>另存为</span></button>
-                        <button type="button" data-action="export-prompt-preset">${icon('export')}<span>导出当前</span></button>
-                        <button type="button" data-action="export-prompt-library">${icon('export')}<span>导出全部</span></button>
-                        <button type="button" data-action="import-prompt-presets">${icon('import')}<span>导入预设</span></button>
-                        <button type="button" data-action="delete-prompt-preset">${icon('trash')}<span>删除预设</span></button>
-                    </div>
+                    <div class="phonie-preset-switcher"><label><span>工作流</span><select data-setting="promptWorkflowKind"><option value="body">正文 TTS</option><option value="phone">私信与电话</option></select></label><label><span>当前预设</span><select data-role="prompt-preset-library"></select></label></div>
+                    <details class="phonie-preset-manage">
+                        <summary>${icon('settings')}<span><strong>预设管理</strong><small>名称、深度、导入与导出</small></span>${icon('chevron')}</summary>
+                        <div class="phonie-preset-manage__body">
+                            <label><span>预设名称</span><input type="text" maxlength="80" data-prompt-preset-field="name"></label>
+                            <label><span>插入深度</span><input type="number" min="0" max="20" inputmode="numeric" data-prompt-preset-field="insertionDepth"></label>
+                            <div class="phonie-preset-actions">
+                                <button type="button" data-action="reset-prompt-preset">${icon('reset')}<span>默认</span></button>
+                                <button type="button" data-action="save-prompt-preset">${icon('check')}<span>保存</span></button>
+                                <button type="button" data-action="save-as-prompt-preset">${icon('layers')}<span>另存</span></button>
+                                <button type="button" data-action="delete-prompt-preset">${icon('trash')}<span>删除</span></button>
+                                <button type="button" data-action="export-prompt-preset">${icon('export')}<span>导出</span></button>
+                                <button type="button" data-action="export-prompt-library">${icon('export')}<span>全部</span></button>
+                                <button type="button" data-action="import-prompt-presets">${icon('import')}<span>导入</span></button>
+                                <button type="button" data-action="add-prompt-entry">${icon('plus')}<span>条目</span></button>
+                            </div>
+                        </div>
+                    </details>
                     <input class="phonie-sr-only" type="file" accept="application/json,.json" data-role="prompt-preset-import">
                 </section>
                 <label class="phonie-prompt-master" data-role="body-prompt-master">
@@ -102,16 +106,21 @@ export function promptEntryMarkup(entry, index, total) {
         .map((role) => `<option value="${role}"${entry.role === role ? ' selected' : ''}>${role}</option>`)
         .join('');
     return `
-        <article class="phonie-prompt-entry" data-prompt-entry-id="${escapeHtml(entry.id)}">
-            <header>
+        <details class="phonie-prompt-entry" data-prompt-entry-id="${escapeHtml(entry.id)}">
+            <summary>
                 <span class="phonie-prompt-entry__grip" aria-hidden="true">${icon('drag')}</span>
                 <b>${index + 1}</b>
-                <label><span class="phonie-sr-only">条目名称</span><input type="text" maxlength="80" value="${escapeHtml(entry.name)}" data-prompt-entry-field="name"></label>
+                <span class="phonie-prompt-entry__summary"><strong>${escapeHtml(entry.name)}</strong><small>${entry.role} · ${entry.enabled ? '已启用' : '已停用'}</small></span>
+                ${icon('chevron')}
+            </summary>
+            <div class="phonie-prompt-entry__body">
+            <label class="phonie-prompt-entry__name"><span>条目名称</span><input type="text" maxlength="80" value="${escapeHtml(entry.name)}" data-prompt-entry-field="name"></label>
+            <div class="phonie-prompt-entry__enabled"><span>启用条目</span>
                 <label class="phonie-switch" aria-label="启用这个提示词条目">
                     <input type="checkbox" data-prompt-entry-field="enabled"${entry.enabled ? ' checked' : ''}>
                     <span class="phonie-switch__track" aria-hidden="true"></span>
                 </label>
-            </header>
+            </div>
             <div class="phonie-prompt-entry__controls">
                 <label><span>角色</span><select data-prompt-entry-field="role">${roleOptions}</select></label>
                 <span class="phonie-prompt-entry__buttons">
@@ -121,5 +130,6 @@ export function promptEntryMarkup(entry, index, total) {
                 </span>
             </div>
             <label class="phonie-prompt-entry__content"><span class="phonie-sr-only">提示词内容</span><textarea rows="6" data-prompt-entry-field="content">${escapeHtml(entry.content)}</textarea></label>
-        </article>`;
+            </div>
+        </details>`;
 }

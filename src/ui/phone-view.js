@@ -97,9 +97,17 @@ function makeWaveBars(seed = '') {
 }
 
 function callDialPadMarkup() {
+    const letters = { 2: 'ABC', 3: 'DEF', 4: 'GHI', 5: 'JKL', 6: 'MNO', 7: 'PQRS', 8: 'TUV', 9: 'WXYZ' };
     return ['1','2','3','4','5','6','7','8','9','*','0','#']
-        .map((digit) => `<button type=button data-action=call-digit data-digit=${digit}>${digit}</button>`)
+        .map((digit) => `<button type='button' data-action='call-digit' data-digit='${digit}'><b>${digit}</b><small>${letters[digit] || (digit === '0' ? '+' : '')}</small></button>`)
         .join('');
+}
+
+function contactNumber(identity = '') {
+    let hash = 2166136261;
+    for (const character of String(identity)) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+    const digits = String(Math.abs(hash >>> 0)).padStart(10, '0').slice(0, 10);
+    return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
 }
 
 function renderMessage(message, showTranslation, state) {
@@ -300,11 +308,13 @@ export class PhoneView {
                             <div class="phonie-call-screen">
                                 <div class="phonie-call-backdrop" data-role="call-backdrop" aria-hidden="true"></div>
                                 <div class="phonie-call-veil" aria-hidden="true"></div>
+                                <div class="phonie-call-topline"><button type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">${icon('back')}</button><span>语音通话</span><i></i><span data-role="call-direction-label">拨号</span></div>
                                 <div class="phonie-contact-mark" data-role="call-mark"><span data-role="call-initials">P</span></div>
                                 <div class="phonie-call-identity">
                                     <h2 data-role="call-contact">Character</h2>
                                     <p class="phonie-call-status" data-role="call-status">等待拨号</p>
                                 </div>
+                                <div class="phonie-call-live-wave" data-role="call-live-wave" aria-hidden="true">${makeWaveBars('prepared-call')}</div>
                                 <div class="phonie-call-captions" data-role="call-captions" data-empty="true">
                                     <span data-role="call-empty">接通后，原文和译文会显示在这里</span>
                                     <div data-role="call-caption-content" hidden>
@@ -313,8 +323,11 @@ export class PhoneView {
                                     </div>
                                 </div>
                                 <div class="phonie-call-idle-action" data-role="call-idle-action">
-                                    <button class="phonie-button" type="button" data-action="start-call">${icon('phone')}<span>拨打电话</span></button>
-                                    <button class="phonie-button phonie-button--secondary" type="button" data-action="start-incoming-call">${icon('signal')}<span>接收角色来电</span></button>
+                                    <section class="phonie-call-contacts"><header><span>正文联系人</span><small>号码由 Phonie 固定生成</small></header><div data-role="call-contact-list"></div><select data-role="call-participants" multiple hidden></select></section>
+                                    <div class="phonie-call-number-row"><input class="phonie-call-number" data-role="call-number" inputmode="tel" readonly placeholder="选择联系人或输入号码"><button type="button" data-action="call-backspace" aria-label="删除一位">${icon('back')}</button></div>
+                                    <div class="phonie-call-dialpad" aria-label="模拟拨号盘">${callDialPadMarkup()}</div>
+                                    <details class="phonie-call-plan"><summary>${icon('spark')}<span>通话内容</span><small>默认根据剧情自动规划</small>${icon('chevron')}</summary><div><label><span>想聊什么</span><textarea data-role="call-topic" maxlength="600" rows="3" placeholder="留空则读取正文、摘要与世界书"></textarea></label><label><span>编排方式</span><select data-role="call-strategy"><option value="context">根据上下文</option><option value="topic">指定内容优先</option></select></label></div></details>
+                                    <div class="phonie-call-launchers"><button class="phonie-call-launch phonie-call-launch--message" type="button" data-action="start-incoming-call">${icon('signal')}<span>角色留言</span></button><button class="phonie-call-launch phonie-call-launch--dial" type="button" data-action="start-call">${icon('phone')}<span>拨号</span></button></div>
                                 </div>
                                 <div class="phonie-call-incoming-actions" data-role="call-incoming-actions" hidden>
                                     <button type="button" data-action="decline-call" aria-label="拒接">${icon('end-call')}<span>拒接</span></button>
@@ -325,12 +338,7 @@ export class PhoneView {
                                     <button type="button" data-action="toggle-call-control" data-call-control="speaker">${icon('speaker')}<span>扬声器</span></button>
                                     <button type="button" data-action="toggle-call-control" data-call-control="captions">${icon('caption')}<span>字幕</span></button>
                                 </div>
-                                <form class="phonie-call-controls" data-form="call" hidden>
-                                    <input type="text" maxlength="1200" data-role="call-input" placeholder="输入这一轮要说的话" aria-label="通话输入">
-                                    <button class="phonie-call-primary" type="submit" data-action="call-send" aria-label="发送这一轮">
-                                        ${icon('send')}
-                                    </button>
-                                </form>
+                                <div class="phonie-call-track" data-role="call-track" hidden aria-label="通话段落进度"></div>
                                 <button class="phonie-call-end" type="button" data-action="end-call" hidden aria-label="挂断电话">
                                     ${icon('end-call')}
                                     <span>挂断</span>
@@ -362,8 +370,6 @@ export class PhoneView {
         orb.querySelector('.phonie-orb__seam')?.insertAdjacentHTML('beforebegin', `<span class='phonie-orb__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`);
         document.body.append(root, orb);
         this.#root = root;
-        const callSetup = root.querySelector('[data-role=call-idle-action]');
-        callSetup?.insertAdjacentHTML('afterbegin', `<input class='phonie-call-number' data-role='call-number' inputmode='tel' readonly placeholder='选择联系人或拨号'><div class='phonie-call-dialpad' aria-label='模拟拨号盘'>${callDialPadMarkup()}</div><label class='phonie-call-setup-field'><span>声线联系人，可多选</span><select data-role='call-participants' multiple></select></label><label class='phonie-call-setup-field'><span>电话内容</span><input data-role='call-topic' maxlength='600' placeholder='留空则根据剧情规划'></label><label class='phonie-call-setup-field'><span>编排方式</span><select data-role='call-strategy'><option value='context'>根据上下文</option><option value='topic'>指定内容优先</option></select></label>`);
         this.#orb = orb;
         this.#bindEvents();
         this.#mountSettingsLauncher();
@@ -576,7 +582,27 @@ export class PhoneView {
                 this.#actions.recallPhoneMessage?.(target.dataset.messageId);
             } else if (action === 'call-digit') {
                 const number = this.#root.querySelector('[data-role=call-number]');
-                if (number instanceof HTMLInputElement) number.value = (number.value + (target.dataset.digit || '')).slice(-18);
+                if (number instanceof HTMLInputElement) {
+                    number.value = (number.value.replace(/\D/g, '') + (target.dataset.digit || '')).slice(-12);
+                    this.#syncDialSelection(number.value);
+                }
+            } else if (action === 'call-backspace') {
+                const number = this.#root.querySelector('[data-role=call-number]');
+                if (number instanceof HTMLInputElement) {
+                    number.value = number.value.replace(/\D/g, '').slice(0, -1);
+                    this.#syncDialSelection(number.value);
+                }
+            } else if (action === 'select-call-contact') {
+                const select = this.#root.querySelector('[data-role=call-participants]');
+                if (select instanceof HTMLSelectElement) {
+                    const option = [...select.options].find((entry) => entry.value === target.dataset.characterId);
+                    if (option) option.selected = !option.selected;
+                    if (![...select.selectedOptions].length && option) option.selected = true;
+                    const selected = [...select.selectedOptions];
+                    const number = this.#root.querySelector('[data-role=call-number]');
+                    if (number instanceof HTMLInputElement) number.value = selected.length > 1 ? `多人通话 · ${selected.length} 人` : target.dataset.number || '';
+                    this.#syncCallContactButtons();
+                }
             } else if (action === 'start-call') {
                 this.#actions.startCall?.(this.#callSetup());
             } else if (action === 'start-incoming-call') {
@@ -985,6 +1011,28 @@ export class PhoneView {
         };
     }
 
+    #syncDialSelection(number) {
+        const select = this.#root.querySelector('[data-role=call-participants]');
+        if (!(select instanceof HTMLSelectElement)) return;
+        const normalized = String(number || '').replace(/\D/g, '');
+        for (const option of select.options) option.selected = false;
+        const match = [...this.#root.querySelectorAll('[data-action=select-call-contact]')]
+            .find((button) => String(button.dataset.number || '').replace(/\D/g, '') === normalized);
+        const option = match ? [...select.options].find((entry) => entry.value === match.dataset.characterId) : null;
+        if (option) option.selected = true;
+        this.#syncCallContactButtons();
+    }
+
+    #syncCallContactButtons() {
+        const select = this.#root.querySelector('[data-role=call-participants]');
+        const selected = new Set(select instanceof HTMLSelectElement ? [...select.selectedOptions].map((option) => option.value) : []);
+        for (const button of this.#root.querySelectorAll('[data-action=select-call-contact]')) {
+            const active = selected.has(button.dataset.characterId);
+            button.dataset.selected = String(active);
+            button.setAttribute('aria-pressed', String(active));
+        }
+    }
+
     render(state) {
         if (!this.#root) return;
         this.#root.dataset.theme = state.settings.theme;
@@ -1129,11 +1177,18 @@ export class PhoneView {
     }
 
     #renderCall(state) {
-        this.#setText('[data-role="call-initials"]', initials(state.contact.name));
-        this.#setText('[data-role="call-contact"]', state.contact.name);
-        this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
-        setBackgroundImage(this.#root.querySelector('[data-role="call-backdrop"]'), state.contact.avatarUrl);
-        setBackgroundImage(this.#root.querySelector('[data-role="call-mark"]'), state.contact.avatarUrl);
+        const primary = state.callParticipants?.[0] || state.contact;
+        this.#setText('[data-role="call-initials"]', initials(primary.name));
+        this.#setText('[data-role="call-contact"]', primary.name);
+        this.#setText('[data-role="call-status"]', state.callPreparationLabel || callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
+        this.#setText('[data-role="call-direction-label"]', state.callDirection === 'incoming' ? '来电' : state.callDirection === 'outgoing' ? '去电' : '拨号');
+        setBackgroundImage(this.#root.querySelector('[data-role="call-backdrop"]'), primary.avatarUrl);
+        setBackgroundImage(this.#root.querySelector('[data-role="call-mark"]'), primary.avatarUrl);
+        const callScreen = this.#root.querySelector('.phonie-call-screen');
+        if (callScreen) {
+            callScreen.dataset.callState = state.callState;
+            callScreen.dataset.audioState = state.audioState || 'idle';
+        }
 
         const captions = this.#root.querySelector('[data-role="call-captions"]');
         const empty = this.#root.querySelector('[data-role="call-empty"]');
@@ -1171,17 +1226,36 @@ export class PhoneView {
             input.disabled = ![CALL_STATES.CONNECTED, CALL_STATES.SPEAKING].includes(state.callState) || state.generating;
         }
         const picker = this.#root.querySelector('[data-role=call-participants]');
+        const contactList = this.#root.querySelector('[data-role=call-contact-list]');
         if (picker instanceof HTMLSelectElement && !active) {
             const signature = (state.characters || []).map((entry) => entry.id + ':' + entry.name).join('|');
             if (picker.dataset.signature !== signature) {
                 picker.dataset.signature = signature;
                 picker.innerHTML = (state.characters || []).map((entry, index) => `<option value='${escapeHtml(entry.id)}'${index === 0 ? ' selected' : ''}>${escapeHtml(entry.name)}</option>`).join('');
+                if (contactList) {
+                    contactList.innerHTML = (state.characters || []).map((entry, index) => {
+                        const number = contactNumber(entry.id || entry.name);
+                        return `<button type='button' data-action='select-call-contact' data-character-id='${escapeHtml(entry.id)}' data-number='${number}' data-selected='${index === 0}' aria-pressed='${index === 0}'><span class='phonie-call-contact-avatar'><b>${escapeHtml(initials(entry.name))}</b></span><span><strong>${escapeHtml(entry.name)}</strong><small>${number}</small></span>${icon('check')}</button>`;
+                    }).join('') || `<p class='phonie-call-contacts-empty'>正文中出现带台词的人物后，会自动生成联系人和号码。</p>`;
+                    for (const button of contactList.querySelectorAll('[data-character-id]')) {
+                        const character = (state.characters || []).find((entry) => entry.id === button.dataset.characterId);
+                        setBackgroundImage(button.querySelector('.phonie-call-contact-avatar'), character?.avatarUrl || '');
+                    }
+                }
+                const number = this.#root.querySelector('[data-role=call-number]');
+                if (number instanceof HTMLInputElement && state.characters?.[0]) number.value = contactNumber(state.characters[0].id || state.characters[0].name);
             }
         }
         if (active && state.callParticipants?.length) {
             const names = state.callParticipants.map((entry) => entry.name).join('、');
             this.#setText('[data-role=call-contact]', names);
             this.#setText('[data-role=call-initials]', state.callParticipants.length > 1 ? String(state.callParticipants.length) : initials(names));
+        }
+        const track = this.#root.querySelector('[data-role=call-track]');
+        if (track) {
+            const count = state.callScriptQueue?.length || 0;
+            track.hidden = !connected || count < 2;
+            track.innerHTML = Array.from({ length: count }, (_, index) => `<i data-active='${index === state.callScriptIndex}'></i>`).join('');
         }
     }
 
@@ -1529,7 +1603,7 @@ export class PhoneView {
         }).format(now));
         const state = this.#store.getState();
         if (state && ACTIVE_CALL_STATES.has(state.callState)) {
-            this.#setText('[data-role="call-status"]', callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
+            this.#setText('[data-role="call-status"]', state.callPreparationLabel || callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
         }
     }
 

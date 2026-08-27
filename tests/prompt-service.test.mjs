@@ -63,6 +63,38 @@ test('structured call reply preserves an optional speaker', () => {
     assert.equal(parsed.speaker, 'Ren');
 });
 
+test('prepared call mode asks for one complete multi-turn script', () => {
+    const messages = buildPhoneReplyMessages({
+        contactName: 'Aoi',
+        userName: 'Nana',
+        sourceLanguage: 'ja-JP',
+        targetLanguage: 'zh-CN',
+        history: [],
+        callMode: true,
+        scriptMode: true,
+        participants: [{ name: 'Aoi' }, { name: 'Ren' }],
+    });
+    const content = messages.map((message) => message.content).join('\n');
+    assert.match(content, /完整电话|完整段电话/);
+    assert.match(content, /turns/);
+    assert.match(content, /不要让用户逐轮输入/);
+});
+
+test('prepared call parser normalizes multiple bilingual turns', () => {
+    const parsed = parsePhoneReply({
+        turns: [
+            { speaker: 'Aoi', originalText: 'もしもし。', translationText: '喂。', emotion: 'warm' },
+            { speaker: 'Ren', originalText: '今、話せる？', translationText: '现在能说话吗？', emotion: 'quiet' },
+        ],
+        action: 'end_call',
+        summary: '两人确认了见面时间。',
+    });
+    assert.equal(parsed.turns.length, 2);
+    assert.equal(parsed.turns[1].speaker, 'Ren');
+    assert.equal(parsed.action, 'end_call');
+    assert.equal(parsed.summary, '两人确认了见面时间。');
+});
+
 test('structured reply parser accepts fenced JSON', () => {
     const parsed = parsePhoneReply('```json\n{"originalText":"もしもし","translationText":"喂","emotion":"warm","action":"reply"}\n```');
     assert.deepEqual(parsed, {

@@ -86,6 +86,9 @@ export async function createPhonieApp() {
         callTopic: '',
         callStrategy: 'context',
         callNumber: '',
+        callScriptQueue: [],
+        callScriptIndex: -1,
+        callPreparationLabel: '',
         audioState: 'idle',
         audioCacheStats: { count: 0, bytes: 0 },
         cacheBusy: false,
@@ -315,37 +318,73 @@ export async function createPhonieApp() {
         }
     }
 
-    async function generateIncomingCallOpening() {
+    async function playCallScriptAt(index) {
+        const state = store.getState();
+        const messageId = state.callScriptQueue?.[index];
+        const message = state.messages.find((entry) => entry.id === messageId);
+        if (!message) return false;
+        updateState({
+            callScriptIndex: index,
+            callCaption: { source: message.originalText, translation: message.translationText },
+        });
+        if ([CALL_STATES.CONNECTED, CALL_STATES.GENERATING].includes(callMachine.state)) {
+            callMachine.transition(CALL_STATES.SPEAKING);
+        }
+        await preparePhoneAudio(message, message.author, { autoplay: true });
+        return true;
+    }
+
+    async function generatePreparedCall() {
         if (callMachine.state !== CALL_STATES.CONNECTED) return;
-        updateState({ generating: true, audioState: 'generating' });
+        updateState({
+            generating: true,
+            audioState: 'generating',
+            callPreparationLabel: '正在编排完整电话',
+            callScriptQueue: [],
+            callScriptIndex: -1,
+        });
         callMachine.transition(CALL_STATES.GENERATING);
         try {
             const call = store.getState();
-            const reply = await bridge.generatePhoneReply({ history: call.messages, callMode: true, participants: call.callParticipants, topic: call.callTopic, strategy: call.callStrategy });
-            const incoming = createPhoneMessage({
-                direction: 'incoming',
-                author: reply.speaker || call.callParticipants?.[0]?.name || call.contact.name,
-                originalText: reply.originalText,
-                translationText: reply.translationText,
-                kind: MESSAGE_KINDS.VOICE,
-                emotion: reply.emotion,
+            const reply = await bridge.generatePhoneReply({
+                history: call.messages,
+                callMode: true,
+                scriptMode: true,
+                participants: call.callParticipants,
+                topic: call.callTopic,
+                strategy: call.callStrategy,
             });
-            const messages = [...store.getState().messages, incoming];
+            const fallbackSpeaker = call.callParticipants?.[0]?.name || call.contact.name;
+            const turns = reply.turns?.length ? reply.turns : [reply];
+            const prepared = turns.map((turn) => createPhoneMessage({
+                direction: 'incoming',
+                author: turn.speaker || fallbackSpeaker,
+                originalText: turn.originalText,
+                translationText: turn.translationText,
+                kind: MESSAGE_KINDS.VOICE,
+                emotion: turn.emotion,
+            }));
+            const messages = [...store.getState().messages, ...prepared];
+            const queue = prepared.map((message) => message.id);
             updateState({
                 messages,
-                generating: false,
-                callCaption: { source: incoming.originalText, translation: incoming.translationText },
+                callScriptQueue: queue,
+                callPreparationLabel: `正在准备语音 0/${prepared.length}`,
             });
             persistPhoneState(messages, store.getState().calls);
-            callMachine.transition(CALL_STATES.SPEAKING);
-            await preparePhoneAudio(incoming, incoming.author, { autoplay: true });
+            for (let index = 0; index < prepared.length; index += 1) {
+                updateState({ callPreparationLabel: `正在准备语音 ${index + 1}/${prepared.length}` });
+                await preparePhoneAudio(prepared[index], prepared[index].author, { autoplay: false });
+            }
+            updateState({ generating: false, callPreparationLabel: '' });
+            await playCallScriptAt(0);
         } catch (error) {
-            console.error('[Phonie] Incoming call opener failed.', error);
-            updateState({ generating: false, audioState: 'idle' });
+            console.error('[Phonie] Prepared call failed.', error);
+            updateState({ generating: false, audioState: 'idle', callPreparationLabel: '', callScriptQueue: [] });
             if ([CALL_STATES.GENERATING, CALL_STATES.SPEAKING].includes(callMachine.state)) {
                 callMachine.transition(CALL_STATES.CONNECTED);
             }
-            showToast('来电已接通，但角色暂时没有说话');
+            showToast('电话内容准备失败，请检查模型与语音引擎');
         }
     }
 
@@ -369,6 +408,9 @@ export async function createPhonieApp() {
             callTopic: String(options.topic || ''),
             callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
             callNumber: String(options.number || ''),
+            callScriptQueue: [],
+            callScriptIndex: -1,
+            callPreparationLabel: '',
         });
         callConnectTimer = window.setTimeout(() => {
             if (callMachine.state === CALL_STATES.DIALING) {
@@ -376,6 +418,7 @@ export async function createPhonieApp() {
                 callConnectTimer = window.setTimeout(() => {
                     if (callMachine.state === CALL_STATES.RINGING && store.getState().callDirection === 'outgoing') {
                         callMachine.transition(CALL_STATES.CONNECTED);
+                        window.setTimeout(() => generatePreparedCall(), 220);
                     }
                 }, 900);
             }
@@ -398,6 +441,9 @@ export async function createPhonieApp() {
             callTopic: String(options.topic || ''),
             callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
             callNumber: String(options.number || ''),
+            callScriptQueue: [],
+            callScriptIndex: -1,
+            callPreparationLabel: '',
         });
         globalThis.navigator?.vibrate?.([160, 90, 160, 360, 160, 90, 160]);
     }
@@ -406,7 +452,7 @@ export async function createPhonieApp() {
         if (callMachine.state !== CALL_STATES.RINGING || store.getState().callDirection !== 'incoming') return;
         globalThis.navigator?.vibrate?.(0);
         callMachine.transition(CALL_STATES.CONNECTED);
-        window.setTimeout(() => generateIncomingCallOpening(), 360);
+        window.setTimeout(() => generatePreparedCall(), 360);
     }
 
     function declineCall() {
@@ -445,7 +491,15 @@ export async function createPhonieApp() {
                 summary: outcome === 'declined' ? '已拒绝来电' : buildCallSummary(state.messages, state.contact.name),
             });
             const calls = [...state.calls, record];
-            updateState({ calls, generating: false, audioState: 'idle', callDirection: null });
+            updateState({
+                calls,
+                generating: false,
+                audioState: 'idle',
+                callDirection: null,
+                callScriptQueue: [],
+                callScriptIndex: -1,
+                callPreparationLabel: '',
+            });
             persistPhoneState(state.messages, calls);
         }
     }
@@ -794,7 +848,16 @@ export async function createPhonieApp() {
                     : store.getState().audioState,
         });
         if (detail.state === 'ended' && callMachine.state === CALL_STATES.SPEAKING) {
-            callMachine.transition(CALL_STATES.CONNECTED);
+            const call = store.getState();
+            const nextIndex = Number(call.callScriptIndex) + 1;
+            if (nextIndex < (call.callScriptQueue?.length || 0)) {
+                window.setTimeout(() => playCallScriptAt(nextIndex).catch((error) => {
+                    console.warn('[Phonie] Could not continue prepared call.', error);
+                    if (callMachine.state === CALL_STATES.SPEAKING) callMachine.transition(CALL_STATES.CONNECTED);
+                }), 180);
+            } else {
+                callMachine.transition(CALL_STATES.CONNECTED);
+            }
         }
     });
 

@@ -11,7 +11,7 @@ import {
 } from '/script.js';
 import { extension_settings, getContext } from '/scripts/extensions.js';
 
-import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
+import { DEFAULT_SETTINGS, MODULE_ID, PHONE_CALL_SCRIPT_SCHEMA, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
 import {
     DEFAULT_PHONE_PROMPT_PRESET,
@@ -37,6 +37,7 @@ function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
     merged.phoneResponseLength = Math.min(1200, Math.max(80, Math.round(Number(merged.phoneResponseLength) || 420)));
     merged.callResponseLength = Math.min(420, Math.max(80, Math.round(Number(merged.callResponseLength) || 180)));
+    merged.callScriptResponseLength = Math.min(1600, Math.max(360, Math.round(Number(merged.callScriptResponseLength) || 960)));
     merged.launcherMode = ['orb', 'wand', 'both'].includes(merged.launcherMode) ? merged.launcherMode : 'orb';
     merged.generationMode = !value.generationMode && value.generationProfileId
         ? 'profile'
@@ -239,7 +240,7 @@ export class SillyTavernBridge {
         return blocks.filter(Boolean).join('\n\n').slice(0, 9000);
     }
 
-    async generatePhoneReply({ history, callMode = false, participants = [], topic = '', strategy = 'context' }) {
+    async generatePhoneReply({ history, callMode = false, participants = [], topic = '', strategy = 'context', scriptMode = false }) {
         const settings = this.getSettings();
         const storyContext = callMode ? await this.getCallPlanningContext({ participants, topic }) : '';
         const prompt = buildPhoneReplyMessages({
@@ -254,12 +255,16 @@ export class SillyTavernBridge {
             participants,
             topic,
             strategy,
+            scriptMode,
         });
 
         const result = await requestPhoneGeneration({
-            settings: callMode ? { ...settings, phoneResponseLength: settings.callResponseLength } : settings,
+            settings: callMode ? {
+                ...settings,
+                phoneResponseLength: scriptMode ? settings.callScriptResponseLength : settings.callResponseLength,
+            } : settings,
             prompt,
-            jsonSchema: PHONE_REPLY_SCHEMA,
+            jsonSchema: scriptMode ? PHONE_CALL_SCRIPT_SCHEMA : PHONE_REPLY_SCHEMA,
             generateQuietPrompt,
         });
         return parsePhoneReply(result, { targetLanguage: settings.targetLanguage });
