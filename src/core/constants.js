@@ -1,5 +1,5 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.10.0';
+export const APP_VERSION = '0.10.1';
 export const SCHEMA_VERSION = 8;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
@@ -19,6 +19,7 @@ export const SCREENS = Object.freeze({
     CHARACTER: 'character',
     MODEL: 'model',
     PROMPTS: 'prompts',
+    GUIDE: 'guide',
     SETTINGS: 'settings',
 });
 

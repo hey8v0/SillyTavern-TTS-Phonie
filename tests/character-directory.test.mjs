@@ -33,13 +33,14 @@ test('route lookup supports stable ids and legacy name keys', () => {
     assert.equal(resolveCharacterRoute(routes, { id: 'speaker:aoi', name: 'Aoi' }).providerId, 'minimax');
 });
 
-test('speaker-only directory excludes cards and unused configured routes', () => {
+test('speaker-only directory excludes cards but retains saved speaker routes', () => {
     const directory = buildCharacterDirectory({
         currentContact: { id: 'card:nana', name: 'Nana' },
         characters: [{ name: 'Aoi', avatar: 'aoi.png' }],
-        routes: { Unused: { characterName: 'Unused', voiceId: 'unused' } },
+        routes: { Saved: { characterName: 'Saved', voiceId: 'saved-voice' } },
         messages: [{ extra: { phonie: { bodySpeech: [{ speaker: 'Nephele' }] } } }],
         speakersOnly: true,
     });
-    assert.deepEqual(directory.map((entry) => entry.name), ['Nephele']);
+    assert.deepEqual(directory.map((entry) => entry.name), ['Saved', 'Nephele']);
+    assert.equal(directory.find((entry) => entry.name === 'Saved').route.voiceId, 'saved-voice');
 });

@@ -74,7 +74,7 @@ export function buildCharacterDirectory({
         }
     }
 
-    if (!speakersOnly) for (const [key, route] of Object.entries(routes || {})) {
+    for (const [key, route] of Object.entries(routes || {})) {
         const name = cleanName(route?.characterName || (key.startsWith('card:') || key.startsWith('speaker:') ? '' : key));
         if (!name) continue;
         add({

@@ -31,6 +31,7 @@ const SCREEN_COPY = Object.freeze({
     [SCREENS.CHARACTER]: { title: '角色', eyebrow: '声线路由' },
     [SCREENS.MODEL]: { title: '模型', eyebrow: '生成连接' },
     [SCREENS.PROMPTS]: { title: '提示词', eyebrow: '消息编排' },
+    [SCREENS.GUIDE]: { title: '说明', eyebrow: 'Phonie 指南' },
     [SCREENS.SETTINGS]: { title: '设置', eyebrow: '手机与编排' },
 });
 
@@ -316,27 +317,21 @@ export class PhoneView {
                                 </div>
                                 <div class="phonie-call-live-wave" data-role="call-live-wave" aria-hidden="true">${makeWaveBars('prepared-call')}</div>
                                 <div class="phonie-call-captions" data-role="call-captions" data-empty="true">
-                                    <span data-role="call-empty">接通后，原文和译文会显示在这里</span>
                                     <div data-role="call-caption-content" hidden>
                                         <p class="phonie-call-caption-source" data-role="call-caption-source"></p>
                                         <p class="phonie-call-caption-translation" data-role="call-caption-translation"></p>
                                     </div>
                                 </div>
                                 <div class="phonie-call-idle-action" data-role="call-idle-action">
-                                    <section class="phonie-call-contacts"><header><span>正文联系人</span><small>号码由 Phonie 固定生成</small></header><div data-role="call-contact-list"></div><select data-role="call-participants" multiple hidden></select></section>
+                                    <section class="phonie-call-contacts"><header><span>正文联系人</span></header><div data-role="call-contact-list"></div><select data-role="call-participants" multiple hidden></select></section>
                                     <div class="phonie-call-number-row"><input class="phonie-call-number" data-role="call-number" inputmode="tel" readonly placeholder="选择联系人或输入号码"><button type="button" data-action="call-backspace" aria-label="删除一位">${icon('back')}</button></div>
                                     <div class="phonie-call-dialpad" aria-label="模拟拨号盘">${callDialPadMarkup()}</div>
-                                    <details class="phonie-call-plan"><summary>${icon('spark')}<span>通话内容</span><small>默认根据剧情自动规划</small>${icon('chevron')}</summary><div><label><span>想聊什么</span><textarea data-role="call-topic" maxlength="600" rows="3" placeholder="留空则读取正文、摘要与世界书"></textarea></label><label><span>编排方式</span><select data-role="call-strategy"><option value="context">根据上下文</option><option value="topic">指定内容优先</option></select></label></div></details>
+                                    <details class="phonie-call-plan"><summary>${icon('spark')}<span>通话内容</span>${icon('chevron')}</summary><div><label><span>想聊什么</span><textarea data-role="call-topic" maxlength="600" rows="3" placeholder="通话主题"></textarea></label><label><span>编排方式</span><select data-role="call-strategy"><option value="context">根据上下文</option><option value="topic">指定内容优先</option></select></label></div></details>
                                     <div class="phonie-call-launchers"><button class="phonie-call-launch phonie-call-launch--message" type="button" data-action="start-incoming-call">${icon('signal')}<span>角色留言</span></button><button class="phonie-call-launch phonie-call-launch--dial" type="button" data-action="start-call">${icon('phone')}<span>拨号</span></button></div>
                                 </div>
                                 <div class="phonie-call-incoming-actions" data-role="call-incoming-actions" hidden>
                                     <button type="button" data-action="decline-call" aria-label="拒接">${icon('end-call')}<span>拒接</span></button>
                                     <button type="button" data-action="accept-call" aria-label="接听">${icon('accept-call')}<span>接听</span></button>
-                                </div>
-                                <div class="phonie-call-feature-controls" data-role="call-feature-controls" hidden>
-                                    <button type="button" data-action="toggle-call-control" data-call-control="muted">${icon('microphone')}<span>静音</span></button>
-                                    <button type="button" data-action="toggle-call-control" data-call-control="speaker">${icon('speaker')}<span>扬声器</span></button>
-                                    <button type="button" data-action="toggle-call-control" data-call-control="captions">${icon('caption')}<span>字幕</span></button>
                                 </div>
                                 <div class="phonie-call-track" data-role="call-track" hidden aria-label="通话段落进度"></div>
                                 <button class="phonie-call-end" type="button" data-action="end-call" hidden aria-label="挂断电话">
@@ -372,6 +367,18 @@ export class PhoneView {
         this.#root = root;
         this.#orb = orb;
         this.#bindEvents();
+        const homePages = this.#root.querySelector('[data-role="home-pages"]');
+        if (homePages) {
+            const syncHomePage = () => {
+                const page = Math.max(0, Math.min(1, Math.round(homePages.scrollLeft / Math.max(1, homePages.clientWidth))));
+                this.#root.dataset.homePage = String(page);
+                for (const button of this.#root.querySelectorAll('[data-action="set-home-page"]')) {
+                    button.setAttribute('aria-current', String(Number(button.dataset.page) === page));
+                }
+            };
+            homePages.addEventListener('scroll', syncHomePage, { passive: true });
+            syncHomePage();
+        }
         this.#mountSettingsLauncher();
         this.#mountWandLauncher();
         this.#unsubscribe = this.#store.subscribe((state) => this.render(state));
@@ -385,25 +392,25 @@ export class PhoneView {
                 <section class="phonie-settings-section">
                     <h2 class="phonie-settings-section__title">外观</h2>
                     <div class="phonie-settings-card">
-                        ${this.#selectRow('主题', '日间、夜间或跟随酒馆', 'theme', [
+                        ${this.#selectRow('主题', 'theme', [
                             [THEMES.DAY, '日间'],
                             [THEMES.NIGHT, '夜间'],
                             [THEMES.TAVERN, '跟随酒馆'],
                         ])}
-                        ${this.#selectRow('打开入口', '悬浮球、魔棒菜单或同时显示', 'launcherMode', [
+                        ${this.#selectRow('打开入口', 'launcherMode', [
                             ['orb', '悬浮球'],
                             ['wand', '酒馆魔棒菜单'],
                             ['both', '两个入口都显示'],
                         ])}
-                        ${this.#switchRow('显示手机译文', '控制私信与电话中的辅助中文字幕', 'showTranslation')}
+                        ${this.#switchRow('显示手机译文', 'showTranslation')}
                     </div>
                 </section>
                 <section class="phonie-settings-section">
                     <h2 class="phonie-settings-section__title">语言</h2>
                     <div class="phonie-settings-card">
-                        ${this.#languageRow('角色语言', '可选常用语言，也可输入粤语、德语或任意 BCP 47 代码', 'sourceLanguage')}
-                        ${this.#languageRow('翻译语言', '手机与正文的辅助字幕语言，可自由输入', 'targetLanguage')}
-                        ${this.#switchRow('正文双语格式', '生成时要求可见中文译文与原语言语音段', 'bodyPromptEnabled')}
+                        ${this.#languageRow('角色语言', 'sourceLanguage')}
+                        ${this.#languageRow('翻译语言', 'targetLanguage')}
+                        ${this.#switchRow('正文双语格式', 'bodyPromptEnabled')}
                     </div>
                 </section>
                 <section class="phonie-settings-section">
@@ -412,13 +419,12 @@ export class PhoneView {
                         <div class="phonie-setting-row">
                             <span>
                                 <span class="phonie-setting-label">当前语音提供商</span>
-                                <span class="phonie-setting-description">由 Phonie 自己合成正文、私信与电话</span>
                             </span>
                             <span class="phonie-provider-chip" data-role="provider-chip"></span>
                         </div>
-                        ${this.#switchRow('正文播放器', '在可见译文后附加逐句播放键', 'autoDecorateMessages')}
-                        ${this.#switchRow('自动播放手机回复', '电话始终自动播放角色语音', 'autoPlayPhoneReplies')}
-                        ${this.#switchRow('注入通信连续性', '只注入最近事件的短摘要', 'injectContinuity')}
+                        ${this.#switchRow('正文播放器', 'autoDecorateMessages')}
+                        ${this.#switchRow('自动播放手机回复', 'autoPlayPhoneReplies')}
+                        ${this.#switchRow('注入通信连续性', 'injectContinuity')}
                     </div>
                 </section>
                 <section class="phonie-settings-section">
@@ -427,7 +433,7 @@ export class PhoneView {
                         <div class="phonie-setting-row">
                             <span>
                                 <span class="phonie-setting-label">清除音频缓存</span>
-                                <span class="phonie-setting-description">聊天文字和通话记录不会被删除 · <b data-role="audio-cache-size">正在统计</b></span>
+                                <b class="phonie-setting-value" data-role="audio-cache-size">正在统计</b>
                             </span>
                             <button class="phonie-icon-button" type="button" data-action="clear-cache" aria-label="清除音频缓存">${icon('trash')}</button>
                         </div>
@@ -436,12 +442,11 @@ export class PhoneView {
             </div>`;
     }
 
-    #switchRow(label, description, key) {
+    #switchRow(label, key) {
         return `
             <label class="phonie-setting-row">
                 <span>
                     <span class="phonie-setting-label">${escapeHtml(label)}</span>
-                    <span class="phonie-setting-description">${escapeHtml(description)}</span>
                 </span>
                 <span class="phonie-switch">
                     <input type="checkbox" data-setting="${escapeHtml(key)}">
@@ -450,20 +455,19 @@ export class PhoneView {
             </label>`;
     }
 
-    #selectRow(label, description, key, values) {
+    #selectRow(label, key, values) {
         const options = values.map(([value, text]) => `<option value="${escapeHtml(value)}">${escapeHtml(text)}</option>`).join('');
         return `
             <label class="phonie-setting-row">
                 <span>
                     <span class="phonie-setting-label">${escapeHtml(label)}</span>
-                    <span class="phonie-setting-description">${escapeHtml(description)}</span>
                 </span>
                 <select class="phonie-setting-select" data-setting="${escapeHtml(key)}">${options}</select>
             </label>`;
     }
 
-    #languageRow(label, description, key) {
-        return `<label class='phonie-setting-row'><span><span class='phonie-setting-label'>${escapeHtml(label)}</span><span class='phonie-setting-description'>${escapeHtml(description)}</span></span><input class='phonie-setting-select' type='text' data-setting='${escapeHtml(key)}' placeholder='ja-JP / yue-HK / de-DE'></label>`;
+    #languageRow(label, key) {
+        return `<label class='phonie-setting-row'><span><span class='phonie-setting-label'>${escapeHtml(label)}</span></span><input class='phonie-setting-select' type='text' data-setting='${escapeHtml(key)}' placeholder='ja-JP / yue-HK / de-DE'></label>`;
     }
 
     #mountSettingsLauncher() {
@@ -485,7 +489,6 @@ export class PhoneView {
                     <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
                 </div>
                 <div class="inline-drawer-content">
-                    <small>双语语音、私信与电话</small>
                     <label for="phonie-launcher-mode">打开入口</label>
                     <select id="phonie-launcher-mode" class="text_pole" data-launcher-setting="launcherMode">
                         <option value="orb">悬浮球</option>
@@ -556,6 +559,10 @@ export class PhoneView {
                 this.#actions.close?.();
             } else if (action === 'navigate') {
                 this.#actions.navigate?.(target.dataset.targetScreen);
+            } else if (action === 'set-home-page') {
+                const pages = this.#root.querySelector('[data-role="home-pages"]');
+                const page = Number(target.dataset.page) || 0;
+                pages?.scrollTo({ left: page * pages.clientWidth, behavior: 'smooth' });
             } else if (action === 'send-voice') {
                 this.#submitChat(MESSAGE_KINDS.VOICE);
             } else if (action === 'toggle-chat-tools') {
@@ -611,8 +618,6 @@ export class PhoneView {
                 this.#actions.acceptCall?.();
             } else if (action === 'decline-call') {
                 this.#actions.declineCall?.();
-            } else if (action === 'toggle-call-control') {
-                this.#actions.toggleCallControl?.(target.dataset.callControl);
             } else if (action === 'cycle-theme') {
                 this.#actions.cycleTheme?.();
             } else if (action === 'end-call') {
@@ -1156,8 +1161,7 @@ export class PhoneView {
                 list.innerHTML = `
                 <div class="phonie-chat-empty">
                     <div class="phonie-chat-empty__mark">${icon('message')}</div>
-                    <h2 class="phonie-chat-empty__title">一条安静的私人频道</h2>
-                    <p>像通讯软件一样连续发送消息；输入框留空再点发送，才会请求角色回复。</p>
+                    <h2 class="phonie-chat-empty__title">暂无消息</h2>
                 </div>`;
             } else {
                 list.innerHTML = state.messages.map((message) => renderMessage(message, state.settings.showTranslation, state)).join('');
@@ -1191,11 +1195,9 @@ export class PhoneView {
         }
 
         const captions = this.#root.querySelector('[data-role="call-captions"]');
-        const empty = this.#root.querySelector('[data-role="call-empty"]');
         const content = this.#root.querySelector('[data-role="call-caption-content"]');
         const hasCaption = Boolean(state.callCaption?.source);
         if (captions) captions.dataset.empty = String(!hasCaption);
-        if (empty) empty.hidden = hasCaption;
         if (content) content.hidden = !hasCaption;
         this.#setText('[data-role="call-caption-source"]', state.callCaption?.source || '');
         this.#setText('[data-role="call-caption-translation"]', state.settings.showTranslation ? state.callCaption?.translation || '' : '');
@@ -1207,19 +1209,13 @@ export class PhoneView {
         const idleAction = this.#root.querySelector('[data-role="call-idle-action"]');
         const endButton = this.#root.querySelector('[data-action="end-call"]');
         const incomingActions = this.#root.querySelector('[data-role="call-incoming-actions"]');
-        const featureControls = this.#root.querySelector('[data-role="call-feature-controls"]');
         const mark = this.#root.querySelector('[data-role="call-mark"]');
         if (callForm) callForm.hidden = !connected;
         if (idleAction) idleAction.hidden = active;
         if (endButton) endButton.hidden = !active || incoming;
         if (incomingActions) incomingActions.hidden = !incoming;
-        if (featureControls) featureControls.hidden = !connected;
         if (mark) mark.dataset.ringing = String(incoming || state.callState === CALL_STATES.DIALING);
-        if (captions) captions.hidden = !connected || state.callControls?.captions === false;
-        for (const button of this.#root.querySelectorAll('[data-call-control]')) {
-            const pressed = Boolean(state.callControls?.[button.dataset.callControl]);
-            button.setAttribute('aria-pressed', String(pressed));
-        }
+        if (captions) captions.hidden = !connected || !hasCaption;
 
         const input = this.#root.querySelector('[data-role="call-input"]');
         if (input instanceof HTMLInputElement) {
@@ -1236,7 +1232,7 @@ export class PhoneView {
                     contactList.innerHTML = (state.characters || []).map((entry, index) => {
                         const number = contactNumber(entry.id || entry.name);
                         return `<button type='button' data-action='select-call-contact' data-character-id='${escapeHtml(entry.id)}' data-number='${number}' data-selected='${index === 0}' aria-pressed='${index === 0}'><span class='phonie-call-contact-avatar'><b>${escapeHtml(initials(entry.name))}</b></span><span><strong>${escapeHtml(entry.name)}</strong><small>${number}</small></span>${icon('check')}</button>`;
-                    }).join('') || `<p class='phonie-call-contacts-empty'>正文中出现带台词的人物后，会自动生成联系人和号码。</p>`;
+                    }).join('') || `<p class='phonie-call-contacts-empty'>暂无联系人</p>`;
                     for (const button of contactList.querySelectorAll('[data-character-id]')) {
                         const character = (state.characters || []).find((entry) => entry.id === button.dataset.characterId);
                         setBackgroundImage(button.querySelector('.phonie-call-contact-avatar'), character?.avatarUrl || '');
@@ -1393,7 +1389,7 @@ export class PhoneView {
         if (!characters.length) {
             this.#setText('[data-role="character-directory-count"]', '0 位正文说话人');
             const directory = this.#root.querySelector('[data-role="character-directory"]');
-            if (directory) directory.innerHTML = '<div class="phonie-record-empty">正文中出现带格式台词的说话人后，会在这里建立独立声线路由。</div>';
+            if (directory) directory.innerHTML = '<div class="phonie-record-empty">暂无声线路由</div>';
             characterSections.forEach((section) => { if (section) section.hidden = true; });
             return;
         }

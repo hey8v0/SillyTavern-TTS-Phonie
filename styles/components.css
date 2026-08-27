@@ -449,7 +449,6 @@
 
 .phonie-call-idle-action[hidden],
 .phonie-call-incoming-actions[hidden],
-.phonie-call-feature-controls[hidden],
 .phonie-call-end[hidden],
 .phonie-call-controls[hidden] {
     display: none;
@@ -478,8 +477,7 @@
     gap: 54px;
 }
 
-.phonie-call-incoming-actions button,
-.phonie-call-feature-controls button {
+.phonie-call-incoming-actions button {
     display: grid;
     min-width: 62px;
     min-height: 62px;
@@ -507,29 +505,6 @@
 .phonie-call-incoming-actions .phonie-icon {
     width: 25px;
     height: 25px;
-}
-
-.phonie-call-feature-controls {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.phonie-call-feature-controls button {
-    min-width: 0;
-    min-height: 50px;
-    border: 1px solid var(--phonie-border);
-    border-radius: 16px;
-}
-
-.phonie-call-feature-controls button[aria-pressed="true"] {
-    background: var(--phonie-signal);
-    color: var(--phonie-accent-ink);
-}
-
-.phonie-call-feature-controls .phonie-icon {
-    width: 19px;
-    height: 19px;
 }
 
 .phonie-call-end {
@@ -889,7 +864,6 @@
 }
 
 .phonie-call-captions,
-.phonie-call-feature-controls button,
 .phonie-call-controls input {
     backdrop-filter: blur(16px);
 }

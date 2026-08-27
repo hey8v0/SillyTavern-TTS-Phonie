@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { SCREENS } from '../src/core/constants.js';
 import { DOCK_ITEMS, HOME_APPS, homeScreenMarkup } from '../src/ui/phone-home.js';
 
-test('home exposes eight unique application tiles', () => {
-    assert.equal(HOME_APPS.length, 8);
+test('home exposes nine unique application tiles across two pages', () => {
+    assert.equal(HOME_APPS.length, 9);
     assert.equal(new Set(HOME_APPS.map((app) => app.id)).size, HOME_APPS.length);
 });
 
@@ -30,4 +30,11 @@ test('home page rail sits directly above the voice service card', () => {
     const serviceIndex = markup.indexOf('phonie-service-card');
     assert.ok(railIndex >= 0);
     assert.ok(serviceIndex > railIndex);
+});
+
+test('usage guidance lives in its own second-page application', () => {
+    const markup = homeScreenMarkup();
+    assert.match(markup, /data-home-page="1"/);
+    assert.match(markup, /data-app="guide"/);
+    assert.match(markup, /data-action="set-home-page"/);
 });

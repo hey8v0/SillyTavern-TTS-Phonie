@@ -378,12 +378,34 @@
     white-space: nowrap;
 }
 
+.phonie-home-pages {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+}
+
+.phonie-home-pages::-webkit-scrollbar { display: none; }
+
 .phonie-app-grid {
     display: grid;
+    width: 100%;
+    min-width: 100%;
     margin-top: 15px;
+    flex: 0 0 100%;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     column-gap: 7px;
     row-gap: 13px;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+.phonie-app-grid--secondary {
+    align-content: start;
 }
 
 .phonie-app-tile {
@@ -425,6 +447,7 @@
 .phonie-app-tile__icon[data-tone="rose"] { background: linear-gradient(145deg, #e6a4ca, #ce6ca4); }
 .phonie-app-tile__icon[data-tone="silver"] { background: linear-gradient(145deg, #ecf0f7, #adb9cb); }
 .phonie-app-tile__icon[data-tone="graphite"] { background: linear-gradient(145deg, #b9c2cc, #7f8b99); }
+.phonie-app-tile__icon[data-tone="cobalt"] { background: linear-gradient(145deg, #83b9df, #4577aa); }
 
 .phonie-app-tile__label {
     max-width: 100%;
@@ -453,14 +476,18 @@
     margin-top: auto;
 }
 
-.phonie-page-rail i {
+.phonie-page-rail button {
     width: 4px;
     height: 4px;
+    padding: 0;
+    border: 0;
     border-radius: 999px;
     background: color-mix(in srgb, var(--phonie-ink) 38%, transparent);
+    cursor: pointer;
+    transition: width 180ms var(--phonie-ease-out), background-color 180ms ease;
 }
 
-.phonie-page-rail i:first-child {
+.phonie-page-rail button[aria-current="true"] {
     width: 16px;
     background: color-mix(in srgb, var(--phonie-ink) 78%, transparent);
 }

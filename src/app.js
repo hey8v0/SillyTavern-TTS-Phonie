@@ -81,7 +81,6 @@ export async function createPhonieApp() {
         callDirection: null,
         callStartedAt: null,
         callCaption: { source: '', translation: '' },
-        callControls: { muted: false, speaker: false, captions: true },
         callParticipants: [contact],
         callTopic: '',
         callStrategy: 'context',
@@ -403,7 +402,6 @@ export async function createPhonieApp() {
             screen: SCREENS.CALL,
             callDirection: 'outgoing',
             callCaption: { source: '', translation: '' },
-            callControls: { muted: false, speaker: false, captions: true },
             callParticipants,
             callTopic: String(options.topic || ''),
             callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
@@ -436,7 +434,6 @@ export async function createPhonieApp() {
             screen: SCREENS.CALL,
             callDirection: 'incoming',
             callCaption: { source: '', translation: '' },
-            callControls: { muted: false, speaker: false, captions: true },
             callParticipants: selected.length ? selected : [state.contact],
             callTopic: String(options.topic || ''),
             callStrategy: options.strategy === 'topic' ? 'topic' : 'context',
@@ -459,15 +456,6 @@ export async function createPhonieApp() {
         if (callMachine.state !== CALL_STATES.RINGING) return;
         globalThis.navigator?.vibrate?.(0);
         endCall('declined');
-    }
-
-    function toggleCallControl(control) {
-        if (!['muted', 'speaker', 'captions'].includes(control)) return;
-        const current = store.getState().callControls;
-        const next = { ...current, [control]: !current[control] };
-        if (control === 'muted') audioFocus.setMuted(next.muted);
-        if (control === 'speaker') audioFocus.setVolume(next.speaker ? 1 : 0.72);
-        updateState({ callControls: next });
     }
 
     function endCall(outcome = 'completed') {
@@ -554,7 +542,6 @@ export async function createPhonieApp() {
         startIncomingCall,
         acceptCall,
         declineCall,
-        toggleCallControl,
         endCall,
         playPhoneAudio,
         cycleTheme() {
@@ -904,7 +891,6 @@ export async function createPhonieApp() {
             generating: false,
             callDirection: null,
             callCaption: { source: '', translation: '' },
-            callControls: { muted: false, speaker: false, captions: true },
             audioState: 'idle',
             unread: 0,
         });
