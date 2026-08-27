@@ -69,12 +69,20 @@ export function systemSettingsScreensMarkup() {
                 <p class="phonie-prompt-intro" data-role="prompt-intro">条目按顺序注入。每条可选择 system、user 或 assistant，并统一设置插入深度。</p>
                 <section class="phonie-preset-toolbar">
                     <label><span>工作流</span><select data-setting="promptWorkflowKind"><option value="body">正文 TTS</option><option value="phone">手机私信与电话</option></select></label>
+                    <label><span>已保存预设</span><select data-role="prompt-preset-library"></select></label>
                     <label><span>预设名称</span><input type="text" maxlength="80" data-prompt-preset-field="name"></label>
                     <label><span>插入深度</span><input type="number" min="0" max="20" inputmode="numeric" data-prompt-preset-field="insertionDepth"></label>
                     <div class="phonie-preset-actions">
                         <button type="button" data-action="reset-prompt-preset">${icon('reset')}<span>恢复默认</span></button>
                         <button type="button" data-action="add-prompt-entry">${icon('plus')}<span>添加条目</span></button>
+                        <button type="button" data-action="save-prompt-preset">${icon('check')}<span>保存预设</span></button>
+                        <button type="button" data-action="save-as-prompt-preset">${icon('layers')}<span>另存为</span></button>
+                        <button type="button" data-action="export-prompt-preset">${icon('export')}<span>导出当前</span></button>
+                        <button type="button" data-action="export-prompt-library">${icon('export')}<span>导出全部</span></button>
+                        <button type="button" data-action="import-prompt-presets">${icon('import')}<span>导入预设</span></button>
+                        <button type="button" data-action="delete-prompt-preset">${icon('trash')}<span>删除预设</span></button>
                     </div>
+                    <input class="phonie-sr-only" type="file" accept="application/json,.json" data-role="prompt-preset-import">
                 </section>
                 <label class="phonie-prompt-master" data-role="body-prompt-master">
                     <span><strong>生成正文时注入</strong><small>每次发送、重写、续写和滑动前都会重新注入</small></span>

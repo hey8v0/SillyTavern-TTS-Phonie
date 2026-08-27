@@ -31,6 +31,7 @@ export function buildCharacterDirectory({
     characters = [],
     routes = {},
     messages = [],
+    speakersOnly = false,
 } = {}) {
     const directory = new Map();
     const nameIndex = new Map();
@@ -53,10 +54,10 @@ export function buildCharacterDirectory({
         if (!knownIds.includes(id)) nameIndex.set(name, [...knownIds, id]);
     };
 
-    if (currentContact?.name) add({ ...currentContact, current: true, source: 'current' });
+    if (!speakersOnly && currentContact?.name) add({ ...currentContact, current: true, source: 'current' });
 
     const cardList = Array.isArray(characters) ? characters : Object.values(characters || {});
-    cardList.forEach((character, index) => {
+    if (!speakersOnly) cardList.forEach((character, index) => {
         const name = cleanName(character?.name);
         if (!name) return;
         add({
@@ -73,7 +74,7 @@ export function buildCharacterDirectory({
         }
     }
 
-    for (const [key, route] of Object.entries(routes || {})) {
+    if (!speakersOnly) for (const [key, route] of Object.entries(routes || {})) {
         const name = cleanName(route?.characterName || (key.startsWith('card:') || key.startsWith('speaker:') ? '' : key));
         if (!name) continue;
         add({

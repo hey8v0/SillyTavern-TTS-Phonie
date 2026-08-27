@@ -1,9 +1,16 @@
 import { APP_VERSION, CALL_STATES, MESSAGE_KINDS, SCHEMA_VERSION, SCREENS, THEMES } from './core/constants.js';
 import { createStore } from './core/store.js';
 import { createDeviceStatusSnapshot, DeviceStatusMonitor } from './device/device-status.js';
+import { DEFAULT_BODY_PROMPT_PRESET } from './dialogue/body-speech.js';
+import {
+    DEFAULT_PHONE_PROMPT_PRESET,
+    importPromptPresetLibrary,
+    removePromptPreset,
+    savePromptPreset as savePromptPresetToLibrary,
+} from './dialogue/prompt-preset.js';
 import { SillyTavernBridge } from './integrations/sillytavern.js';
 import { CallMachine } from './phone/call-machine.js';
-import { createCallRecord, createPhoneMessage } from './phone/chat-records.js';
+import { createCallRecord, createPhoneMessage, recallPhoneMessage as markPhoneMessageRecalled } from './phone/chat-records.js';
 import { AudioCache, makeAudioCacheKey } from './storage/audio-cache.js';
 import { AudioFocusController } from './tts/audio-focus.js';
 import { PhonieProviderCenter } from './tts/provider-center.js';
@@ -58,7 +65,7 @@ export async function createPhonieApp() {
         contact,
         userName: bridge.getUserName(),
         characters,
-        selectedCharacterId: contact.id,
+        selectedCharacterId: characters[0]?.id || '',
         selectedProviderId: settings.ttsActiveProvider,
         messages: metadata.messages,
         calls: metadata.calls,
@@ -76,6 +83,8 @@ export async function createPhonieApp() {
         callCaption: { source: '', translation: '' },
         callControls: { muted: false, speaker: false, captions: true },
         audioState: 'idle',
+        audioCacheStats: { count: 0, bytes: 0 },
+        cacheBusy: false,
         unread: 0,
         toast: null,
     });
@@ -86,6 +95,12 @@ export async function createPhonieApp() {
 
     function showToast(text) {
         updateState({ toast: { id: Date.now(), text } });
+    }
+
+    async function refreshAudioCacheStats() {
+        const audioCacheStats = await audioCache.getStats();
+        updateState({ audioCacheStats });
+        return audioCacheStats;
     }
 
     function persistPhoneState(
@@ -130,13 +145,14 @@ export async function createPhonieApp() {
         });
         audioFocus.setSource(`phone:${message.id}`, result.blob);
         await audioCache.put(key, result.blob);
+        refreshAudioCacheStats();
         if (autoplay) {
             await audioFocus.play(`phone:${message.id}`, { owner: 'phone', messageId: message.id });
         }
         return true;
     }
 
-    async function sendMessage(text, kind, callMode) {
+    async function sendMessage(text, kind, callMode, payload = {}) {
         const state = store.getState();
         const cleanText = String(text || '').trim();
         if (state.generating) {
@@ -166,11 +182,20 @@ export async function createPhonieApp() {
         let withOutgoing = state.messages;
         let pendingUserMessageIds = existingPending;
         if (cleanText) {
+            const replyTarget = payload.replyToId
+                ? state.messages.find((message) => message.id === payload.replyToId)
+                : null;
             outgoing = createPhoneMessage({
                 direction: 'outgoing',
                 author: bridge.getUserName(),
                 originalText: cleanText,
                 kind,
+                ...payload,
+                replySnapshot: replyTarget ? {
+                    sender: replyTarget.author,
+                    type: replyTarget.kind,
+                    content: replyTarget.kind === MESSAGE_KINDS.RECALLED ? '原消息已撤回' : replyTarget.originalText,
+                } : payload.replySnapshot,
             });
             withOutgoing = [...state.messages, outgoing];
             if (!callMode) pendingUserMessageIds = [...existingPending, outgoing.id];
@@ -412,12 +437,13 @@ export async function createPhonieApp() {
                 characters: directory,
                 selectedCharacterId: directory.some((entry) => entry.id === store.getState().selectedCharacterId)
                     ? store.getState().selectedCharacterId
-                    : bridge.getContact().id,
+                    : directory[0]?.id || '',
                 providerLabel: providerCenter.getActiveLabel(),
                 providerSnapshot: providerCenter.snapshot(),
                 generationProfiles: bridge.getGenerationProfiles(),
                 generationTarget: bridge.getGenerationTarget(currentSettings),
             });
+            refreshAudioCacheStats();
         },
         close() {
             updateState({ open: false });
@@ -484,6 +510,7 @@ export async function createPhonieApp() {
             }
         },
         async checkTtsProvider(providerId) {
+            showToast('正在检测语音服务连接');
             try {
                 await providerCenter.checkProvider(providerId);
                 updateState({ providerSnapshot: providerCenter.snapshot() });
@@ -493,6 +520,7 @@ export async function createPhonieApp() {
             }
         },
         async syncTtsResources(providerId) {
+            showToast('正在同步模型与音色目录');
             try {
                 await providerCenter.syncResources(providerId);
                 updateState({ providerSnapshot: providerCenter.snapshot() });
@@ -526,7 +554,11 @@ export async function createPhonieApp() {
         },
         updateCharacterRoute(route) {
             const state = store.getState();
-            const character = state.characters.find((entry) => entry.id === state.selectedCharacterId) || state.contact;
+            const character = state.characters.find((entry) => entry.id === state.selectedCharacterId) || state.characters[0];
+            if (!character) {
+                showToast('正文里还没有可配置的说话人');
+                return;
+            }
             providerCenter.setCharacterRoute(character, route);
             const nextSettings = bridge.getSettings();
             updateState({
@@ -596,12 +628,83 @@ export async function createPhonieApp() {
             updateState({ settings: { ...nextSettings } });
             if (kind === 'body') bridge.updateBodyPromptInjection();
         },
+        savePromptPreset(kind, promptPreset, asNew = false) {
+            const settings = store.getState().settings;
+            const saved = savePromptPresetToLibrary(settings.promptPresetLibraries, kind, promptPreset, { asNew });
+            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const nextSettings = bridge.updateSettings({
+                promptPresetLibraries: saved.library,
+                [key]: saved.preset,
+            });
+            updateState({ settings: { ...nextSettings } });
+            if (kind === 'body') bridge.updateBodyPromptInjection();
+            showToast(asNew ? '已另存为新预设' : '当前预设已保存');
+            return saved.preset;
+        },
+        applyPromptPreset(kind, presetId) {
+            const settings = store.getState().settings;
+            const preset = settings.promptPresetLibraries?.[kind]?.find((entry) => entry.id === presetId);
+            if (!preset) return;
+            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const nextSettings = bridge.updateSettings({ [key]: preset });
+            updateState({ settings: { ...nextSettings } });
+            if (kind === 'body') bridge.updateBodyPromptInjection();
+            showToast('预设已应用');
+        },
+        deletePromptPreset(kind, presetId) {
+            const settings = store.getState().settings;
+            const fallback = kind === 'body' ? DEFAULT_BODY_PROMPT_PRESET : DEFAULT_PHONE_PROMPT_PRESET;
+            const library = removePromptPreset(settings.promptPresetLibraries, kind, presetId, fallback);
+            const nextPreset = library[kind][0];
+            const key = kind === 'body' ? 'bodyPromptPreset' : 'promptPreset';
+            const nextSettings = bridge.updateSettings({ promptPresetLibraries: library, [key]: nextPreset });
+            updateState({ settings: { ...nextSettings } });
+            if (kind === 'body') bridge.updateBodyPromptInjection();
+            showToast('预设已删除');
+        },
+        importPromptPresets(payload) {
+            try {
+                const settings = store.getState().settings;
+                const imported = importPromptPresetLibrary(payload, {
+                    body: settings.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET,
+                    phone: settings.promptPreset || DEFAULT_PHONE_PROMPT_PRESET,
+                });
+                const library = Object.fromEntries(['body', 'phone'].map((kind) => {
+                    const merged = [...(settings.promptPresetLibraries?.[kind] || []), ...(imported[kind] || [])];
+                    return [kind, [...new Map(merged.map((preset) => [preset.id, preset])).values()]];
+                }));
+                const nextSettings = bridge.updateSettings({ promptPresetLibraries: library });
+                updateState({ settings: { ...nextSettings } });
+                showToast('提示词预设已导入');
+                return true;
+            } catch (error) {
+                showToast(error?.message || '提示词预设导入失败');
+                return false;
+            }
+        },
+        recallPhoneMessage(messageId) {
+            const state = store.getState();
+            const messages = state.messages.map((message) => {
+                if (message.id === messageId) return markPhoneMessageRecalled(message);
+                if (message.replyToId === messageId && message.replySnapshot) {
+                    return { ...message, replySnapshot: { ...message.replySnapshot, content: '原消息已撤回' } };
+                }
+                return message;
+            });
+            const pendingUserMessageIds = state.pendingUserMessageIds.filter((id) => id !== messageId);
+            updateState({ messages, pendingUserMessageIds });
+            persistPhoneState(messages, state.calls, pendingUserMessageIds);
+            showToast('消息已撤回');
+        },
         updateDock({ dockSide, dockY }) {
             const nextSettings = bridge.updateSettings({ dockSide, dockY });
             updateState({ settings: { ...nextSettings } });
         },
         async clearCache() {
+            updateState({ cacheBusy: true });
             await audioCache.clear();
+            await refreshAudioCacheStats();
+            updateState({ cacheBusy: false });
             showToast('音频缓存已清除');
         },
         clearToast() {
@@ -682,7 +785,7 @@ export async function createPhonieApp() {
             contact: nextContact,
             userName: bridge.getUserName(),
             characters: bridge.getCharacterDirectory(nextSettings),
-            selectedCharacterId: nextContact.id,
+            selectedCharacterId: bridge.getCharacterDirectory(nextSettings)[0]?.id || '',
             selectedProviderId: nextSettings.ttsActiveProvider,
             messages: nextMetadata.messages,
             calls: nextMetadata.calls,
@@ -713,6 +816,7 @@ export async function createPhonieApp() {
 
     view.mount();
     deviceMonitor.start();
+    refreshAudioCacheStats();
     bridge.updateContinuityPrompt(metadata);
     bridge.updateBodyPromptInjection();
     window.setTimeout(() => inlinePlayers.decorateAll(), 0);

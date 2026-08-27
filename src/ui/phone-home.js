@@ -94,7 +94,7 @@ export function auxiliaryScreensMarkup() {
                 <div class="phonie-pane-heading"><span>角色声线路由</span><small data-role="character-directory-count">0 位角色</small></div>
                 <label class="phonie-character-search">
                     ${icon('person')}
-                    <input type="search" data-role="character-search" placeholder="搜索正文说话人或角色卡" autocomplete="off">
+                    <input type="search" data-role="character-search" placeholder="搜索正文说话人" autocomplete="off">
                 </label>
                 <div class="phonie-character-directory" data-role="character-directory"></div>
                 <section class="phonie-character-card">

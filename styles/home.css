@@ -62,16 +62,17 @@
 
 .phonie-wallpaper {
     z-index: -3;
-    background-color: #d8ccd3;
-    background-image:
-        radial-gradient(circle at 77% 18%, rgba(235, 177, 125, 0.88) 0 8%, transparent 9%),
-        radial-gradient(ellipse at 18% 74%, rgba(138, 110, 165, 0.52) 0 17%, transparent 18%),
-        linear-gradient(142deg, transparent 0 43%, rgba(78, 61, 91, 0.2) 44% 47%, transparent 48%),
-        linear-gradient(24deg, #eee3d7 0 38%, #c6acbd 39% 64%, #6c6680 65% 100%);
+    background-color: var(--phonie-canvas);
+    background-image: var(--phonie-wallpaper-gradient);
     background-position: center;
     background-size: cover;
     filter: saturate(0.9);
     transform: scale(1.01);
+}
+
+.phonie-wallpaper:not([data-has-image="true"]) {
+    background-image: var(--phonie-wallpaper-gradient) !important;
+    filter: saturate(0.94) contrast(1.02);
 }
 
 .phonie-wallpaper[data-has-image="true"] {
@@ -86,15 +87,21 @@
 }
 
 #phonie-root[data-theme="day"] .phonie-wallpaper-veil {
-    background: linear-gradient(180deg, rgba(250, 248, 240, 0.38), rgba(247, 244, 235, 0.16) 58%, rgba(246, 242, 232, 0.42));
+    background:
+        linear-gradient(180deg, rgba(249, 244, 235, 0.58), rgba(244, 238, 227, 0.38) 58%, rgba(242, 235, 223, 0.64)),
+        linear-gradient(125deg, color-mix(in srgb, var(--phonie-emphasis) 10%, transparent), color-mix(in srgb, var(--phonie-point) 8%, transparent));
 }
 
 #phonie-root[data-theme="night"] .phonie-wallpaper-veil {
-    background: linear-gradient(180deg, rgba(8, 12, 16, 0.52), rgba(9, 13, 17, 0.34) 48%, rgba(7, 10, 14, 0.72));
+    background:
+        linear-gradient(180deg, rgba(8, 13, 18, 0.66), rgba(9, 15, 20, 0.48) 48%, rgba(6, 10, 15, 0.79)),
+        linear-gradient(125deg, color-mix(in srgb, var(--phonie-emphasis) 12%, transparent), color-mix(in srgb, var(--phonie-point) 9%, transparent));
 }
 
 #phonie-root[data-theme="tavern"] .phonie-wallpaper-veil {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--phonie-surface) 42%, transparent), color-mix(in srgb, var(--phonie-canvas) 68%, transparent));
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--phonie-surface) 60%, transparent), color-mix(in srgb, var(--phonie-canvas) 78%, transparent)),
+        linear-gradient(125deg, color-mix(in srgb, var(--phonie-emphasis) 11%, transparent), color-mix(in srgb, var(--phonie-point) 8%, transparent));
 }
 
 #phonie-root:not([data-screen="home"]) .phonie-wallpaper-veil {
@@ -325,7 +332,8 @@
     align-items: center;
     border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
     border-radius: 26px;
-    background: color-mix(in srgb, var(--phonie-surface-raised) 66%, transparent);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--phonie-surface-raised) 82%, var(--phonie-emphasis) 18%), color-mix(in srgb, var(--phonie-surface-raised) 84%, var(--phonie-point) 16%));
     box-shadow: inset 0 1px var(--phonie-glint), 0 18px 36px color-mix(in srgb, var(--phonie-shadow) 24%, transparent);
     backdrop-filter: blur(18px) saturate(0.85);
 }
@@ -442,6 +450,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
+    margin-top: auto;
 }
 
 .phonie-page-rail i {
@@ -460,13 +469,14 @@
     display: grid;
     width: 100%;
     min-height: 66px;
-    margin-top: auto;
+    margin-top: 0;
     padding: 10px 13px;
     grid-template-columns: 42px minmax(0, 1fr) auto;
     align-items: center;
     border: 1px solid color-mix(in srgb, var(--phonie-border) 72%, transparent);
     border-radius: 22px;
-    background: color-mix(in srgb, var(--phonie-surface-raised) 72%, transparent);
+    background:
+        linear-gradient(112deg, color-mix(in srgb, var(--phonie-surface-raised) 84%, var(--phonie-emphasis) 16%), color-mix(in srgb, var(--phonie-surface-raised) 90%, var(--phonie-point) 10%));
     color: var(--phonie-ink);
     box-shadow: inset 0 1px var(--phonie-glint), 0 14px 28px color-mix(in srgb, var(--phonie-shadow) 22%, transparent);
     cursor: pointer;
@@ -567,7 +577,9 @@
 }
 
 .phonie-dock-button[aria-selected="true"] {
-    background: color-mix(in srgb, var(--phonie-accent) 16%, var(--phonie-surface-muted));
+    background: linear-gradient(145deg,
+        color-mix(in srgb, var(--phonie-accent) 18%, var(--phonie-surface-muted)),
+        color-mix(in srgb, var(--phonie-emphasis) 16%, var(--phonie-surface-muted)));
     color: var(--phonie-accent);
 }
 
@@ -886,8 +898,8 @@ button.phonie-record-card__play {
 }
 
 #phonie-root[data-screen="home"] .phonie-wallpaper[data-has-image="true"] {
-    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 58%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.3) 88%, transparent 100%);
-    mask-image: linear-gradient(180deg, #000 0%, #000 58%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.3) 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 60%, rgba(0, 0, 0, 0.9) 73%, rgba(0, 0, 0, 0.48) 89%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 60%, rgba(0, 0, 0, 0.9) 73%, rgba(0, 0, 0, 0.48) 89%, transparent 100%);
 }
 
 .phonie-rain-curtain {

@@ -81,4 +81,23 @@ export class AudioCache {
             request.onerror = () => resolve();
         });
     }
+
+    async getStats() {
+        const database = await this.#open();
+        if (!database) {
+            const blobs = [...this.#memory.values()];
+            return { count: blobs.length, bytes: blobs.reduce((sum, blob) => sum + (Number(blob?.size) || 0), 0) };
+        }
+        return new Promise((resolve) => {
+            const request = database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAll();
+            request.onsuccess = () => {
+                const records = Array.isArray(request.result) ? request.result : [];
+                resolve({
+                    count: records.length,
+                    bytes: records.reduce((sum, record) => sum + (Number(record?.blob?.size) || 0), 0),
+                });
+            };
+            request.onerror = () => resolve({ count: this.#memory.size, bytes: 0 });
+        });
+    }
 }

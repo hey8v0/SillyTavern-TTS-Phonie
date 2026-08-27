@@ -22,6 +22,12 @@ export function createPhoneMessage({
     kind = MESSAGE_KINDS.TEXT,
     emotion = 'neutral',
     status = 'delivered',
+    amount = null,
+    note = '',
+    attachmentName = '',
+    description = '',
+    replyToId = null,
+    replySnapshot = null,
 }) {
     return {
         id: createId('message'),
@@ -32,8 +38,31 @@ export function createPhoneMessage({
         kind,
         emotion,
         status,
+        amount: Number.isFinite(Number(amount)) ? Number(amount) : null,
+        note: String(note || '').trim(),
+        attachmentName: String(attachmentName || '').trim(),
+        description: String(description || '').trim(),
+        replyToId: replyToId ? String(replyToId) : null,
+        replySnapshot: replySnapshot && typeof replySnapshot === 'object' ? { ...replySnapshot } : null,
+        originalType: null,
+        originalContent: '',
+        recalledAt: null,
         createdAt: Date.now(),
         audioCacheKey: null,
+    };
+}
+
+export function recallPhoneMessage(message, recalledAt = Date.now()) {
+    if (!message || message.kind === MESSAGE_KINDS.RECALLED || message.direction !== 'outgoing') return message;
+    return {
+        ...message,
+        originalType: message.kind,
+        originalContent: message.originalText,
+        kind: MESSAGE_KINDS.RECALLED,
+        originalText: '你撤回了一条消息',
+        translationText: '',
+        status: 'recalled',
+        recalledAt,
     };
 }
 

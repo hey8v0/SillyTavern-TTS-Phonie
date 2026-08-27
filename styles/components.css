@@ -908,3 +908,276 @@
         transform: none;
     }
 }
+
+.phonie-message__actions {
+    display: inline-flex;
+    margin-left: auto;
+    gap: 3px;
+}
+
+.phonie-message__actions button {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.58;
+    place-items: center;
+}
+
+.phonie-message__actions .phonie-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.phonie-message__quote {
+    display: grid;
+    margin: 0 0 8px;
+    padding: 7px 9px;
+    border: 0;
+    border-left: 2px solid color-mix(in srgb, currentColor 42%, transparent);
+    border-radius: 4px 10px 10px 4px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.phonie-message__quote strong,
+.phonie-message__quote span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phonie-message__transcript {
+    margin-top: 6px;
+}
+
+.phonie-message__transcript summary {
+    color: inherit;
+    cursor: pointer;
+    font-size: 9px;
+    opacity: 0.72;
+}
+
+.phonie-message__transcript[open] summary {
+    margin-bottom: 8px;
+}
+
+.phonie-message__image-card,
+.phonie-message__money-card {
+    display: grid;
+    min-width: 190px;
+    align-items: center;
+    gap: 11px;
+}
+
+.phonie-message__image-card {
+    min-height: 106px;
+    padding: 15px;
+    grid-template-columns: 42px minmax(0, 1fr);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--phonie-point) 44%, transparent), transparent 34%),
+        linear-gradient(145deg, color-mix(in srgb, var(--phonie-emphasis) 42%, var(--phonie-surface-muted)), color-mix(in srgb, var(--phonie-accent) 28%, var(--phonie-surface-raised)));
+}
+
+.phonie-message__image-card .phonie-icon,
+.phonie-message__money-card > .phonie-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.phonie-message__image-card span,
+.phonie-message__money-card span {
+    display: grid;
+    min-width: 0;
+}
+
+.phonie-message__image-card small,
+.phonie-message__money-card small,
+.phonie-message__money-card i {
+    overflow: hidden;
+    font-size: 9px;
+    font-style: normal;
+    opacity: 0.72;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phonie-message__money-card {
+    padding: 12px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    border-radius: 14px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--phonie-point) 72%, #d56b4c), color-mix(in srgb, var(--phonie-accent) 74%, #b4483d));
+    color: #fffaf3;
+}
+
+.phonie-message__money-card[data-money-kind="transfer"] {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--phonie-emphasis) 76%, #236a82), color-mix(in srgb, var(--phonie-point) 32%, #46798b));
+}
+
+.phonie-message__recalled {
+    margin: 0;
+    color: var(--phonie-ink-muted);
+    font-size: 10px;
+    font-style: italic;
+}
+
+.phonie-message--recalled .phonie-message__bubble {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--phonie-surface-muted) 72%, transparent);
+}
+
+.phonie-reply-composer,
+.phonie-chat-tools,
+.phonie-chat-action-sheet {
+    flex: 0 0 auto;
+    margin: 0 12px;
+    border: 1px solid var(--phonie-border);
+    background: color-mix(in srgb, var(--phonie-surface-raised) 94%, transparent);
+}
+
+.phonie-reply-composer {
+    display: flex;
+    min-height: 48px;
+    padding: 7px 9px;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 14px 14px 0 0;
+    gap: 8px;
+}
+
+.phonie-reply-composer > span {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+}
+
+.phonie-reply-composer > span > span {
+    display: grid;
+    min-width: 0;
+}
+
+.phonie-reply-composer small,
+.phonie-reply-composer strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phonie-reply-composer small {
+    color: var(--phonie-emphasis);
+    font-size: 8px;
+}
+
+.phonie-reply-composer strong {
+    font-size: 10px;
+}
+
+.phonie-reply-composer button,
+.phonie-chat-action-sheet header button {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 11px;
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
+    place-items: center;
+}
+
+.phonie-chat-tools {
+    display: grid;
+    padding: 9px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-radius: 16px 16px 0 0;
+    gap: 6px;
+}
+
+.phonie-chat-tools button {
+    display: grid;
+    min-height: 58px;
+    padding: 7px 3px;
+    border: 0;
+    border-radius: 13px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--phonie-emphasis) 13%, var(--phonie-surface-muted)), color-mix(in srgb, var(--phonie-point) 9%, var(--phonie-surface-raised)));
+    color: var(--phonie-ink);
+    font: inherit;
+    font-size: 9px;
+    gap: 4px;
+    place-items: center;
+}
+
+.phonie-chat-tools .phonie-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--phonie-emphasis);
+}
+
+.phonie-chat-action-sheet {
+    display: grid;
+    padding: 10px;
+    border-radius: 17px 17px 0 0;
+    gap: 8px;
+}
+
+.phonie-chat-action-sheet header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.phonie-chat-action-sheet label {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    font-size: 9px;
+}
+
+.phonie-chat-action-sheet input {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--phonie-border);
+    border-radius: 11px;
+    background: var(--phonie-surface-muted);
+    color: var(--phonie-ink);
+    font: inherit;
+}
+
+.phonie-chat-action-sheet > button {
+    min-height: 40px;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--phonie-emphasis), color-mix(in srgb, var(--phonie-emphasis) 68%, var(--phonie-point)));
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .phonie-message__actions {
+        opacity: 0;
+        transition: opacity 140ms ease;
+    }
+    .phonie-message:hover .phonie-message__actions,
+    .phonie-message:focus-within .phonie-message__actions {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phonie-message__actions {
+        transition: none;
+    }
+}

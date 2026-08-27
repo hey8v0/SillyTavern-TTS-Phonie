@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { SCREENS } from '../src/core/constants.js';
-import { DOCK_ITEMS, HOME_APPS } from '../src/ui/phone-home.js';
+import { DOCK_ITEMS, HOME_APPS, homeScreenMarkup } from '../src/ui/phone-home.js';
 
 test('home exposes eight unique application tiles', () => {
     assert.equal(HOME_APPS.length, 8);
@@ -22,4 +22,12 @@ test('dock keeps the five primary phone destinations', () => {
         SCREENS.TRACE,
         SCREENS.SETTINGS,
     ]);
+});
+
+test('home page rail sits directly above the voice service card', () => {
+    const markup = homeScreenMarkup();
+    const railIndex = markup.indexOf('phonie-page-rail');
+    const serviceIndex = markup.indexOf('phonie-service-card');
+    assert.ok(railIndex >= 0);
+    assert.ok(serviceIndex > railIndex);
 });

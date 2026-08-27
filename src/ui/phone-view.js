@@ -67,6 +67,12 @@ function messageTime(timestamp) {
     return formatClock(timestamp);
 }
 
+function formatBytes(bytes) {
+    const value = Math.max(0, Number(bytes) || 0);
+    if (value < 1024 * 1024) return (value / 1024).toFixed(value < 10240 ? 1 : 0) + ' KB';
+    return (value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 2 : 1) + ' MB';
+}
+
 function callStatusLabel(state, elapsed = '', direction = '') {
     const labels = {
         [CALL_STATES.IDLE]: '等待拨号',
@@ -92,35 +98,59 @@ function makeWaveBars(seed = '') {
 
 function renderMessage(message, showTranslation, state) {
     const outgoing = message.direction === 'outgoing';
+    const recalled = message.kind === MESSAGE_KINDS.RECALLED;
     const translation = showTranslation && message.translationText
         ? `<p class="phonie-message__translation" lang="zh-CN">${escapeHtml(message.translationText)}</p>`
         : '';
     const avatarUrl = outgoing ? '' : state.contact?.avatarUrl;
     const avatarName = outgoing ? state.userName : state.contact?.name;
     const avatarStyle = avatarUrl ? ` style="background-image:url('${escapeHtml(avatarUrl)}')"` : '';
-    const voice = message.kind === MESSAGE_KINDS.VOICE
-        ? `
+    const quote = message.replySnapshot
+        ? `<blockquote class="phonie-message__quote"><strong>${escapeHtml(message.replySnapshot.sender || '消息')}</strong><span>${escapeHtml(message.replySnapshot.content || '原消息已撤回')}</span></blockquote>`
+        : '';
+    let body = `<p class="phonie-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>${translation}`;
+    if (message.kind === MESSAGE_KINDS.VOICE) {
+        body = `
             <div class="phonie-message__voice">
                 <button class="phonie-voice-action" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放这条语音消息">
                     ${icon(message.isPlaying ? 'pause' : 'play')}
                 </button>
                 <span class="phonie-message__waveform" aria-hidden="true">${makeWaveBars(message.id)}</span>
                 <span class="phonie-message__duration">${escapeHtml(message.durationLabel || '--:--')}</span>
-            </div>`
-        : '';
+            </div>
+            <details class="phonie-message__transcript">
+                <summary>查看文字与译文</summary>
+                <p class="phonie-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>
+                ${translation}
+            </details>`;
+    } else if (message.kind === MESSAGE_KINDS.IMAGE) {
+        body = `<div class="phonie-message__image-card">${icon('image')}<span><strong>图片</strong><small>${escapeHtml(message.attachmentName || message.originalText || '模拟图片')}</small></span></div>`;
+    } else if ([MESSAGE_KINDS.TRANSFER, MESSAGE_KINDS.RED_PACKET].includes(message.kind)) {
+        const title = message.kind === MESSAGE_KINDS.TRANSFER ? '转账' : '红包';
+        const mark = message.kind === MESSAGE_KINDS.TRANSFER ? 'wallet' : 'gift';
+        body = `<div class="phonie-message__money-card" data-money-kind="${escapeHtml(message.kind)}">${icon(mark)}<span><small>${title}</small><strong>¥ ${Number(message.amount || 0).toFixed(2)}</strong><i>${escapeHtml(message.note || '请查收')}</i></span></div>`;
+    } else if (recalled) {
+        body = `<p class="phonie-message__recalled">${escapeHtml(message.originalText)}</p>`;
+    }
+
+    const messageActions = recalled ? '' : `
+        <span class="phonie-message__actions">
+            <button type="button" data-action="quote-phone-message" data-message-id="${escapeHtml(message.id)}" aria-label="引用这条消息">${icon('quote')}</button>
+            ${outgoing ? `<button type="button" data-action="recall-phone-message" data-message-id="${escapeHtml(message.id)}" aria-label="撤回这条消息">${icon('recall')}</button>` : ''}
+        </span>`;
 
     return `
-        <article class="phonie-message ${outgoing ? 'phonie-message--outgoing' : ''}" data-phone-message-id="${escapeHtml(message.id)}">
+        <article class="phonie-message ${outgoing ? 'phonie-message--outgoing' : ''}${recalled ? ' phonie-message--recalled' : ''}" data-phone-message-id="${escapeHtml(message.id)}">
             <span class="phonie-message__avatar"${avatarStyle}><b>${escapeHtml(initials(avatarName))}</b></span>
             <div class="phonie-message__content">
                 <div class="phonie-message__meta">
                     <span>${escapeHtml(message.author)}</span>
                     <time datetime="${new Date(message.createdAt).toISOString()}">${messageTime(message.createdAt)}</time>
+                    ${messageActions}
                 </div>
                 <div class="phonie-message__bubble">
-                    ${voice}
-                    <p class="phonie-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>
-                    ${translation}
+                    ${quote}
+                    ${body}
                 </div>
             </div>
         </article>`;
@@ -164,6 +194,8 @@ export class PhoneView {
     #resizeHandler = null;
     #characterProviderDraft = null;
     #messageSignature = '';
+    #quotedMessageId = null;
+    #chatToolMode = null;
 
     constructor({ store, actions }) {
         this.#store = store;
@@ -231,15 +263,32 @@ export class PhoneView {
                                 <span class="phonie-generating__line" aria-hidden="true"></span>
                                 <span>对方正在组织语言</span>
                             </div>
+                            <div class="phonie-reply-composer" data-role="reply-composer" hidden>
+                                <span>${icon('quote')}<span><small>正在引用</small><strong data-role="reply-composer-text"></strong></span></span>
+                                <button type="button" data-action="cancel-phone-quote" aria-label="取消引用">${icon('close')}</button>
+                            </div>
+                            <div class="phonie-chat-tools" data-role="chat-tools" hidden>
+                                <button type="button" data-action="choose-chat-image">${icon('image')}<span>图片</span></button>
+                                <button type="button" data-action="open-chat-action" data-chat-kind="transfer">${icon('wallet')}<span>转账</span></button>
+                                <button type="button" data-action="open-chat-action" data-chat-kind="red_packet">${icon('gift')}<span>红包</span></button>
+                                <button type="button" data-action="send-voice">${icon('wave')}<span>语音</span></button>
+                            </div>
+                            <div class="phonie-chat-action-sheet" data-role="chat-action-sheet" hidden>
+                                <header><strong data-role="chat-action-title">转账</strong><button type="button" data-action="close-chat-action" aria-label="关闭">${icon('close')}</button></header>
+                                <label><span>金额</span><input type="number" min="0.01" max="999999" step="0.01" inputmode="decimal" data-role="chat-action-amount" placeholder="0.00"></label>
+                                <label><span>备注</span><input type="text" maxlength="80" data-role="chat-action-note" placeholder="写一句话"></label>
+                                <button type="button" data-action="send-chat-action">发送</button>
+                            </div>
                             <form class="phonie-composer" data-form="chat">
-                                <button class="phonie-icon-button phonie-icon-button--raised" type="button" data-action="send-voice" aria-label="发送语音消息">
-                                    ${icon('wave')}
+                                <button class="phonie-icon-button phonie-icon-button--raised" type="button" data-action="toggle-chat-tools" aria-label="打开聊天工具">
+                                    ${icon('plus')}
                                 </button>
                                 <textarea rows="1" maxlength="1600" data-role="chat-input" placeholder="写一条私人消息" aria-label="私人消息内容"></textarea>
                                 <button class="phonie-icon-button phonie-icon-button--raised phonie-chat-send" type="submit" data-role="chat-send" aria-label="发送消息">
                                     ${icon('send')}
                                 </button>
                             </form>
+                            <input type="file" accept="image/*" data-role="chat-image-input" hidden>
                         </section>
                         <section class="phonie-screen" data-screen="call" aria-label="电话">
                             <div class="phonie-call-screen">
@@ -373,7 +422,7 @@ export class PhoneView {
                         <div class="phonie-setting-row">
                             <span>
                                 <span class="phonie-setting-label">清除音频缓存</span>
-                                <span class="phonie-setting-description">聊天文字和通话记录不会被删除</span>
+                                <span class="phonie-setting-description">聊天文字和通话记录不会被删除 · <b data-role="audio-cache-size">正在统计</b></span>
                             </span>
                             <button class="phonie-icon-button" type="button" data-action="clear-cache" aria-label="清除音频缓存">${icon('trash')}</button>
                         </div>
@@ -500,6 +549,28 @@ export class PhoneView {
                 this.#actions.navigate?.(target.dataset.targetScreen);
             } else if (action === 'send-voice') {
                 this.#submitChat(MESSAGE_KINDS.VOICE);
+            } else if (action === 'toggle-chat-tools') {
+                const tools = this.#root.querySelector('[data-role="chat-tools"]');
+                if (tools) tools.hidden = !tools.hidden;
+            } else if (action === 'choose-chat-image') {
+                this.#root.querySelector('[data-role="chat-image-input"]')?.click();
+            } else if (action === 'open-chat-action') {
+                this.#chatToolMode = target.dataset.chatKind;
+                const sheet = this.#root.querySelector('[data-role="chat-action-sheet"]');
+                if (sheet) sheet.hidden = false;
+                this.#setText('[data-role="chat-action-title"]', this.#chatToolMode === MESSAGE_KINDS.RED_PACKET ? '发送红包' : '发起转账');
+            } else if (action === 'close-chat-action') {
+                this.#closeChatAction();
+            } else if (action === 'send-chat-action') {
+                this.#submitStructuredChat();
+            } else if (action === 'quote-phone-message') {
+                this.#quotedMessageId = target.dataset.messageId || null;
+                this.#renderReplyComposer(this.#store.getState());
+            } else if (action === 'cancel-phone-quote') {
+                this.#quotedMessageId = null;
+                this.#renderReplyComposer(this.#store.getState());
+            } else if (action === 'recall-phone-message') {
+                this.#actions.recallPhoneMessage?.(target.dataset.messageId);
             } else if (action === 'start-call') {
                 this.#actions.startCall?.();
             } else if (action === 'start-incoming-call') {
@@ -582,6 +653,27 @@ export class PhoneView {
                 const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
                 const { kind, preset } = this.#currentPromptPreset();
                 if (entryId) this.#actions.updatePromptPreset?.(kind, removePhonePromptEntry(preset, entryId));
+            } else if (action === 'save-prompt-preset') {
+                const { kind, preset } = this.#currentPromptPreset();
+                this.#actions.savePromptPreset?.(kind, preset, false);
+            } else if (action === 'save-as-prompt-preset') {
+                const { kind, preset } = this.#currentPromptPreset();
+                this.#actions.savePromptPreset?.(kind, preset, true);
+            } else if (action === 'delete-prompt-preset') {
+                const { kind, preset } = this.#currentPromptPreset();
+                if (window.confirm?.('确认删除当前提示词预设吗？') !== false) {
+                    this.#actions.deletePromptPreset?.(kind, preset.id);
+                }
+            } else if (action === 'export-prompt-preset') {
+                const { kind, preset } = this.#currentPromptPreset();
+                this.#downloadJson('phonie-' + kind + '-' + preset.id + '.json', { kind, presets: [preset] });
+            } else if (action === 'export-prompt-library') {
+                this.#downloadJson('phonie-prompt-presets.json', {
+                    schemaVersion: 1,
+                    promptPresetLibraries: this.#store.getState().settings.promptPresetLibraries,
+                });
+            } else if (action === 'import-prompt-presets') {
+                this.#root.querySelector('[data-role="prompt-preset-import"]')?.click();
             }
         });
 
@@ -620,6 +712,31 @@ export class PhoneView {
             const target = event.target;
             if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
             const value = target instanceof HTMLInputElement && target.type === 'checkbox' ? target.checked : target.value;
+            if (target.dataset.role === 'chat-image-input' && target instanceof HTMLInputElement) {
+                const file = target.files?.[0];
+                if (file) {
+                    this.#actions.sendMessage?.(file.name || '图片', MESSAGE_KINDS.IMAGE, false, {
+                        attachmentName: file.name || '图片',
+                        description: '用户发送了一张模拟图片',
+                        replyToId: this.#quotedMessageId,
+                    });
+                    this.#quotedMessageId = null;
+                    this.#renderReplyComposer(this.#store.getState());
+                    target.value = '';
+                }
+                return;
+            }
+            if (target.dataset.role === 'prompt-preset-import' && target instanceof HTMLInputElement) {
+                const file = target.files?.[0];
+                if (file) this.#importPromptPresets(file);
+                target.value = '';
+                return;
+            }
+            if (target.dataset.role === 'prompt-preset-library') {
+                const kind = this.#store.getState().settings.promptWorkflowKind === 'phone' ? 'phone' : 'body';
+                this.#actions.applyPromptPreset?.(kind, String(value || ''));
+                return;
+            }
             if (target.dataset.role === 'character-provider-select') {
                 this.#characterProviderDraft = String(value || '');
                 this.#renderCharacter(this.#store.getState());
@@ -775,6 +892,61 @@ export class PhoneView {
         };
     }
 
+    #downloadJson(filename, value) {
+        const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    async #importPromptPresets(file) {
+        try {
+            const payload = JSON.parse(await file.text());
+            this.#actions.importPromptPresets?.(payload);
+        } catch {
+            this.#actions.importPromptPresets?.(null);
+        }
+    }
+
+    #renderReplyComposer(state) {
+        const preview = this.#root.querySelector('[data-role="reply-composer"]');
+        if (!preview) return;
+        const message = state.messages.find((entry) => entry.id === this.#quotedMessageId);
+        preview.hidden = !message;
+        this.#setText('[data-role="reply-composer-text"]', message
+            ? (message.kind === MESSAGE_KINDS.RECALLED ? '原消息已撤回' : message.originalText.slice(0, 80))
+            : '');
+    }
+
+    #closeChatAction() {
+        this.#chatToolMode = null;
+        const sheet = this.#root.querySelector('[data-role="chat-action-sheet"]');
+        if (sheet) sheet.hidden = true;
+    }
+
+    #submitStructuredChat() {
+        const kind = this.#chatToolMode === MESSAGE_KINDS.RED_PACKET ? MESSAGE_KINDS.RED_PACKET : MESSAGE_KINDS.TRANSFER;
+        const amount = Number(this.#root.querySelector('[data-role="chat-action-amount"]')?.value || 0);
+        const note = this.#root.querySelector('[data-role="chat-action-note"]')?.value?.trim() || '';
+        if (!(amount > 0)) return;
+        const title = kind === MESSAGE_KINDS.RED_PACKET ? '红包' : '转账';
+        this.#actions.sendMessage?.(title + ' ¥' + amount.toFixed(2), kind, false, {
+            amount,
+            note,
+            replyToId: this.#quotedMessageId,
+        });
+        this.#quotedMessageId = null;
+        const amountInput = this.#root.querySelector('[data-role="chat-action-amount"]');
+        const noteInput = this.#root.querySelector('[data-role="chat-action-note"]');
+        if (amountInput) amountInput.value = '';
+        if (noteInput) noteInput.value = '';
+        this.#closeChatAction();
+        this.#renderReplyComposer(this.#store.getState());
+    }
+
     #submitChat(kind) {
         const input = this.#root.querySelector('[data-role="chat-input"]');
         if (!(input instanceof HTMLTextAreaElement)) return;
@@ -783,7 +955,9 @@ export class PhoneView {
         if (text) input.value = '';
         const send = this.#root.querySelector('[data-role="chat-send"]');
         if (send) send.dataset.hasText = 'false';
-        this.#actions.sendMessage?.(text, kind, false);
+        this.#actions.sendMessage?.(text, kind, false, { replyToId: this.#quotedMessageId });
+        this.#quotedMessageId = null;
+        this.#renderReplyComposer(this.#store.getState());
     }
 
     #submitCall() {
@@ -907,7 +1081,9 @@ export class PhoneView {
         const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
         const previousTop = list.scrollTop;
         const signature = JSON.stringify(state.messages.map((message) => [
-            message.id, message.originalText, message.translationText, message.isPlaying, message.durationLabel,
+            message.id, message.kind, message.originalText, message.translationText, message.isPlaying,
+            message.durationLabel, message.amount, message.note, message.recalledAt,
+            message.replySnapshot?.content,
         ]));
         if (signature !== this.#messageSignature) {
             this.#messageSignature = signature;
@@ -924,6 +1100,7 @@ export class PhoneView {
         }
         const generating = this.#root.querySelector('[data-role="generating"]');
         if (generating) generating.hidden = !state.generating;
+        this.#renderReplyComposer(state);
         requestAnimationFrame(() => {
             list.scrollTop = nearBottom || state.messages.length <= 1 ? list.scrollHeight : previousTop;
         });
@@ -1042,6 +1219,8 @@ export class PhoneView {
         editor.dataset.providerTone = current.tone || 'silver';
         const modelCount = current.catalog?.models?.length || 0;
         const voiceCount = current.catalog?.voices?.length || 0;
+        const busy = current.runtime?.status === 'checking';
+        const syncing = busy && /同步/.test(current.runtime?.message || '');
         editor.innerHTML = `
             <section class="phonie-provider-editor" data-provider-editor-id="${escapeHtml(current.id)}" data-provider-tone="${escapeHtml(current.tone || 'silver')}">
                 <header class="phonie-provider-hero">
@@ -1060,8 +1239,8 @@ export class PhoneView {
                 </dl>
                 <div class="phonie-provider-editor__actions">
                     <button type="button" data-action="set-tts-provider" data-provider-id="${escapeHtml(current.id)}">${icon('check')}<span>${current.selected ? '当前引擎' : '设为当前'}</span></button>
-                    <button type="button" data-action="check-tts-provider" data-provider-id="${escapeHtml(current.id)}">${icon('signal')}<span>检测连接</span></button>
-                    ${['elevenlabs', 'minimax'].includes(current.id) ? `<button type="button" data-action="sync-tts-resources" data-provider-id="${escapeHtml(current.id)}">${icon('reset')}<span>同步目录</span></button>` : ''}
+                    <button type="button" data-action="check-tts-provider" data-provider-id="${escapeHtml(current.id)}" data-busy="${busy}"${busy ? ' disabled aria-busy="true"' : ''}>${icon('signal')}<span>${busy && !syncing ? '检测中' : '检测连接'}</span></button>
+                    ${['elevenlabs', 'minimax'].includes(current.id) ? `<button type="button" data-action="sync-tts-resources" data-provider-id="${escapeHtml(current.id)}" data-busy="${busy}"${busy ? ' disabled aria-busy="true"' : ''}>${icon('reset')}<span>${syncing ? '同步中' : '同步目录'}</span></button>` : ''}
                 </div>
                 <label class="phonie-provider-field">
                     <span><strong>全局备用引擎</strong><small>仅在这个引擎失败时接管</small></span>
@@ -1096,18 +1275,28 @@ export class PhoneView {
     }
 
     #renderCharacter(state) {
-        const characters = Array.isArray(state.characters) && state.characters.length
-            ? state.characters
-            : [{ ...state.contact, current: true, route: {} }];
+        const characters = Array.isArray(state.characters) ? state.characters : [];
+        const characterSections = [
+            this.#root.querySelector('.phonie-character-card'),
+            this.#root.querySelector('.phonie-character-specs'),
+            this.#root.querySelector('.phonie-route-editor'),
+        ];
+        if (!characters.length) {
+            this.#setText('[data-role="character-directory-count"]', '0 位正文说话人');
+            const directory = this.#root.querySelector('[data-role="character-directory"]');
+            if (directory) directory.innerHTML = '<div class="phonie-record-empty">正文中出现带格式台词的说话人后，会在这里建立独立声线路由。</div>';
+            characterSections.forEach((section) => { if (section) section.hidden = true; });
+            return;
+        }
+        characterSections.forEach((section) => { if (section) section.hidden = false; });
         const selected = characters.find((character) => character.id === state.selectedCharacterId)
-            || characters.find((character) => character.current)
             || characters[0];
         const route = selected.route || {};
         const providers = state.providerSnapshot?.providers || [];
         const providerId = this.#characterProviderDraft || route.providerId || state.settings.ttsActiveProvider || providers[0]?.id || '';
         const provider = providers.find((entry) => entry.id === providerId) || providers[0];
 
-        this.#setText('[data-role="character-directory-count"]', `${characters.length} 位角色`);
+        this.#setText('[data-role="character-directory-count"]', `${characters.length} 位正文说话人`);
         const directory = this.#root.querySelector('[data-role="character-directory"]');
         if (directory) {
             const signature = JSON.stringify(characters.map((character) => [
@@ -1119,7 +1308,7 @@ export class PhoneView {
                 directory.dataset.selected = selected.id;
                 directory.innerHTML = characters.map((character) => {
                     const configured = Boolean(character.route && Object.keys(character.route).length);
-                    const sourceLabel = character.current ? '当前聊天' : character.spoken ? '正文说话人' : character.source === 'card' ? '角色卡' : '已配置';
+                    const sourceLabel = '正文说话人';
                     const avatarStyle = character.avatarUrl ? ` style="background-image:url('${escapeHtml(character.avatarUrl)}')"` : '';
                     return `
                         <button class="phonie-character-route${character.id === selected.id ? ' is-selected' : ''}" type="button"
@@ -1238,6 +1427,12 @@ export class PhoneView {
         const depth = this.#root.querySelector('[data-prompt-preset-field="insertionDepth"]');
         if (name instanceof HTMLInputElement) name.value = preset.name;
         if (depth instanceof HTMLInputElement) depth.value = String(preset.insertionDepth);
+        const librarySelect = this.#root.querySelector('[data-role="prompt-preset-library"]');
+        if (librarySelect instanceof HTMLSelectElement) {
+            const presets = state.settings.promptPresetLibraries?.[kind] || [preset];
+            librarySelect.innerHTML = presets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`).join('');
+            librarySelect.value = presets.some((entry) => entry.id === preset.id) ? preset.id : '';
+        }
         const list = this.#root.querySelector('[data-role="prompt-entry-list"]');
         if (list) list.innerHTML = preset.entries.map((entry, index) => promptEntryMarkup(entry, index, preset.entries.length)).join('');
         this.#setText('[data-role="prompt-intro"]', kind === 'body'
@@ -1256,6 +1451,14 @@ export class PhoneView {
             } else if (control instanceof HTMLInputElement) {
                 control.value = String(value ?? '');
             }
+        }
+        const stats = state.audioCacheStats || { count: 0, bytes: 0 };
+        this.#setText('[data-role="audio-cache-size"]', `${formatBytes(stats.bytes)} · ${stats.count} 条`);
+        const clear = this.#root.querySelector('[data-action="clear-cache"]');
+        if (clear instanceof HTMLButtonElement) {
+            clear.disabled = Boolean(state.cacheBusy);
+            clear.dataset.busy = String(Boolean(state.cacheBusy));
+            clear.setAttribute('aria-busy', String(Boolean(state.cacheBusy)));
         }
     }
 

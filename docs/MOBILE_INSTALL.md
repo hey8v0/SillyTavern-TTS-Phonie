@@ -48,6 +48,6 @@ Do not place API keys or GitHub tokens inside the extension folder.
 
 ## Phone opens as a few horizontal lines
 
-Phonie 0.7.0 includes a legacy Android WebView fallback that establishes the handset with `100vh` before progressively using `svh` or `dvh`. It also uses explicit 4px top, right, bottom, and left offsets so an older CSS parser cannot discard the whole mobile layout rule while the graphite hardware shell remains visible. The orb accepts Android touch pointers even when WebView reports a non-mouse button value, follows the finger through window-level pointer listeners, then snaps and tucks into the closest edge.
+Phonie 0.8.0 includes a legacy Android WebView fallback that establishes the handset with `100vh` before progressively using `svh` or `dvh`. It also uses explicit 4px top, right, bottom, and left offsets so an older CSS parser cannot discard the whole mobile layout rule while the graphite hardware shell remains visible. The orb accepts Android touch pointers even when WebView reports a non-mouse button value, follows the finger through window-level pointer listeners, then snaps and tucks into the closest edge.
 
 After updating, restart the SillyTavern server and fully reload the page. If an installed browser wrapper keeps an old stylesheet, clear that site's cache once and reload again.

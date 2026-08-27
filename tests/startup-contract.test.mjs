@@ -6,7 +6,7 @@ import { APP_VERSION, EXTENSION_BASE, MODULE_ID } from '../src/core/constants.js
 
 test('Phonie uses a fresh data namespace and a folder-independent asset base', () => {
     assert.equal(MODULE_ID, 'phonie');
-    assert.equal(APP_VERSION, '0.7.0');
+    assert.equal(APP_VERSION, '0.8.0');
     assert.match(EXTENSION_BASE, /SillyTavern-TTS-/);
 });
 

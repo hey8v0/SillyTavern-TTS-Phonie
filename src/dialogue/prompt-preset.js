@@ -76,6 +76,58 @@ export function normalizePhonePromptPreset(value = {}) {
     };
 }
 
+export function normalizePromptPresetLibrary(value = {}, fallbacks = {}) {
+    const source = value && typeof value === 'object' ? value : {};
+    const result = {};
+    for (const kind of ['body', 'phone']) {
+        const seen = new Set();
+        const entries = Array.isArray(source[kind]) ? source[kind] : [];
+        const fallback = normalizePhonePromptPreset(fallbacks[kind]);
+        const candidates = entries.length ? entries : [fallback];
+        result[kind] = candidates.map((preset, index) => {
+            const normalized = normalizePhonePromptPreset(preset);
+            let id = String(normalized.id || kind + '-preset-' + (index + 1));
+            while (seen.has(id)) id = id + '-' + (index + 1);
+            seen.add(id);
+            return { ...normalized, id };
+        });
+    }
+    return result;
+}
+
+export function savePromptPreset(library, kind, preset, { asNew = false } = {}) {
+    const normalizedLibrary = normalizePromptPresetLibrary(library, { [kind]: preset });
+    const normalized = normalizePhonePromptPreset(preset);
+    const id = asNew ? kind + '-preset-' + Date.now().toString(36) : normalized.id;
+    const saved = { ...normalized, id };
+    const list = normalizedLibrary[kind] || [];
+    const index = asNew ? -1 : list.findIndex((entry) => entry.id === id);
+    const next = index >= 0
+        ? list.map((entry, itemIndex) => itemIndex === index ? saved : entry)
+        : [...list, saved];
+    return {
+        library: { ...normalizedLibrary, [kind]: next },
+        preset: saved,
+    };
+}
+
+export function removePromptPreset(library, kind, presetId, fallback) {
+    const normalizedLibrary = normalizePromptPresetLibrary(library, { [kind]: fallback });
+    const filtered = (normalizedLibrary[kind] || []).filter((entry) => entry.id !== presetId);
+    const next = filtered.length ? filtered : [normalizePhonePromptPreset(fallback)];
+    return { ...normalizedLibrary, [kind]: next };
+}
+
+export function importPromptPresetLibrary(value, fallbacks = {}) {
+    const payload = value?.promptPresetLibraries || value?.presets || value;
+    if (!payload || typeof payload !== 'object') throw new Error('预设文件格式无效');
+    if (Array.isArray(payload)) {
+        const kind = value?.kind === 'body' || payload[0]?.kind === 'body' ? 'body' : 'phone';
+        return normalizePromptPresetLibrary({ [kind]: payload }, fallbacks);
+    }
+    return normalizePromptPresetLibrary(payload, fallbacks);
+}
+
 export function resolvePromptVariables(template, variables = {}) {
     const aliases = {
         character: variables.character,

@@ -2,6 +2,7 @@
 #phonie-orb {
     --phonie-font-ui: "Avenir Next", "Nunito Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
     --phonie-font-reading: "Yu Mincho", "Hiragino Mincho ProN", "Source Han Serif SC", serif;
+    --phonie-font-mono: "Cascadia Mono", "SFMono-Regular", "Noto Sans Mono CJK SC", monospace;
     --phonie-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --phonie-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
     --phonie-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -28,12 +29,18 @@
     --phonie-border: rgba(76, 55, 68, 0.17);
     --phonie-accent: #b85848;
     --phonie-accent-ink: #fff8f2;
-    --phonie-signal: #6b588b;
+    --phonie-emphasis: #3f7f93;
+    --phonie-point: #d4a24d;
+    --phonie-signal: #43899b;
     --phonie-danger: #a34342;
     --phonie-shadow: rgba(57, 42, 50, 0.32);
     --phonie-glint: rgba(255, 255, 255, 0.72);
-    --phonie-user-bubble: #684d70;
-    --phonie-user-ink: #fff9ff;
+    --phonie-user-bubble: linear-gradient(145deg, #397f92, #476b86);
+    --phonie-user-ink: #f8fcff;
+    --phonie-wallpaper-gradient:
+        radial-gradient(circle at 78% 16%, rgba(222, 164, 79, 0.68) 0 9%, transparent 29%),
+        radial-gradient(ellipse at 12% 78%, rgba(69, 139, 158, 0.42) 0 18%, transparent 48%),
+        linear-gradient(145deg, #efe4d5 0%, #dbc7b6 46%, #b8ced2 100%);
     --phonie-hardware: #242329;
     --phonie-hardware-edge: #4a4650;
 }
@@ -50,12 +57,18 @@
     --phonie-border: rgba(225, 216, 239, 0.15);
     --phonie-accent: #d36d5b;
     --phonie-accent-ink: #fff8f2;
-    --phonie-signal: #b39ad8;
+    --phonie-emphasis: #4b9eab;
+    --phonie-point: #d2a24d;
+    --phonie-signal: #62b5c2;
     --phonie-danger: #e0786d;
     --phonie-shadow: rgba(0, 0, 0, 0.62);
     --phonie-glint: rgba(255, 255, 255, 0.12);
-    --phonie-user-bubble: #493760;
-    --phonie-user-ink: #fff9ff;
+    --phonie-user-bubble: linear-gradient(145deg, #286b79, #344f6c);
+    --phonie-user-ink: #f3fbfc;
+    --phonie-wallpaper-gradient:
+        radial-gradient(circle at 78% 14%, rgba(211, 142, 78, 0.38) 0 8%, transparent 28%),
+        radial-gradient(ellipse at 18% 82%, rgba(65, 154, 170, 0.33) 0 16%, transparent 46%),
+        linear-gradient(145deg, #0b131b 0%, #16212b 49%, #233542 100%);
     --phonie-hardware: #090a0f;
     --phonie-hardware-edge: #373a49;
 }
@@ -70,14 +83,24 @@
     --phonie-ink: var(--SmartThemeBodyColor, #f2eee8);
     --phonie-ink-muted: var(--SmartThemeQuoteColor, #b8b2aa);
     --phonie-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
-    --phonie-accent: var(--SmartThemeEmColor, #d36850);
+    --phonie-accent: color-mix(in srgb, var(--SmartThemeEmColor, #c76f58) 42%, #c76f58 58%);
     --phonie-accent-ink: #fffaf4;
-    --phonie-signal: var(--SmartThemeQuoteColor, #b7a0d5);
+    --phonie-emphasis: color-mix(in srgb, var(--SmartThemeQuoteColor, #4f91a5) 24%, #4f91a5 76%);
+    --phonie-point: #cda65c;
+    --phonie-signal: color-mix(in srgb, var(--SmartThemeQuoteColor, #5797aa) 22%, #5797aa 78%);
     --phonie-danger: #d56d63;
     --phonie-shadow: var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.52));
     --phonie-glint: rgba(255, 255, 255, 0.15);
-    --phonie-user-bubble: var(--SmartThemeQuoteColor, #58446d);
-    --phonie-user-ink: var(--SmartThemeBlurTintColor, #ffffff);
+    --phonie-user-bubble: linear-gradient(145deg,
+        color-mix(in srgb, var(--SmartThemeQuoteColor, #467b8c) 26%, #467b8c 74%),
+        color-mix(in srgb, var(--SmartThemeEmColor, #a06055) 24%, #315c70 76%));
+    --phonie-user-ink: var(--SmartThemeBodyColor, #ffffff);
+    --phonie-wallpaper-gradient:
+        radial-gradient(circle at 78% 16%, color-mix(in srgb, var(--phonie-point) 46%, transparent) 0 8%, transparent 28%),
+        radial-gradient(ellipse at 14% 82%, color-mix(in srgb, var(--phonie-emphasis) 38%, transparent) 0 17%, transparent 48%),
+        linear-gradient(145deg,
+            color-mix(in srgb, var(--phonie-surface) 88%, #b77663 12%),
+            color-mix(in srgb, var(--phonie-canvas) 80%, #3c8191 20%));
     --phonie-hardware: #15151a;
     --phonie-hardware-edge: color-mix(in srgb, var(--SmartThemeBorderColor, #54545e) 65%, #222 35%);
 }

@@ -13,7 +13,11 @@ import { extension_settings, getContext } from '/scripts/extensions.js';
 
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
-import { DEFAULT_PHONE_PROMPT_PRESET, normalizePhonePromptPreset } from '../dialogue/prompt-preset.js';
+import {
+    DEFAULT_PHONE_PROMPT_PRESET,
+    normalizePhonePromptPreset,
+    normalizePromptPresetLibrary,
+} from '../dialogue/prompt-preset.js';
 import { compileBodyPromptEntries, DEFAULT_BODY_PROMPT_PRESET, parseBodySpeechSegments } from '../dialogue/body-speech.js';
 import { buildCharacterDirectory } from '../dialogue/character-directory.js';
 import { buildContinuityPrompt, buildPhoneReplyMessages, parsePhoneReply } from '../dialogue/prompt-service.js';
@@ -45,6 +49,10 @@ function mergeSettings(value = {}) {
     merged.customOpenAIMaxTokens = Math.min(65536, Math.max(80, Math.round(Number(merged.customOpenAIMaxTokens) || 8192)));
     merged.promptPreset = normalizePhonePromptPreset(value.promptPreset);
     merged.bodyPromptPreset = normalizePhonePromptPreset(value.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET);
+    merged.promptPresetLibraries = normalizePromptPresetLibrary(value.promptPresetLibraries, {
+        body: merged.bodyPromptPreset,
+        phone: merged.promptPreset,
+    });
     merged.bodyPromptEnabled = value.bodyPromptEnabled !== false;
     merged.promptWorkflowKind = ['body', 'phone'].includes(value.promptWorkflowKind) ? value.promptWorkflowKind : 'body';
     const providerIds = new Set(TTS_PROVIDERS.map((provider) => provider.id));
@@ -124,6 +132,7 @@ export class SillyTavernBridge {
             characters: this.context?.characters || [],
             routes: settings.ttsCharacterRoutes,
             messages,
+            speakersOnly: true,
         });
     }
 

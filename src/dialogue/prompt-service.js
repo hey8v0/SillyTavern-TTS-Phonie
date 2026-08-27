@@ -6,7 +6,13 @@ function compactHistory(history, limit = 10) {
         .slice(-limit)
         .map((message) => ({
             speaker: message.direction === 'outgoing' ? 'user' : 'character',
-            text: String(message.originalText || '').slice(0, 600),
+            type: String(message.kind || 'text'),
+            text: message.kind === 'recalled'
+                ? '[原消息已撤回]'
+                : String(message.originalText || '').slice(0, 600),
+            amount: message.amount ?? undefined,
+            note: message.note || undefined,
+            replyTo: message.replySnapshot?.content || undefined,
         }));
 }
 
@@ -22,7 +28,7 @@ export function buildPhoneReplyMessages({
     const compact = compactHistory(history);
     const historyMessages = compact.map((message) => ({
         role: message.speaker === 'user' ? 'user' : 'assistant',
-        content: message.text,
+        content: JSON.stringify(message),
     }));
     const latestInput = [...history].reverse().find((message) => message.direction === 'outgoing')?.originalText || '';
     return assemblePhonePromptMessages({

@@ -1,6 +1,6 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.7.0';
-export const SCHEMA_VERSION = 5;
+export const APP_VERSION = '0.8.0';
+export const SCHEMA_VERSION = 6;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
@@ -25,6 +25,10 @@ export const SCREENS = Object.freeze({
 export const MESSAGE_KINDS = Object.freeze({
     TEXT: 'text',
     VOICE: 'voice',
+    IMAGE: 'image',
+    TRANSFER: 'transfer',
+    RED_PACKET: 'red_packet',
+    RECALLED: 'recalled',
     SYSTEM: 'system',
 });
 
@@ -47,6 +51,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     autoDecorateMessages: true,
     bodyPromptEnabled: true,
     promptWorkflowKind: 'body',
+    promptPresetLibraries: { body: [], phone: [] },
     autoTranslate: true,
     autoPlayPhoneReplies: true,
     injectContinuity: true,

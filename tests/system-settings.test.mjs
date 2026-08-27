@@ -19,6 +19,10 @@ test('system app markup exposes real model and prompt controls', () => {
     assert.match(markup, /data-prompt-preset-field="insertionDepth"/);
     assert.match(markup, /data-setting="promptWorkflowKind"/);
     assert.match(markup, /data-setting="bodyPromptEnabled"/);
+    assert.match(markup, /data-role="prompt-preset-library"/);
+    assert.match(markup, /data-action="save-prompt-preset"/);
+    assert.match(markup, /data-action="export-prompt-library"/);
+    assert.match(markup, /data-action="import-prompt-presets"/);
     assert.match(markup, /\{\{角色\}\}/);
 });
 
@@ -37,6 +41,11 @@ test('voice app exposes the independent Phonie provider center', async () => {
     assert.match(view, /通话中/);
     assert.match(view, /data-action="check-tts-provider"/);
     assert.match(view, /data-action="cycle-theme"/);
+    assert.match(view, /data-action="choose-chat-image"/);
+    assert.match(view, /data-action="open-chat-action"/);
+    assert.match(view, /data-action="quote-phone-message"/);
+    assert.match(view, /data-action="recall-phone-message"/);
+    assert.match(view, /data-role="audio-cache-size"/);
 });
 
 test('prompt entry editor exposes all message roles and ordering controls', () => {
@@ -56,4 +65,18 @@ test('mobile handset CSS preserves a physical frame and fades character wallpape
     assert.match(css, /\.phonie-frame\s*\{[\s\S]*border:\s*1px\s+solid/);
     assert.match(css, /mask-image:\s*linear-gradient/);
     assert.match(css, /prefers-reduced-motion[\s\S]*\.phonie-rain-curtain/);
+});
+
+test('every phone theme owns emphasis, point and multi-stop wallpaper colors', async () => {
+    const css = await readFile(new URL('../styles/tokens.css', import.meta.url), 'utf8');
+    for (const theme of ['day', 'night', 'tavern']) {
+        const start = css.indexOf(`#phonie-root[data-theme="${theme}"]`);
+        const end = css.indexOf('\n}', start);
+        const block = css.slice(start, end);
+        assert.ok(start >= 0, theme);
+        assert.match(block, /--phonie-emphasis:/, theme);
+        assert.match(block, /--phonie-point:/, theme);
+        assert.match(block, /--phonie-wallpaper-gradient:/, theme);
+        assert.match(block, /radial-gradient[\s\S]*linear-gradient/, theme);
+    }
 });

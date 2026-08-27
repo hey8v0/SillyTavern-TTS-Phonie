@@ -7,7 +7,9 @@ import {
     assemblePhonePromptMessages,
     movePhonePromptEntry,
     normalizePhonePromptPreset,
+    normalizePromptPresetLibrary,
     removePhonePromptEntry,
+    savePromptPreset,
     resolvePromptVariables,
     updatePhonePromptEntry,
 } from '../src/dialogue/prompt-preset.js';
@@ -16,6 +18,15 @@ test('default phone preset exposes editable roles and variables', () => {
     assert.ok(DEFAULT_PHONE_PROMPT_PRESET.entries.length >= 3);
     assert.ok(DEFAULT_PHONE_PROMPT_PRESET.entries.every((entry) => ['system', 'user', 'assistant'].includes(entry.role)));
     assert.match(DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => entry.content).join('\n'), /\{\{角色\}\}/);
+});
+
+test('prompt preset library saves a named copy without replacing the active preset', () => {
+    const original = normalizePhonePromptPreset(DEFAULT_PHONE_PROMPT_PRESET);
+    const library = normalizePromptPresetLibrary({ phone: [original] }, { phone: original });
+    const saved = savePromptPreset(library, 'phone', { ...original, name: '夜间电话' }, { asNew: true });
+    assert.equal(saved.library.phone.length, 2);
+    assert.equal(saved.preset.name, '夜间电话');
+    assert.notEqual(saved.preset.id, original.id);
 });
 
 test('preset normalization recovers from legacy null settings', () => {
