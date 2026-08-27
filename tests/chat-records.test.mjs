@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createPhoneMessage, createPhoneMetadata, recallPhoneMessage } from '../src/phone/chat-records.js';
+import { createCallRecord, createPhoneMessage, createPhoneMetadata, recallPhoneMessage } from '../src/phone/chat-records.js';
 
 test('phone metadata preserves the pending multi-message reply queue', () => {
     const metadata = createPhoneMetadata({
@@ -15,6 +15,20 @@ test('phone metadata preserves the pending multi-message reply queue', () => {
 
 test('legacy phone metadata receives an empty pending queue', () => {
     assert.deepEqual(createPhoneMetadata({ messages: [], calls: [] }).pendingUserMessageIds, []);
+});
+
+test('phone metadata and call records retain recovery and replay data', () => {
+    const metadata = createPhoneMetadata({ updatedAt: 123 });
+    const record = createCallRecord({
+        contactName: 'Aoi',
+        startedAt: 1,
+        endedAt: 2,
+        messageIds: ['m1', 'm1', 'm2'],
+        participants: [{ id: 'speaker:aoi', name: 'Aoi', avatarUrl: '/aoi.png' }],
+    });
+    assert.equal(metadata.updatedAt, 123);
+    assert.deepEqual(record.messageIds, ['m1', 'm2']);
+    assert.equal(record.participants[0].name, 'Aoi');
 });
 
 test('rich phone messages preserve transfer and reply metadata', () => {

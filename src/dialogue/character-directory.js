@@ -2,6 +2,10 @@ function cleanName(value) {
     return String(value || '').trim();
 }
 
+function normalizedName(value) {
+    return cleanName(value).normalize('NFKC').toLocaleLowerCase('zh-CN').replace(/\s+/g, ' ');
+}
+
 function speakerId(name) {
     return 'speaker:' + encodeURIComponent(cleanName(name).toLocaleLowerCase('zh-CN'));
 }
@@ -40,18 +44,19 @@ export function buildCharacterDirectory({
         const name = cleanName(entry?.name);
         if (!name) return;
         let id = cleanName(entry?.id) || speakerId(name);
-        const knownIds = nameIndex.get(name) || [];
-        if (entry?.source === 'dialogue' && knownIds.length === 1) id = knownIds[0];
+        const nameKey = normalizedName(name);
+        const knownIds = nameIndex.get(nameKey) || [];
+        if (knownIds.length) id = knownIds[0];
         const previous = directory.get(id) || {};
         directory.set(id, {
             id,
-            name,
+            name: previous.name || name,
             avatarUrl: entry?.avatarUrl || previous.avatarUrl || '',
             source: previous.source === 'current' ? 'current' : (entry?.source || previous.source || 'dialogue'),
             current: Boolean(previous.current || entry?.current),
             spoken: Boolean(previous.spoken || entry?.spoken),
         });
-        if (!knownIds.includes(id)) nameIndex.set(name, [...knownIds, id]);
+        if (!knownIds.includes(id)) nameIndex.set(nameKey, [...knownIds, id]);
     };
 
     if (!speakersOnly && currentContact?.name) add({ ...currentContact, current: true, source: 'current' });

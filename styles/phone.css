@@ -89,9 +89,21 @@
     transition: none;
 }
 
+.phonie-orb[data-dock="right"][data-awake="true"] {
+    transform: translate3d(-29px, 0, 0);
+}
+
+.phonie-orb[data-dock="left"][data-awake="true"] {
+    transform: translate3d(29px, 0, 0);
+}
+
+.phonie-orb[data-dragging="true"] {
+    transform: none !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
-    .phonie-orb[data-dock="right"]:hover { transform: translateX(-9px); }
-    .phonie-orb[data-dock="left"]:hover { transform: translateX(9px); }
+    .phonie-orb[data-dock="right"]:hover { transform: translate3d(-29px, 0, 0); }
+    .phonie-orb[data-dock="left"]:hover { transform: translate3d(29px, 0, 0); }
 }
 
 .phonie-orb:focus-visible,

@@ -130,7 +130,7 @@ export function parsePhoneReply(value, { targetLanguage = 'zh-CN' } = {}) {
     try {
         const data = unwrapPhoneReply(value);
         const turns = Array.isArray(data?.turns)
-            ? data.turns.slice(0, 10).map((turn) => ({
+            ? data.turns.slice(0, 28).map((turn) => ({
                 speaker: String(turn?.speaker || '').trim(),
                 originalText: String(turn?.originalText || '').trim(),
                 translationText: String(turn?.translationText || '').trim(),

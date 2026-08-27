@@ -44,3 +44,16 @@ test('speaker-only directory excludes cards but retains saved speaker routes', (
     assert.deepEqual(directory.map((entry) => entry.name), ['Saved', 'Nephele']);
     assert.equal(directory.find((entry) => entry.name === 'Saved').route.voiceId, 'saved-voice');
 });
+
+test('body speakers with spacing or case differences collapse into one contact', () => {
+    const directory = buildCharacterDirectory({
+        messages: [{ extra: { phonie: { bodySpeech: [
+            { speaker: 'Nephele' },
+            { speaker: ' nephele ' },
+            { speaker: 'NEPHELE' },
+        ] } } }],
+        speakersOnly: true,
+    });
+    assert.equal(directory.length, 1);
+    assert.equal(directory[0].name, 'Nephele');
+});

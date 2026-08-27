@@ -103,6 +103,17 @@ test('prepared call parser normalizes multiple bilingual turns', () => {
     assert.equal(parsed.summary, '两人确认了见面时间。');
 });
 
+test('prepared call parser keeps all supported group-call turns', () => {
+    const parsed = parsePhoneReply({
+        turns: Array.from({ length: 28 }, (_, index) => ({
+            speaker: index % 2 ? 'Aoi' : 'Ren',
+            originalText: `line-${index}`,
+            translationText: `译文-${index}`,
+        })),
+    });
+    assert.equal(parsed.turns.length, 28);
+});
+
 test('structured reply parser accepts fenced JSON', () => {
     const parsed = parsePhoneReply('```json\n{"originalText":"もしもし","translationText":"喂","emotion":"warm","action":"reply"}\n```');
     assert.deepEqual(parsed, {
@@ -113,7 +124,7 @@ test('structured reply parser accepts fenced JSON', () => {
     });
 });
 
-test('structured reply parser accepts Connection Manager objects and wrappers', () => {
+test('structured reply parser accepts provider objects and OpenAI-style wrappers', () => {
     const direct = parsePhoneReply({
         originalText: 'もしもし。',
         translationText: '喂。',

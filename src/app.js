@@ -73,7 +73,6 @@ export async function createPhonieApp() {
         providerLabel: providerCenter.getActiveLabel(),
         providerSnapshot: providerCenter.snapshot(),
         deviceStatus: createDeviceStatusSnapshot(),
-        generationProfiles: bridge.getGenerationProfiles(),
         generationTarget: bridge.getGenerationTarget(settings),
         customModelStatus: '',
         generating: false,
@@ -91,6 +90,7 @@ export async function createPhonieApp() {
         callScriptQueue: [],
         callScriptIndex: -1,
         callPreparationLabel: '',
+        callReplayMode: false,
         audioState: 'idle',
         audioCacheStats: { count: 0, bytes: 0 },
         cacheBusy: false,
@@ -129,14 +129,20 @@ export async function createPhonieApp() {
         bridge.updateContinuityPrompt(nextMetadata);
     }
 
-    async function preparePhoneAudio(message, voiceName, { autoplay = true } = {}) {
-        const key = message.audioCacheKey || makeAudioCacheKey({
+    async function preparePhoneAudio(message, voiceName, { autoplay = true, rateLimited = false, force = false } = {}) {
+        const currentRouteKey = makeAudioCacheKey({
             chatId: bridge.getChatId(),
             messageId: message.id,
             text: message.originalText,
             provider: providerCenter.getCacheSignature(voiceName),
         });
+        const key = force ? currentRouteKey : (message.audioCacheKey || currentRouteKey);
         message.audioCacheKey = key;
+
+        if (force) {
+            audioFocus.deleteSource(`phone:${message.id}`);
+            await audioCache.delete(key);
+        }
 
         let source = audioFocus.getSource(`phone:${message.id}`);
         if (!source) source = await audioCache.get(key);
@@ -161,6 +167,7 @@ export async function createPhonieApp() {
                 speaker: voiceName,
                 emotion: message.emotion,
                 language: message.language || store.getState().settings.sourceLanguage,
+                rateLimited,
             });
         } catch (error) {
             setMessageAudioStatus(message.id, 'error');
@@ -380,7 +387,7 @@ export async function createPhonieApp() {
             persistPhoneState(messages, store.getState().calls);
             for (let index = 0; index < prepared.length; index += 1) {
                 updateState({ callPreparationLabel: `正在准备语音 ${index + 1}/${prepared.length}` });
-                await preparePhoneAudio(prepared[index], prepared[index].author, { autoplay: false });
+                await preparePhoneAudio(prepared[index], prepared[index].author, { autoplay: false, rateLimited: true });
             }
             updateState({ generating: false, callPreparationLabel: '' });
             await playCallScriptAt(0);
@@ -417,6 +424,7 @@ export async function createPhonieApp() {
             callScriptQueue: [],
             callScriptIndex: -1,
             callPreparationLabel: '',
+            callReplayMode: false,
         });
         callConnectTimer = window.setTimeout(() => {
             if (callMachine.state === CALL_STATES.DIALING) {
@@ -450,6 +458,7 @@ export async function createPhonieApp() {
             callScriptQueue: [],
             callScriptIndex: -1,
             callPreparationLabel: '',
+            callReplayMode: false,
         });
         globalThis.navigator?.vibrate?.([160, 90, 160, 360, 160, 90, 160]);
     }
@@ -477,7 +486,7 @@ export async function createPhonieApp() {
         if (callMachine.canTransition(CALL_STATES.ENDED)) {
             callMachine.transition(CALL_STATES.ENDED);
         }
-        if (state.callDirection) {
+        if (state.callDirection && !state.callReplayMode) {
             const endedAt = Date.now();
             const record = createCallRecord({
                 contactName: state.callParticipants?.map((entry) => entry.name).join('、') || state.contact.name,
@@ -486,6 +495,8 @@ export async function createPhonieApp() {
                 direction: state.callDirection,
                 outcome,
                 summary: outcome === 'declined' ? '已拒绝来电' : buildCallSummary(state.messages, state.callParticipants?.[0]?.name || state.contact.name),
+                messageIds: state.callScriptQueue,
+                participants: state.callParticipants,
             });
             const calls = [...state.calls, record];
             updateState({
@@ -497,8 +508,20 @@ export async function createPhonieApp() {
                 callScriptIndex: -1,
                 callPreparationLabel: '',
                 callSpeaker: '',
+                callReplayMode: false,
             });
             persistPhoneState(state.messages, calls);
+        } else {
+            updateState({
+                generating: false,
+                audioState: 'idle',
+                callDirection: null,
+                callScriptQueue: [],
+                callScriptIndex: -1,
+                callPreparationLabel: '',
+                callSpeaker: '',
+                callReplayMode: false,
+            });
         }
     }
 
@@ -517,6 +540,57 @@ export async function createPhonieApp() {
         }
     }
 
+    async function regeneratePhoneAudio(messageId) {
+        const state = store.getState();
+        const message = state.messages.find((entry) => entry.id === messageId);
+        if (!message) return;
+        const speaker = message.direction === 'incoming' ? message.author : bridge.getUserName();
+        try {
+            await preparePhoneAudio(message, speaker, { autoplay: true, force: true });
+            persistPhoneState(store.getState().messages, store.getState().calls);
+            showToast('已使用当前声线路由重新生成');
+        } catch (error) {
+            console.error('[Phonie] Could not regenerate phone audio.', error);
+            showToast(error?.message || '重新生成语音失败');
+        }
+    }
+
+    function replayCallRecord(callId) {
+        const state = store.getState();
+        const record = state.calls.find((entry) => entry.id === callId);
+        const queue = (record?.messageIds || []).filter((id) => state.messages.some((message) => message.id === id));
+        if (!record || !queue.length) {
+            showToast('这条旧记录没有可重播的语音段');
+            return;
+        }
+        if (![CALL_STATES.IDLE, CALL_STATES.ENDED].includes(callMachine.state)) endCall('interrupted');
+        if (callMachine.state === CALL_STATES.ENDED) callMachine.transition(CALL_STATES.IDLE);
+        const participants = (record.participants || []).map((saved) => (
+            state.characters.find((entry) => entry.id === saved.id || entry.name === saved.name) || saved
+        ));
+        callMachine.transition(CALL_STATES.DIALING);
+        updateState({
+            open: true,
+            screen: SCREENS.CALL,
+            callDirection: record.direction || 'incoming',
+            callParticipants: participants.length ? participants : [state.contact],
+            callScriptQueue: queue,
+            callScriptIndex: -1,
+            callCaption: { source: '', translation: '' },
+            callPreparationLabel: '',
+            callReplayMode: true,
+        });
+        window.setTimeout(() => {
+            if (callMachine.state !== CALL_STATES.DIALING) return;
+            callMachine.transition(CALL_STATES.CONNECTED);
+            playCallScriptAt(0).catch((error) => {
+                console.warn('[Phonie] Recorded call replay failed.', error);
+                showToast('通话重播失败');
+                endCall('error');
+            });
+        }, 260);
+    }
+
     const actions = {
         open() {
             const currentSettings = bridge.getSettings();
@@ -531,7 +605,6 @@ export async function createPhonieApp() {
                     : directory[0]?.id || '',
                 providerLabel: providerCenter.getActiveLabel(),
                 providerSnapshot: providerCenter.snapshot(),
-                generationProfiles: bridge.getGenerationProfiles(),
                 generationTarget: bridge.getGenerationTarget(currentSettings),
             });
             refreshAudioCacheStats();
@@ -554,6 +627,8 @@ export async function createPhonieApp() {
         declineCall,
         endCall,
         playPhoneAudio,
+        regeneratePhoneAudio,
+        replayCallRecord,
         cycleTheme() {
             const order = [THEMES.DAY, THEMES.NIGHT, THEMES.TAVERN];
             const current = store.getState().settings.theme;
@@ -694,7 +769,6 @@ export async function createPhonieApp() {
             updateState({
                 settings: { ...nextSettings },
                 ...(key === 'ttsFallbackProvider' ? { providerSnapshot: providerCenter.snapshot() } : {}),
-                generationProfiles: bridge.getGenerationProfiles(),
                 generationTarget: bridge.getGenerationTarget(nextSettings),
             });
             inlinePlayers.updateSettings(nextSettings);
@@ -894,6 +968,9 @@ export async function createPhonieApp() {
                 }), 180);
             } else {
                 callMachine.transition(CALL_STATES.CONNECTED);
+                window.setTimeout(() => {
+                    if (callMachine.state === CALL_STATES.CONNECTED) endCall('completed');
+                }, 720);
             }
         }
     });
@@ -935,7 +1012,6 @@ export async function createPhonieApp() {
             settings: { ...nextSettings },
             providerLabel: providerCenter.getActiveLabel(),
             providerSnapshot: providerCenter.snapshot(),
-            generationProfiles: bridge.getGenerationProfiles(),
             generationTarget: bridge.getGenerationTarget(nextSettings),
             customModelStatus: '',
             generating: false,

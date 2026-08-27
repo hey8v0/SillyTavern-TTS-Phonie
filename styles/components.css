@@ -207,10 +207,25 @@
     display: grid;
     min-width: 168px;
     margin-bottom: 8px;
-    grid-template-columns: 34px 1fr auto;
+    grid-template-columns: 34px minmax(88px, 1fr) auto 24px;
     align-items: center;
     gap: 9px;
 }
+
+.phonie-voice-regenerate {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    color: inherit;
+    opacity: 0.66;
+    place-items: center;
+}
+
+.phonie-voice-regenerate .phonie-icon { width: 13px; height: 13px; }
 
 .phonie-message__waveform {
     display: flex;
@@ -699,13 +714,27 @@
     display: grid;
     min-height: 58px;
     padding: 8px 12px;
-    grid-template-columns: 40px minmax(0, 1fr) 38px;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
     gap: 9px;
     border-bottom: 1px solid var(--phonie-border);
     background: color-mix(in srgb, var(--phonie-surface-raised) 88%, transparent);
     backdrop-filter: blur(18px);
 }
+
+.phonie-chat-appbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.phonie-chat-appbar__actions .phonie-icon-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 11px;
+}
+
+.phonie-chat-appbar__actions .phonie-icon { width: 16px; height: 16px; }
 
 .phonie-chat-appbar__avatar,
 .phonie-message__avatar {

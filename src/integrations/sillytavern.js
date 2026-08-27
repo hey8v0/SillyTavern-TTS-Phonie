@@ -12,7 +12,7 @@ import {
 import { extension_settings, getContext } from '/scripts/extensions.js';
 
 import { DEFAULT_SETTINGS, MODULE_ID, PHONE_CALL_SCRIPT_SCHEMA, PHONE_REPLY_SCHEMA } from '../core/constants.js';
-import { getCurrentGenerationTarget, listConnectionProfiles, requestPhoneGeneration } from './generation-compat.js';
+import { getCurrentGenerationTarget, requestPhoneGeneration } from './generation-compat.js';
 import {
     DEFAULT_PHONE_PROMPT_PRESET,
     normalizePhonePromptPreset,
@@ -35,14 +35,12 @@ const BODY_PROMPT_ROLES = Object.freeze({
 
 function mergeSettings(value = {}) {
     const merged = { ...DEFAULT_SETTINGS, ...value, schemaVersion: DEFAULT_SETTINGS.schemaVersion };
-    merged.phoneResponseLength = Math.min(1200, Math.max(80, Math.round(Number(merged.phoneResponseLength) || 420)));
+    merged.phoneResponseLength = Math.min(65536, Math.max(256, Math.round(Number(merged.phoneResponseLength) || 8192)));
     merged.callResponseLength = Math.min(420, Math.max(80, Math.round(Number(merged.callResponseLength) || 180)));
-    merged.callScriptResponseLength = Math.min(6000, Math.max(1200, Math.round(Number(merged.callScriptResponseLength) || 2800)));
+    merged.callScriptResponseLength = Math.min(65536, Math.max(1200, Math.round(Number(merged.callScriptResponseLength) || 8192)));
     merged.callLength = ['short', 'normal', 'long'].includes(value.callLength) ? value.callLength : 'normal';
     merged.launcherMode = ['orb', 'wand', 'both'].includes(merged.launcherMode) ? merged.launcherMode : 'orb';
-    merged.generationMode = !value.generationMode && value.generationProfileId
-        ? 'profile'
-        : ['tavern', 'profile', 'custom'].includes(merged.generationMode) ? merged.generationMode : 'tavern';
+    merged.generationMode = ['tavern', 'custom'].includes(merged.generationMode) ? merged.generationMode : 'tavern';
     merged.customOpenAIEndpoint = String(merged.customOpenAIEndpoint || '').trim().slice(0, 1000);
     merged.customOpenAIModel = String(merged.customOpenAIModel || '').trim().slice(0, 300);
     merged.customOpenAIModels = Array.isArray(merged.customOpenAIModels)
@@ -153,24 +151,33 @@ export class SillyTavernBridge {
 
     getPhoneMetadata() {
         const context = this.context;
-        if (!context?.chatMetadata) return createPhoneMetadata();
-        context.chatMetadata[MODULE_ID] = createPhoneMetadata(context.chatMetadata[MODULE_ID]);
-        return context.chatMetadata[MODULE_ID];
+        const current = createPhoneMetadata(context?.chatMetadata?.[MODULE_ID]);
+        let backup = createPhoneMetadata();
+        try {
+            backup = createPhoneMetadata(JSON.parse(localStorage.getItem(`${MODULE_ID}:chat-backup:${this.getChatId()}`) || '{}'));
+        } catch (error) {
+            console.warn('[Phonie] Phone history backup could not be read.', error);
+        }
+        const restored = backup.updatedAt > current.updatedAt ? backup : current;
+        if (context?.chatMetadata) context.chatMetadata[MODULE_ID] = restored;
+        return restored;
     }
 
     savePhoneMetadata(metadata) {
         const context = this.context;
         if (!context?.chatMetadata) return;
-        context.chatMetadata[MODULE_ID] = createPhoneMetadata(metadata);
+        const saved = createPhoneMetadata({ ...metadata, updatedAt: Date.now() });
+        context.chatMetadata[MODULE_ID] = saved;
+        try {
+            localStorage.setItem(`${MODULE_ID}:chat-backup:${this.getChatId()}`, JSON.stringify(saved));
+        } catch (error) {
+            console.warn('[Phonie] Phone history backup could not be saved.', error);
+        }
         context.saveMetadataDebounced?.();
     }
 
     async saveMessageExtra() {
         await saveChatConditional();
-    }
-
-    getGenerationProfiles() {
-        return listConnectionProfiles(this.context);
     }
 
     getGenerationTarget(settings = this.getSettings()) {
@@ -182,9 +189,7 @@ export class SillyTavernBridge {
                 model: settings.customOpenAIModel || '等待选择模型',
             };
         }
-        if (settings.generationMode !== 'profile') return getCurrentGenerationTarget(this.context);
-        const selected = this.getGenerationProfiles().find((profile) => profile.id === settings.generationProfileId);
-        return selected || getCurrentGenerationTarget(this.context);
+        return getCurrentGenerationTarget(this.context);
     }
 
     async saveCustomOpenAIKey(value) {
@@ -261,8 +266,8 @@ export class SillyTavernBridge {
         });
         const participantCount = participants.length || 1;
         const lengthBudget = participantCount > 1
-            ? 5600
-            : callLength === 'long' ? 4800 : callLength === 'short' ? 1600 : 2800;
+            ? 12288
+            : callLength === 'long' ? 8192 : callLength === 'short' ? 2048 : 4096;
         const generationSettings = callMode ? {
             ...settings,
             phoneResponseLength: scriptMode

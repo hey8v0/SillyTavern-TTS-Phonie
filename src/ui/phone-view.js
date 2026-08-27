@@ -93,16 +93,16 @@ function callStatusLabel(state, elapsed = '', direction = '') {
         [CALL_STATES.RINGING]: direction === 'incoming' ? '角色来电' : '等待接听',
         [CALL_STATES.CONNECTED]: elapsed ? `通话中  ${elapsed}` : '通话中',
         [CALL_STATES.GENERATING]: '正在组织语言',
-        [CALL_STATES.SPEAKING]: '对方正在说话',
+        [CALL_STATES.SPEAKING]: elapsed ? `通话中  ${elapsed}` : '通话中',
         [CALL_STATES.ENDED]: '通话已结束',
         [CALL_STATES.ERROR]: '通话连接异常',
     };
     return labels[state] || labels[CALL_STATES.IDLE];
 }
 
-function makeWaveBars(seed = '') {
+function makeWaveBars(seed = '', count = 18) {
     const text = String(seed || 'phonie');
-    return Array.from({ length: 18 }, (_, index) => {
+    return Array.from({ length: count }, (_, index) => {
         const code = text.charCodeAt(index % text.length) || 80;
         const height = 26 + ((code * (index + 3)) % 68);
         return `<i style="--bar-height:${height}%"></i>`;
@@ -144,6 +144,7 @@ function renderMessage(message, showTranslation, state) {
                 </button>
                 <span class="phonie-message__waveform" aria-hidden="true">${makeWaveBars(message.id)}</span>
                 <span class="phonie-message__duration">${escapeHtml(message.durationLabel || '--:--')}</span>
+                <button class="phonie-voice-regenerate" type="button" data-action="regenerate-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="用当前声线重新生成">${icon('reset')}</button>
             </div>
             <details class="phonie-message__transcript">
                 <summary>查看文字与译文</summary>
@@ -218,6 +219,7 @@ export class PhoneView {
     #suppressOrbClick = false;
     #orbMoveHandler = null;
     #orbEndHandler = null;
+    #orbWakeTimer = null;
     #resizeHandler = null;
     #characterProviderDraft = null;
     #messageSignature = '';
@@ -283,7 +285,11 @@ export class PhoneView {
                             <header class="phonie-chat-appbar">
                                 <span class="phonie-chat-appbar__avatar" data-role="chat-contact-avatar"><b data-role="chat-contact-initials">P</b></span>
                                 <span class="phonie-chat-appbar__identity"><strong data-role="chat-contact-name">Character</strong><small>私人频道 · 在线</small></span>
-                                <button class="phonie-icon-button" type="button" data-action="start-call" aria-label="给当前角色打电话">${icon('phone')}</button>
+                                <span class="phonie-chat-appbar__actions">
+                                    <button class="phonie-icon-button" type="button" data-action="open-chat-preset" aria-label="打开私信提示词预设">${icon('layers')}</button>
+                                    <button class="phonie-icon-button" type="button" data-action="open-chat-settings" aria-label="打开私信设置">${icon('settings')}</button>
+                                    <button class="phonie-icon-button" type="button" data-action="start-call" aria-label="给当前角色打电话">${icon('phone')}</button>
+                                </span>
                             </header>
                             <div class="phonie-chat-list" data-role="message-list"></div>
                             <div class="phonie-generating" data-role="generating" hidden>
@@ -328,7 +334,7 @@ export class PhoneView {
                                     <h2 data-role="call-contact">Character</h2>
                                     <p class="phonie-call-status" data-role="call-status">等待拨号</p>
                                 </div>
-                                <div class="phonie-call-live-wave" data-role="call-live-wave" aria-hidden="true">${makeWaveBars('prepared-call')}</div>
+                                <div class="phonie-call-live-wave" data-role="call-live-wave" aria-hidden="true">${makeWaveBars('prepared-call', 30)}</div>
                                 <div class="phonie-call-captions" data-role="call-captions" data-empty="true">
                                     <div data-role="call-caption-content" hidden>
                                         <p class="phonie-call-caption-source" data-role="call-caption-source"></p>
@@ -607,8 +613,17 @@ export class PhoneView {
                 this.#renderReplyComposer(this.#store.getState());
             } else if (action === 'recall-phone-message') {
                 this.#actions.recallPhoneMessage?.(target.dataset.messageId);
+            } else if (action === 'regenerate-phone-audio') {
+                this.#actions.regeneratePhoneAudio?.(target.dataset.messageId);
             } else if (action === 'delete-call-record') {
                 this.#actions.deleteCallRecord?.(target.dataset.callId);
+            } else if (action === 'replay-call-record') {
+                this.#actions.replayCallRecord?.(target.dataset.callId);
+            } else if (action === 'open-chat-preset') {
+                this.#actions.updateSetting?.('promptWorkflowKind', 'phone');
+                this.#actions.navigate?.(SCREENS.PROMPTS);
+            } else if (action === 'open-chat-settings') {
+                this.#actions.navigate?.(SCREENS.SETTINGS);
             } else if (action === 'open-contact-chat') {
                 this.#actions.openContactChat?.(target.dataset.characterId);
             } else if (action === 'toggle-chat-contact') {
@@ -696,9 +711,6 @@ export class PhoneView {
                 this.#characterProviderDraft = null;
                 this.#actions.selectCharacterRoute?.(target.dataset.characterId);
                 if (target.dataset.targetScreen) this.#actions.navigate?.(target.dataset.targetScreen);
-            } else if (action === 'set-generation-profile') {
-                this.#actions.updateSetting?.('generationMode', 'profile');
-                this.#actions.updateSetting?.('generationProfileId', target.dataset.profileId || '');
             } else if (action === 'save-custom-key') {
                 this.#saveCustomKey();
             } else if (action === 'refresh-custom-models') {
@@ -864,6 +876,9 @@ export class PhoneView {
             this.#actions.open?.();
         });
         orb?.addEventListener('pointerdown', (event) => this.#startOrbDrag(event));
+        orb?.addEventListener('pointerenter', () => this.#wakeOrb());
+        orb?.addEventListener('focus', () => this.#wakeOrb());
+        orb?.addEventListener('pointerleave', () => this.#wakeOrb(460));
         this.#resizeHandler = () => this.#positionOrb(this.#store.getState().settings);
         window.addEventListener('resize', this.#resizeHandler, { passive: true });
     }
@@ -880,6 +895,7 @@ export class PhoneView {
         const orb = event.currentTarget;
         if (!(orb instanceof HTMLElement)) return;
         event.preventDefault();
+        this.#wakeOrb();
         this.#suppressOrbClick = false;
         const rect = orb.getBoundingClientRect();
         try {
@@ -1445,14 +1461,16 @@ export class PhoneView {
     #renderTrace(state) {
         const list = this.#root.querySelector('[data-role="trace-list"]');
         if (!list) return;
-        const records = state.calls.slice(-8).reverse();
+        const records = state.calls.slice().reverse();
         if (!records.length) {
             list.innerHTML = '<div class="phonie-record-empty">暂无通话记录</div>';
             return;
         }
         list.innerHTML = records.map((record) => `
             <article class="phonie-record-card phonie-record-card--call">
-                <span class="phonie-record-card__play" aria-hidden="true">${icon('phone')}</span>
+                ${record.messageIds?.length
+                    ? `<button class="phonie-record-card__play" type="button" data-action="replay-call-record" data-call-id="${escapeHtml(record.id)}" aria-label="重播这次通话">${icon('play')}</button>`
+                    : `<span class="phonie-record-card__play" aria-hidden="true">${icon('phone')}</span>`}
                 <span class="phonie-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${record.direction === 'incoming' ? '来电' : '外呼'} · ${record.outcome === 'declined' ? '未接通' : '已结束'} · ${escapeHtml(record.summary || '通话已结束')}</small></span>
                 <time>${escapeHtml(formatDuration(record.startedAt, record.endedAt))}<br>${escapeHtml(formatRecordDate(record.startedAt))}</time>
                 <button class="phonie-record-card__delete" type="button" data-action="delete-call-record" data-call-id="${escapeHtml(record.id)}" aria-label="删除这条通话记录">${icon('trash')}</button>
@@ -1574,28 +1592,6 @@ export class PhoneView {
         for (const section of this.#root.querySelectorAll('[data-generation-source]')) {
             section.hidden = section.dataset.generationSource !== mode;
         }
-
-        const select = this.#root.querySelector('[data-role="generation-profile-select"]');
-        const profiles = Array.isArray(state.generationProfiles) ? state.generationProfiles : [];
-        if (select instanceof HTMLSelectElement) {
-            select.innerHTML = [
-                '<option value="">跟随酒馆当前连接</option>',
-                ...profiles.map((profile) => `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.name)} · ${escapeHtml(profile.model)}</option>`),
-            ].join('');
-            select.value = state.settings.generationProfileId || '';
-        }
-
-        const list = this.#root.querySelector('[data-role="generation-profile-list"]');
-        if (!list) return;
-        const choices = profiles;
-        list.innerHTML = choices.map((profile) => {
-            const current = mode === 'profile' && (state.settings.generationProfileId || '') === profile.id;
-            return `<button class="phonie-profile-card${current ? ' is-current' : ''}" type="button" data-action="set-generation-profile" data-profile-id="${escapeHtml(profile.id)}" aria-pressed="${current}">
-                <span class="phonie-profile-card__mark">${icon('signal')}</span>
-                <span><strong>${escapeHtml(profile.name)}</strong><small>${escapeHtml(profile.model || '当前模型')} · ${escapeHtml(profile.api || 'current')}</small></span>
-                <b>${current ? '当前' : '选择'}</b>
-            </button>`;
-        }).join('');
 
         const customSelect = this.#root.querySelector('[data-role="custom-model-select"]');
         if (customSelect instanceof HTMLSelectElement) {
@@ -1731,17 +1727,27 @@ export class PhoneView {
         this.#orb.style.top = Math.round(top) + 'px';
         this.#orb.style.bottom = 'auto';
         if (settings?.dockSide === 'left') {
-            this.#orb.style.left = '-17px';
+            this.#orb.style.left = '-33px';
             this.#orb.style.right = 'auto';
         } else {
-            this.#orb.style.right = '-17px';
+            this.#orb.style.right = '-33px';
             this.#orb.style.left = 'auto';
         }
+    }
+
+    #wakeOrb(delay = 1700) {
+        if (!this.#orb) return;
+        window.clearTimeout(this.#orbWakeTimer);
+        this.#orb.dataset.awake = 'true';
+        this.#orbWakeTimer = window.setTimeout(() => {
+            if (this.#orb && !this.#drag) this.#orb.dataset.awake = 'false';
+        }, delay);
     }
 
     dispose() {
         window.clearInterval(this.#clockTimer);
         window.clearTimeout(this.#toastTimer);
+        window.clearTimeout(this.#orbWakeTimer);
         this.#unsubscribe?.();
         this.#removeOrbWindowListeners();
         if (this.#resizeHandler) window.removeEventListener('resize', this.#resizeHandler);

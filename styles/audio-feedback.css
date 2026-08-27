@@ -22,16 +22,28 @@
     display: grid;
     width: 100%;
     min-width: 0;
-    max-width: 150px;
+    max-width: 176px;
     overflow: hidden;
     grid-template-columns: repeat(18, minmax(1px, 1fr));
-    gap: 2px;
+    gap: 3px;
 }
 
 .phonie-message__waveform i {
-    width: 100%;
+    width: 1px;
     min-width: 1px;
 }
+
+.phonie-inline-button--regenerate {
+    width: 22px;
+    height: 22px;
+    margin-inline-start: 2px;
+    border: 0;
+    border-radius: 8px;
+    opacity: 0.62;
+    vertical-align: middle;
+}
+
+.phonie-inline-button--regenerate .phonie-icon { width: 12px; height: 12px; }
 
 .phonie-inline-button__wave {
     width: 14px;

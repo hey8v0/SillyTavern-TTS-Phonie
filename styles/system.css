@@ -86,6 +86,40 @@
     box-shadow: inset 0 1px 0 var(--phonie-glint);
 }
 
+.phonie-generation-panel {
+    max-height: 302px;
+    overflow: hidden auto;
+    border: 1px solid color-mix(in srgb, var(--phonie-border) 82%, transparent);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--phonie-surface-raised) 88%, transparent);
+    scrollbar-width: thin;
+}
+
+.phonie-generation-panel > summary {
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    display: grid;
+    min-height: 52px;
+    padding: 9px 12px;
+    grid-template-columns: 22px minmax(0, 1fr) 18px;
+    align-items: center;
+    gap: 9px;
+    background: color-mix(in srgb, var(--phonie-surface-raised) 94%, transparent);
+    cursor: pointer;
+    list-style: none;
+}
+
+.phonie-generation-panel > summary::-webkit-details-marker { display: none; }
+.phonie-generation-panel > summary > .phonie-icon:first-child { color: var(--phonie-signal); }
+.phonie-generation-panel > summary > .phonie-icon:last-child { color: var(--phonie-ink-muted); transition: transform 180ms var(--phonie-ease-out); }
+.phonie-generation-panel[open] > summary > .phonie-icon:last-child { transform: rotate(90deg); }
+.phonie-generation-panel > summary span { display: grid; min-width: 0; }
+.phonie-generation-panel > summary small { color: var(--phonie-ink-muted); font-size: 9px; }
+.phonie-generation-panel > .phonie-control-card,
+.phonie-generation-panel > .phonie-custom-openai .phonie-control-card { border: 0; border-top: 1px solid var(--phonie-border); border-radius: 0; }
+.phonie-generation-panel > .phonie-custom-openai { padding: 0 8px 8px; }
+
 .phonie-control-field {
     display: grid;
     min-height: 66px;

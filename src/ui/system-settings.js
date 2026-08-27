@@ -9,24 +9,21 @@ export function systemSettingsScreensMarkup() {
                     <span class="phonie-model-hero__mark">${icon('spark')}</span>
                     <span><small>手机回复模型</small><strong data-role="generation-target">跟随酒馆</strong><i data-role="generation-model">当前连接</i></span>
                 </section>
-                <section class="phonie-control-card">
+                <details class="phonie-generation-panel">
+                    <summary>${icon('spark')}<span><strong>生成连接</strong><small>跟随酒馆或自定义 OpenAI</small></span>${icon('chevron')}</summary>
+                    <div class="phonie-control-card">
                     <label class="phonie-control-field">
                         <span><strong>模型来源</strong></span>
                         <select data-setting="generationMode" data-role="generation-mode-select">
                             <option value="tavern">跟随酒馆主模型</option>
-                            <option value="profile">连接管理器配置</option>
                             <option value="custom">自定义 OpenAI</option>
                         </select>
                     </label>
-                    <label class="phonie-control-field" data-generation-source="profile">
-                        <span><strong>连接配置</strong></span>
-                        <select data-setting="generationProfileId" data-role="generation-profile-select"></select>
-                    </label>
                     <label class="phonie-control-field">
                         <span><strong>回复上限</strong></span>
-                        <input type="number" min="80" max="1200" step="20" inputmode="numeric" data-setting="phoneResponseLength">
+                        <input type="number" min="256" max="65536" step="256" inputmode="numeric" data-setting="phoneResponseLength">
                     </label>
-                </section>
+                    </div>
                 <section class="phonie-custom-openai" data-generation-source="custom">
                     <div class="phonie-pane-heading"><span>OpenAI 兼容接口</span></div>
                     <div class="phonie-control-card">
@@ -56,8 +53,7 @@ export function systemSettingsScreensMarkup() {
                         </label>
                     </div>
                 </section>
-                <div class="phonie-pane-heading" data-generation-source="profile"><span>可用连接</span></div>
-                <div class="phonie-profile-list" data-role="generation-profile-list" data-generation-source="profile"></div>
+                </details>
                 <div class="phonie-pane-heading"><span>Phonie 语音引擎</span><small data-role="model-tts-provider">语音未配置</small></div>
                 <div class="phonie-profile-list phonie-provider-list" data-role="tts-provider-list"></div>
             </div>

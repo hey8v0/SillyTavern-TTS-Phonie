@@ -142,18 +142,19 @@
 
 .phonie-call-live-wave {
     display: grid;
-    width: min(190px, 64%);
-    height: 34px;
+    width: min(246px, 82%);
+    height: 46px;
     margin: 0 auto;
-    grid-template-columns: repeat(18, minmax(2px, 1fr));
+    grid-template-columns: repeat(30, 2px);
     align-items: center;
-    gap: 3px;
+    justify-content: center;
+    gap: 4px;
     color: var(--phonie-emphasis);
     opacity: 0.42;
 }
 
 .phonie-call-live-wave i {
-    width: 100%;
+    width: 2px;
     height: var(--bar-height, 50%);
     border-radius: 999px;
     background: currentColor;
@@ -425,6 +426,55 @@
     .phonie-call-dialpad { width: 232px; gap: 6px 17px; }
     .phonie-call-dialpad button { min-height: 46px; }
     .phonie-call-captions { max-height: 130px; }
+}
+
+/* Theme-specific call atmosphere: subtle enough to read as glass and light, not wallpaper. */
+#phonie-root[data-screen='call'] .phonie-call-screen::before {
+    position: absolute;
+    inset: -16%;
+    background:
+        radial-gradient(circle at 26% 28%, color-mix(in srgb, var(--phonie-emphasis) 16%, transparent), transparent 28%),
+        radial-gradient(circle at 76% 70%, color-mix(in srgb, var(--phonie-point) 12%, transparent), transparent 31%);
+    content: '';
+    z-index: 0;
+    opacity: 0.7;
+    pointer-events: none;
+    transform: translate3d(-1.5%, -1%, 0) scale(1.02);
+    animation: phonie-call-aurora 8s ease-in-out infinite alternate;
+}
+
+#phonie-root[data-theme='day'][data-screen='call'] .phonie-call-screen {
+    background:
+        radial-gradient(circle at 50% 28%, rgba(96, 177, 190, 0.16), transparent 31%),
+        radial-gradient(circle at 84% 84%, rgba(209, 128, 104, 0.11), transparent 34%),
+        linear-gradient(164deg, #f3eee5 0%, #e7ece9 52%, #e1e9ea 100%);
+}
+
+#phonie-root[data-theme='night'][data-screen='call'] .phonie-call-screen {
+    background:
+        radial-gradient(circle at 50% 28%, rgba(76, 164, 177, 0.17), transparent 31%),
+        radial-gradient(circle at 82% 88%, rgba(210, 159, 88, 0.09), transparent 34%),
+        linear-gradient(164deg, #141b27 0%, #0d1720 54%, #101b20 100%);
+}
+
+#phonie-root[data-theme='tavern'][data-screen='call'] .phonie-call-screen {
+    background:
+        radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--phonie-emphasis) 18%, transparent), transparent 31%),
+        radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--phonie-point) 12%, transparent), transparent 34%),
+        linear-gradient(164deg, color-mix(in srgb, var(--phonie-surface) 94%, var(--phonie-emphasis) 6%) 0%, var(--phonie-canvas) 56%, color-mix(in srgb, var(--phonie-canvas) 92%, var(--phonie-point) 8%) 100%);
+}
+
+#phonie-root[data-screen='call'] .phonie-call-screen .phonie-contact-mark::after {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--phonie-signal) 10%, transparent), 0 0 18px color-mix(in srgb, var(--phonie-signal) 38%, transparent);
+}
+
+@keyframes phonie-call-aurora {
+    0% { opacity: 0.48; transform: translate3d(-1.5%, -1%, 0) scale(1.02); }
+    100% { opacity: 0.78; transform: translate3d(1.5%, 1%, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #phonie-root[data-screen='call'] .phonie-call-screen::before { animation: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

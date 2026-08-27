@@ -11,6 +11,7 @@ export function createPhoneMetadata(value = {}) {
                 .filter((id) => id !== null && id !== undefined && id !== '')
                 .map((id) => String(id))
             : [],
+        updatedAt: Number(value.updatedAt) || 0,
     };
 }
 
@@ -66,7 +67,16 @@ export function recallPhoneMessage(message, recalledAt = Date.now()) {
     };
 }
 
-export function createCallRecord({ contactName, startedAt, endedAt, summary = '', direction = 'outgoing', outcome = 'completed' }) {
+export function createCallRecord({
+    contactName,
+    startedAt,
+    endedAt,
+    summary = '',
+    direction = 'outgoing',
+    outcome = 'completed',
+    messageIds = [],
+    participants = [],
+}) {
     return {
         id: createId('call'),
         contactName,
@@ -75,5 +85,13 @@ export function createCallRecord({ contactName, startedAt, endedAt, summary = ''
         summary: String(summary || '').trim(),
         direction,
         outcome,
+        messageIds: Array.isArray(messageIds) ? [...new Set(messageIds.map(String).filter(Boolean))] : [],
+        participants: Array.isArray(participants)
+            ? participants.map((entry) => ({
+                id: String(entry?.id || ''),
+                name: String(entry?.name || '').trim(),
+                avatarUrl: String(entry?.avatarUrl || ''),
+            })).filter((entry) => entry.name)
+            : [],
     };
 }

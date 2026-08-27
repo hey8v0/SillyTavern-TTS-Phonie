@@ -4,11 +4,10 @@ import assert from 'node:assert/strict';
 import {
     flattenPromptMessages,
     getCurrentGenerationTarget,
-    listConnectionProfiles,
     requestPhoneGeneration,
 } from '../src/integrations/generation-compat.js';
 
-const settings = { generationProfileId: '', phoneResponseLength: 420 };
+const settings = { generationMode: 'tavern', phoneResponseLength: 8192 };
 const prompt = [
     { role: 'system', content: 'Stay in character.' },
     { role: 'user', content: 'もしもし' },
@@ -29,7 +28,7 @@ test('older SillyTavern falls back to generateQuietPrompt without breaking start
     assert.equal(result, '{"originalText":"はい"}');
     assert.match(received.quietPrompt, /\[system\]/);
     assert.match(received.quietPrompt, /\[user\]/);
-    assert.equal(received.responseLength, 420);
+    assert.equal(received.responseLength, 8192);
 });
 
 test('newer SillyTavern uses generateRaw with real message roles', async () => {
@@ -43,24 +42,6 @@ test('newer SillyTavern uses generateRaw with real message roles', async () => {
     });
     assert.equal(result, 'raw');
     assert.deepEqual(received.prompt, prompt);
-});
-
-test('Connection Manager is loaded only when a profile is selected', async () => {
-    let call;
-    const result = await requestPhoneGeneration({
-        settings: { ...settings, generationProfileId: 'profile-a' },
-        prompt,
-        jsonSchema: { type: 'object' },
-        generateQuietPrompt: async () => 'fallback',
-        loadSharedModule: async () => ({
-            ConnectionManagerRequestService: {
-                constructPrompt(value, id) { assert.equal(id, 'profile-a'); return value; },
-                async sendRequest(...args) { call = args; return { content: { originalText: '接続済み' } }; },
-            },
-        }),
-    });
-    assert.equal(result.originalText, '接続済み');
-    assert.equal(call[0], 'profile-a');
 });
 
 test('custom mode routes through the OpenAI-compatible proxy adapter', async () => {
@@ -85,9 +66,7 @@ test('custom mode routes through the OpenAI-compatible proxy adapter', async () 
     assert.deepEqual(received.messages, prompt);
 });
 
-test('profile discovery reads settings data without importing optional modules', () => {
-    const context = { extensionSettings: { connectionManager: { profiles: [{ id: 'a', name: 'A', api: 'openai', model: 'm' }] } } };
-    assert.deepEqual(listConnectionProfiles(context), [{ id: 'a', name: 'A', api: 'openai', model: 'm' }]);
+test('tavern target and prompt flattening do not depend on optional connection managers', () => {
     assert.equal(getCurrentGenerationTarget({ mainApi: 'openai', onlineStatus: 'online' }).api, 'openai');
     assert.match(flattenPromptMessages(prompt), /Stay in character/);
 });

@@ -71,6 +71,17 @@ export class AudioCache {
         });
     }
 
+    async delete(key) {
+        this.#memory.delete(key);
+        const database = await this.#open();
+        if (!database) return;
+        await new Promise((resolve) => {
+            const request = database.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete(key);
+            request.onsuccess = () => resolve();
+            request.onerror = () => resolve();
+        });
+    }
+
     async clear() {
         this.#memory.clear();
         const database = await this.#open();

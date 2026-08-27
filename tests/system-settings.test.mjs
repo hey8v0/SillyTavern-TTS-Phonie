@@ -10,7 +10,9 @@ test('system app markup exposes real model and prompt controls', () => {
     assert.match(markup, new RegExp(`data-screen="${SCREENS.MODEL}"`));
     assert.match(markup, new RegExp(`data-screen="${SCREENS.PROMPTS}"`));
     assert.match(markup, /data-setting="generationMode"/);
-    assert.match(markup, /data-setting="generationProfileId"/);
+    assert.doesNotMatch(markup, /generationProfileId|连接管理器/);
+    assert.match(markup, /phonie-generation-panel/);
+    assert.match(markup, /max="65536"/);
     assert.match(markup, /data-setting="customOpenAIEndpoint"/);
     assert.match(markup, /data-setting="customOpenAIModel"/);
     assert.match(markup, /data-action="refresh-custom-models"/);
@@ -49,6 +51,32 @@ test('model app owns providers while voice app owns routed voices', async () => 
     assert.match(view, /data-action="quote-phone-message"/);
     assert.match(view, /data-action="recall-phone-message"/);
     assert.match(view, /data-role="audio-cache-size"/);
+    assert.match(view, /data-action="open-chat-preset"/);
+    assert.match(view, /data-action="open-chat-settings"/);
+    assert.match(view, /data-action="regenerate-phone-audio"/);
+    assert.match(view, /data-action="replay-call-record"/);
+    assert.match(view, /data-action="delete-call-record"/);
+});
+
+test('motion and call playback contracts remain wired to real state', async () => {
+    const [view, phoneCss, callCss, providerCenter, app] = await Promise.all([
+        readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/phone.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/call.css', import.meta.url), 'utf8'),
+        readFile(new URL('../src/tts/provider-center.js', import.meta.url), 'utf8'),
+        readFile(new URL('../src/app.js', import.meta.url), 'utf8'),
+    ]);
+    assert.match(view, /dataset\.awake = 'true'/);
+    assert.match(view, /style\.right = '-33px'/);
+    assert.match(phoneCss, /right:\s*-34px/);
+    assert.match(phoneCss, /data-awake="true"/);
+    assert.match(callCss, /grid-template-columns:\s*repeat\(30, 2px\)/);
+    assert.match(callCss, /data-theme='day'[\s\S]*data-theme='night'[\s\S]*data-theme='tavern'/);
+    assert.match(providerCenter, /minimax:\s*1350,\s*elevenlabs:\s*1150/);
+    assert.match(providerCenter, /status === 429/);
+    assert.match(app, /endCall\('completed'\)/);
+    assert.match(app, /force:\s*true/);
+    assert.match(app, /force \? currentRouteKey/);
 });
 
 test('prompt entry editor exposes all message roles and ordering controls', () => {

@@ -102,7 +102,11 @@ async function responseError(response, fallback) {
     const error = new Error(await readError(response, fallback));
     error.status = response?.status;
     const retryAfter = response?.headers?.get?.('retry-after');
-    if (retryAfter) error.retryAfterMs = Number(retryAfter) * 1000;
+    if (retryAfter) {
+        const seconds = Number(retryAfter);
+        const dateDelay = Date.parse(retryAfter) - Date.now();
+        error.retryAfterMs = Number.isFinite(seconds) ? seconds * 1000 : Math.max(0, dateDelay);
+    }
     return error;
 }
 
@@ -155,6 +159,9 @@ export class PhonieProviderCenter {
     #runtime = new Map();
     #listeners = new Set();
     #controller = null;
+    #queue = Promise.resolve();
+    #cancelEpoch = 0;
+    #lastSynthesisAt = new Map();
 
     constructor({ bridge }) {
         this.#bridge = bridge;
@@ -365,12 +372,22 @@ export class PhonieProviderCenter {
     }
 
     cancel() {
+        this.#cancelEpoch += 1;
         this.#controller?.abort();
         this.#controller = null;
     }
 
     async synthesize(request = {}) {
-        this.cancel();
+        const epoch = this.#cancelEpoch;
+        const task = this.#queue.catch(() => undefined).then(async () => {
+            if (epoch !== this.#cancelEpoch) throw new DOMException('语音生成已取消', 'AbortError');
+            return this.#runSynthesis(request, epoch);
+        });
+        this.#queue = task.catch(() => undefined);
+        return task;
+    }
+
+    async #runSynthesis(request, epoch) {
         this.#controller = new AbortController();
         const route = this.resolveRoute(request.speaker);
         const candidates = [request.providerId || route.providerId, route.fallbackProviderId]
@@ -378,6 +395,7 @@ export class PhonieProviderCenter {
         const failures = [];
         for (const providerId of candidates) {
             try {
+                if (request.rateLimited) await this.#waitForProviderSlot(providerId, request.signal || this.#controller.signal, epoch);
                 return await this.#synthesizeWith(providerId, {
                     ...request,
                     signal: request.signal || this.#controller.signal,
@@ -391,6 +409,15 @@ export class PhonieProviderCenter {
         throw new AggregateError(failures, failures.at(-1)?.message || 'Phonie 语音生成失败');
     }
 
+    async #waitForProviderSlot(providerId, signal, epoch) {
+        const minimumIntervals = { minimax: 1350, elevenlabs: 1150 };
+        const interval = minimumIntervals[providerId] || 260;
+        const wait = Math.max(0, (this.#lastSynthesisAt.get(providerId) || 0) + interval - Date.now());
+        if (wait) await abortableDelay(wait, signal);
+        if (epoch !== this.#cancelEpoch) throw new DOMException('语音生成已取消', 'AbortError');
+        this.#lastSynthesisAt.set(providerId, Date.now());
+    }
+
     async #synthesizeWith(providerId, request) {
         const provider = getProviderDefinition(providerId);
         if (!provider) throw new Error(`未知语音引擎：${providerId}`);
@@ -399,7 +426,7 @@ export class PhonieProviderCenter {
         if (!text) throw new Error('合成文本不能为空');
         this.#setRuntime(providerId, { status: 'generating', message: '正在生成语音' });
         try {
-            const maxAttempts = providerId === 'minimax' ? 4 : 1;
+            const maxAttempts = ['minimax', 'elevenlabs'].includes(providerId) ? 4 : 1;
             let blob;
             for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
                 try {

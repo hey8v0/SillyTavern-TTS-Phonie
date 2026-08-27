@@ -95,7 +95,7 @@ export class InlinePlayerManager {
             ));
         if (unchanged) return;
         this.#dropMessageEntries(id, { restore: false });
-        textElement.querySelectorAll('.phonie-inline-button--body, .phonie-inline-actions').forEach((element) => element.remove());
+        textElement.querySelectorAll('.phonie-inline-button--body, .phonie-inline-button--regenerate, .phonie-inline-actions').forEach((element) => element.remove());
         if (!segments.length) return;
 
         const buttons = this.#replaceTags(textElement, segments);
@@ -130,8 +130,12 @@ export class InlinePlayerManager {
                 cacheKey,
                 chatId,
             };
+            const regenerate = this.#createRegenerateButton(segment);
+            buttons[index]?.after(regenerate);
+            entry.regenerateElement = regenerate;
             this.#entries.set(entryKey, entry);
             buttons[index]?.addEventListener('click', () => this.#play(entry));
+            regenerate.addEventListener('click', () => this.#regenerate(entry));
             const cached = await this.#cache.get(cacheKey);
             if (cached instanceof Blob) this.#audioFocus.setSource(audioKey, cached);
         }
@@ -228,6 +232,16 @@ export class InlinePlayerManager {
         return button;
     }
 
+    #createRegenerateButton(segment) {
+        const button = document.createElement('button');
+        button.className = 'phonie-inline-button phonie-inline-button--regenerate';
+        button.type = 'button';
+        button.setAttribute('aria-label', `重新生成${segment.speaker || '角色'}这句原声`);
+        button.title = '用当前声线路由重新生成';
+        button.innerHTML = icon('reset');
+        return button;
+    }
+
     #setButtonState(entry, state) {
         const button = entry?.element;
         if (!(button instanceof HTMLElement)) return;
@@ -273,6 +287,13 @@ export class InlinePlayerManager {
         }
     }
 
+    async #regenerate(entry) {
+        this.#audioFocus.stop();
+        this.#audioFocus.deleteSource(entry.audioKey);
+        await this.#cache.delete(entry.cacheKey);
+        await this.#play(entry);
+    }
+
     #handleFocus(detail) {
         for (const entry of this.#entries.values()) {
             const matched = detail.current?.owner === 'inline' && detail.current?.entryKey === entry.key;
@@ -288,6 +309,7 @@ export class InlinePlayerManager {
         for (const [key, entry] of this.#entries) {
             if (entry.messageId !== Number(messageId)) continue;
             if (restore && entry.element?.isConnected) entry.element.replaceWith(document.createTextNode(entry.segment.rawTag));
+            entry.regenerateElement?.remove();
             this.#audioFocus.deleteSource(entry.audioKey);
             this.#entries.delete(key);
         }

@@ -76,10 +76,10 @@
 }
 
 .phonie-wallpaper[data-has-image="true"] {
-    background-position: center bottom;
+    background-position: center 24%;
     background-repeat: no-repeat;
-    background-size: auto 92%;
-    filter: saturate(0.84) contrast(0.97);
+    background-size: cover;
+    filter: saturate(0.86) contrast(0.98);
 }
 
 .phonie-wallpaper-veil {
@@ -951,8 +951,14 @@ button.phonie-record-card__play {
 }
 
 #phonie-root[data-screen="home"] .phonie-wallpaper[data-has-image="true"] {
-    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 57%, rgba(0, 0, 0, 0.94) 70%, rgba(0, 0, 0, 0.68) 87%, rgba(0, 0, 0, 0.18) 100%);
-    mask-image: linear-gradient(180deg, #000 0%, #000 57%, rgba(0, 0, 0, 0.94) 70%, rgba(0, 0, 0, 0.68) 87%, rgba(0, 0, 0, 0.18) 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 54%, rgba(0, 0, 0, 0.92) 68%, rgba(0, 0, 0, 0.58) 86%, rgba(0, 0, 0, 0.24) 100%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 54%, rgba(0, 0, 0, 0.92) 68%, rgba(0, 0, 0, 0.58) 86%, rgba(0, 0, 0, 0.24) 100%);
+}
+
+#phonie-root[data-screen="home"] .phonie-wallpaper-veil {
+    background:
+        linear-gradient(0deg, color-mix(in srgb, var(--phonie-surface) 76%, transparent), color-mix(in srgb, var(--phonie-surface) 34%, transparent) 36%, transparent 68%),
+        linear-gradient(135deg, color-mix(in srgb, var(--phonie-emphasis) 10%, transparent), color-mix(in srgb, var(--phonie-point) 8%, transparent));
 }
 
 .phonie-rain-curtain {
