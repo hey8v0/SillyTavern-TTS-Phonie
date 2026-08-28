@@ -20,6 +20,8 @@ test('system app markup exposes real model and prompt controls', () => {
     assert.doesNotMatch(markup, /data-setting="customOpenAIKey"/);
     assert.match(markup, /data-prompt-preset-field="insertionDepth"/);
     assert.match(markup, /data-setting="promptWorkflowKind"/);
+    assert.match(markup, /value="call_single"/);
+    assert.match(markup, /value="call_group"/);
     assert.match(markup, /data-setting="bodyPromptEnabled"/);
     assert.match(markup, /data-role="prompt-preset-library"/);
     assert.match(markup, /data-action="save-prompt-preset"/);
@@ -98,13 +100,34 @@ test('prompt entry editor exposes all message roles and ordering controls', () =
 });
 
 test('mobile handset CSS preserves a physical frame and fades character wallpaper', async () => {
-    const css = await readFile(new URL('../styles/home.css', import.meta.url), 'utf8');
+    const [css, atmosphereCss] = await Promise.all([
+        readFile(new URL('../styles/home.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/atmosphere.css', import.meta.url), 'utf8'),
+    ]);
     assert.match(css, /pointer:\s*coarse[\s\S]*max-width:\s*1000px/);
     assert.match(css, /width:\s*auto/);
     assert.match(css, /\.phonie-phone\s*\{[\s\S]*padding:\s*5px/);
     assert.match(css, /\.phonie-frame\s*\{[\s\S]*border:\s*1px\s+solid/);
     assert.match(css, /mask-image:\s*linear-gradient/);
-    assert.match(css, /prefers-reduced-motion[\s\S]*\.phonie-rain-curtain/);
+    assert.match(atmosphereCss, /prefers-reduced-motion[\s\S]*\.phonie-motion-canvas/);
+});
+
+test('group selection and call layouts expose the clarified interaction contract', async () => {
+    const [home, view, app, atmosphereCss] = await Promise.all([
+        readFile(new URL('../src/ui/phone-home.js', import.meta.url), 'utf8'),
+        readFile(new URL('../src/ui/phone-view.js', import.meta.url), 'utf8'),
+        readFile(new URL('../src/app.js', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/atmosphere.css', import.meta.url), 'utf8'),
+    ]);
+    assert.match(home, /data-role="group-selection-summary"/);
+    assert.match(home, /data-action="clear-group-selection"/);
+    assert.match(view, /加入/);
+    assert.match(view, /已选/);
+    assert.match(app, /clearGroupSelection\(\)/);
+    assert.match(app, /chatParticipants:\s*selected/);
+    assert.match(atmosphereCss, /\.phonie-call-idle-action\s*\{[\s\S]*?position:\s*absolute[\s\S]*?top:\s*48px/);
+    assert.match(atmosphereCss, /\.phonie-contact-mark\s*\{[\s\S]*?background-size:\s*contain/);
+    assert.match(atmosphereCss, /\.phonie-call-captions\s*\{[\s\S]*?background:/);
 });
 
 test('every phone theme owns emphasis, point and multi-stop wallpaper colors', async () => {

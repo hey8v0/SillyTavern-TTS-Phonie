@@ -2,6 +2,7 @@ import { CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from '../core/constants.j
 import {
     DEFAULT_CALL_PROMPT_PRESET,
     DEFAULT_CHAT_PROMPT_PRESET,
+    DEFAULT_GROUP_CALL_PROMPT_PRESET,
     addPhonePromptEntry,
     movePhonePromptEntry,
     normalizePhonePromptPreset,
@@ -12,6 +13,7 @@ import { DEFAULT_BODY_PROMPT_PRESET } from '../dialogue/body-speech.js';
 import { clamp, escapeHtml, formatClock, icon, initials } from './dom.js';
 import { AudioActionMenu } from './audio-action-menu.js';
 import { auxiliaryScreensMarkup, dockMarkup, homeScreenMarkup } from './phone-home.js';
+import { createPhoneMotionRuntime } from './phone-motion-runtime.js';
 import { getOrbDockTargetFromRect, getOrbTop, isOrbTap, shouldStartOrbDrag, updateOrbDrag } from './orb-gesture.js';
 import { promptEntryMarkup, systemSettingsScreensMarkup } from './system-settings.js';
 
@@ -243,6 +245,7 @@ export class PhoneView {
     #messageSignature = '';
     #quotedMessageId = null;
     #chatToolMode = null;
+    #motionRuntime = null;
     #audioMenu = new AudioActionMenu();
 
     constructor({ store, actions }) {
@@ -265,9 +268,6 @@ export class PhoneView {
                 <div class="phonie-frame">
                     <div class="phonie-wallpaper" data-role="wallpaper" aria-hidden="true"><img class="phonie-wallpaper__image" data-role="wallpaper-image" alt="" hidden></div>
                     <div class="phonie-wallpaper-veil" aria-hidden="true"></div>
-                    <div class="phonie-rain-curtain" aria-hidden="true">
-                        <i style="--rain-index:0;--rain-x:5%;--rain-delay:-0.1s"></i><i style="--rain-index:1;--rain-x:14%;--rain-delay:-1.7s"></i><i style="--rain-index:2;--rain-x:23%;--rain-delay:-3.1s"></i><i style="--rain-index:3;--rain-x:32%;--rain-delay:-0.9s"></i><i style="--rain-index:4;--rain-x:41%;--rain-delay:-4.2s"></i><i style="--rain-index:5;--rain-x:50%;--rain-delay:-2.4s"></i><i style="--rain-index:6;--rain-x:59%;--rain-delay:-0.5s"></i><i style="--rain-index:7;--rain-x:68%;--rain-delay:-3.6s"></i><i style="--rain-index:8;--rain-x:77%;--rain-delay:-1.2s"></i><i style="--rain-index:9;--rain-x:86%;--rain-delay:-4.6s"></i><i style="--rain-index:10;--rain-x:93%;--rain-delay:-2.8s"></i><i style="--rain-index:11;--rain-x:97%;--rain-delay:-0.3s"></i>
-                    </div>
                     <span class="phonie-voice-seam" aria-hidden="true"></span>
                     <header class="phonie-status">
                         <time class="phonie-status__time" data-role="clock"></time>
@@ -409,6 +409,7 @@ export class PhoneView {
         document.body.append(root, orb);
         this.#root = root;
         this.#orb = orb;
+        this.#motionRuntime = createPhoneMotionRuntime({ root, screen: root.querySelector('.phonie-screen-stack') });
         this.#bindEvents();
         const homePages = this.#root.querySelector('[data-role="home-pages"]');
         if (homePages) {
@@ -665,6 +666,8 @@ export class PhoneView {
                 this.#actions.openContactChat?.(target.dataset.characterId);
             } else if (action === 'toggle-chat-contact') {
                 this.#actions.toggleChatContact?.(target.dataset.characterId);
+            } else if (action === 'clear-group-selection') {
+                this.#actions.clearGroupSelection?.();
             } else if (action === 'open-group-chat') {
                 this.#actions.openGroupChat?.();
             } else if (action === 'call-digit') {
@@ -833,7 +836,9 @@ export class PhoneView {
                 const kind = this.#store.getState().settings.promptWorkflowKind || 'body';
                 const defaults = kind === 'body'
                     ? DEFAULT_BODY_PROMPT_PRESET
-                    : kind === 'call' ? DEFAULT_CALL_PROMPT_PRESET : DEFAULT_CHAT_PROMPT_PRESET;
+                    : kind === 'call' || kind === 'call_single'
+                        ? DEFAULT_CALL_PROMPT_PRESET
+                        : kind === 'call_group' ? DEFAULT_GROUP_CALL_PROMPT_PRESET : DEFAULT_CHAT_PROMPT_PRESET;
                 this.#actions.updatePromptPreset?.(kind, normalizePhonePromptPreset(defaults));
             } else if (action === 'add-prompt-entry') {
                 const { kind, preset } = this.#currentPromptPreset();
@@ -926,7 +931,7 @@ export class PhoneView {
                 return;
             }
             if (target.dataset.role === 'prompt-preset-library') {
-                const kind = ['body', 'chat', 'call'].includes(this.#store.getState().settings.promptWorkflowKind)
+                const kind = ['body', 'chat', 'call_single', 'call_group'].includes(this.#store.getState().settings.promptWorkflowKind)
                     ? this.#store.getState().settings.promptWorkflowKind : 'body';
                 this.#actions.applyPromptPreset?.(kind, String(value || ''));
                 return;
@@ -1115,12 +1120,14 @@ export class PhoneView {
 
     #currentPromptPreset() {
         const settings = this.#store.getState().settings;
-        const kind = ['body', 'chat', 'call'].includes(settings.promptWorkflowKind) ? settings.promptWorkflowKind : 'body';
+        const kind = ['body', 'chat', 'call_single', 'call_group'].includes(settings.promptWorkflowKind) ? settings.promptWorkflowKind : 'body';
         return {
             kind,
             preset: normalizePhonePromptPreset(kind === 'body'
                 ? settings.bodyPromptPreset
-                : kind === 'call' ? settings.callPromptPreset : settings.chatPromptPreset),
+                : kind === 'call_single'
+                    ? settings.callPromptPreset
+                    : kind === 'call_group' ? settings.groupCallPromptPreset : settings.chatPromptPreset),
         };
     }
 
@@ -1235,7 +1242,7 @@ export class PhoneView {
             const active = selected.has(picker.value);
             button.dataset.selected = String(active);
             button.disabled = active || !picker.value;
-            button.querySelector('span').textContent = active ? '已在通话' : '加入通话';
+            button.innerHTML = `${icon(active ? 'check' : 'plus')}<span>${active ? '已在通话' : '加入通话'}</span>`;
         }
         const selection = this.#root.querySelector('[data-role="call-selection"]');
         if (selection) selection.innerHTML = selectedOptions.map((option) => `
@@ -1263,6 +1270,17 @@ export class PhoneView {
         this.#root.hidden = !state.open;
         this.#root.style.display = state.open ? 'block' : 'none';
         this.#root.inert = !state.open;
+        this.#motionRuntime?.sync({
+            open: Boolean(state.open),
+            route: state.screen,
+            activity: ACTIVE_CALL_STATES.has(state.callState)
+                ? 'call'
+                : state.generating
+                    ? 'generating'
+                    : ['speaking', 'playing'].includes(state.audioState)
+                        ? 'playing'
+                        : 'idle',
+        });
         if (this.#orb) {
             this.#orb.dataset.theme = state.settings.theme;
             this.#orb.dataset.dock = state.settings.dockSide;
@@ -1699,14 +1717,15 @@ export class PhoneView {
         const providers = state.providerSnapshot?.providers || [];
         const providerId = this.#characterProviderDraft || route.providerId || state.settings.ttsActiveProvider || providers[0]?.id || '';
         const provider = providers.find((entry) => entry.id === providerId) || providers[0];
+        const selectedChatIds = (state.chatParticipants || []).map((entry) => entry.id).sort();
 
         this.#setText('[data-role="character-directory-count"]', `${characters.length} 位联系人`);
         const directory = this.#root.querySelector('[data-role="character-directory"]');
         if (directory) {
-            const signature = JSON.stringify(characters.map((character) => [
+            const signature = JSON.stringify([characters.map((character) => [
                 character.id, character.name, character.avatarUrl, character.current, character.spoken,
                 character.route?.providerId, character.route?.voiceId,
-            ]));
+            ]), selectedChatIds]);
             if (directory.dataset.signature !== signature || directory.dataset.selected !== selected.id) {
                 directory.dataset.signature = signature;
                 directory.dataset.selected = selected.id;
@@ -1722,8 +1741,8 @@ export class PhoneView {
                                 <span><strong>${escapeHtml(character.name)}</strong><small>${escapeHtml(sourceLabel)}${configured ? ' · 已设专属声线' : ''}</small></span>
                             </button>
                             <span class="phonie-character-route__actions">
-                                <button type="button" data-action="toggle-chat-contact" data-character-id="${escapeHtml(character.id)}" aria-pressed="${chatSelected}" aria-label="选择 ${escapeHtml(character.name)} 加入群聊">${chatSelected ? icon('check') : icon('plus')}</button>
-                                <button type="button" data-action="open-contact-chat" data-character-id="${escapeHtml(character.id)}" aria-label="与 ${escapeHtml(character.name)} 私信">${icon('message')}</button>
+                                <button class="phonie-character-route__group" type="button" data-action="toggle-chat-contact" data-character-id="${escapeHtml(character.id)}" aria-pressed="${chatSelected}" aria-label="${chatSelected ? '从群聊移除' : '加入群聊'} ${escapeHtml(character.name)}">${chatSelected ? icon('check') : icon('plus')}<span>${chatSelected ? '已选' : '加入'}</span></button>
+                                <button class="phonie-character-route__chat" type="button" data-action="open-contact-chat" data-character-id="${escapeHtml(character.id)}" aria-label="与 ${escapeHtml(character.name)} 私信">${icon('message')}</button>
                             </span>
                         </article>`;
                 }).join('');
@@ -1733,6 +1752,14 @@ export class PhoneView {
                 item.hidden = Boolean(query) && !String(item.dataset.characterSearch || '').includes(query);
             }
         }
+
+        const groupCount = selectedChatIds.length;
+        this.#setText('[data-role="group-selection-summary"]', groupCount ? `已选 ${groupCount} 位` : '尚未选择');
+        this.#setText('[data-role="group-launch-label"]', groupCount >= 2 ? `进入 ${groupCount} 人群聊` : `还需选择 ${2 - groupCount} 位`);
+        const groupLaunch = this.#root.querySelector('[data-action="open-group-chat"]');
+        if (groupLaunch instanceof HTMLButtonElement) groupLaunch.disabled = groupCount < 2;
+        const clearGroup = this.#root.querySelector('[data-action="clear-group-selection"]');
+        if (clearGroup instanceof HTMLButtonElement) clearGroup.hidden = groupCount === 0;
 
         this.#setText('[data-role="character-initials"]', initials(selected.name));
         this.#setText('[data-role="character-name"]', selected.name);
@@ -1807,10 +1834,12 @@ export class PhoneView {
     }
 
     #renderPromptPreset(state) {
-        const kind = ['body', 'chat', 'call'].includes(state.settings.promptWorkflowKind) ? state.settings.promptWorkflowKind : 'body';
+        const kind = ['body', 'chat', 'call_single', 'call_group'].includes(state.settings.promptWorkflowKind) ? state.settings.promptWorkflowKind : 'body';
         const preset = normalizePhonePromptPreset(kind === 'body'
             ? state.settings.bodyPromptPreset
-            : kind === 'call' ? state.settings.callPromptPreset : state.settings.chatPromptPreset);
+            : kind === 'call_single'
+                ? state.settings.callPromptPreset
+                : kind === 'call_group' ? state.settings.groupCallPromptPreset : state.settings.chatPromptPreset);
         const name = this.#root.querySelector('[data-prompt-preset-field="name"]');
         const depth = this.#root.querySelector('[data-prompt-preset-field="insertionDepth"]');
         if (name instanceof HTMLInputElement) name.value = preset.name;
@@ -1825,8 +1854,10 @@ export class PhoneView {
         if (list) list.innerHTML = preset.entries.map((entry, index) => promptEntryMarkup(entry, index, preset.entries.length)).join('');
         this.#setText('[data-role="prompt-intro"]', kind === 'body'
             ? '正文生成前按顺序注入；译文保留在正文，TTSVoice 标签只作为角色、情绪和原语言的内部控制。'
-            : kind === 'call'
-                ? '电话编排专用工作流；不会与私信预设互相覆盖。'
+            : kind === 'call_single'
+                ? '单人电话编排；只使用单人电话预设，不会覆盖多人电话。'
+                : kind === 'call_group'
+                    ? '多人电话编排；按参与角色自然交替，不会套用单人电话预设。'
                 : '私信聊天专用工作流；不会与电话编排预设互相覆盖。');
         const master = this.#root.querySelector('[data-role="body-prompt-master"]');
         if (master) master.hidden = kind !== 'body';
@@ -1956,6 +1987,7 @@ export class PhoneView {
         this.#unsubscribe?.();
         this.#removeOrbWindowListeners();
         this.#audioMenu.dispose();
+        this.#motionRuntime?.destroy();
         if (this.#resizeHandler) window.removeEventListener('resize', this.#resizeHandler);
         this.#launcher?.remove();
         this.#wandLauncher?.remove();
@@ -1963,5 +1995,6 @@ export class PhoneView {
         this.#root?.remove();
         this.#orb = null;
         this.#root = null;
+        this.#motionRuntime = null;
     }
 }

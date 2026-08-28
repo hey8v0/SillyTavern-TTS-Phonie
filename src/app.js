@@ -5,6 +5,7 @@ import { DEFAULT_BODY_PROMPT_PRESET } from './dialogue/body-speech.js';
 import {
     DEFAULT_CALL_PROMPT_PRESET,
     DEFAULT_CHAT_PROMPT_PRESET,
+    DEFAULT_GROUP_CALL_PROMPT_PRESET,
     importPromptPresetLibrary,
     removePromptPreset,
     savePromptPreset as savePromptPresetToLibrary,
@@ -42,13 +43,15 @@ function buildCallTitle(value, fallback = '一通电话') {
 
 function promptSettingKey(kind) {
     if (kind === 'body') return 'bodyPromptPreset';
-    if (kind === 'call') return 'callPromptPreset';
+    if (kind === 'call' || kind === 'call_single') return 'callPromptPreset';
+    if (kind === 'call_group') return 'groupCallPromptPreset';
     return 'chatPromptPreset';
 }
 
 function defaultPromptForKind(kind) {
     if (kind === 'body') return DEFAULT_BODY_PROMPT_PRESET;
-    if (kind === 'call') return DEFAULT_CALL_PROMPT_PRESET;
+    if (kind === 'call' || kind === 'call_single') return DEFAULT_CALL_PROMPT_PRESET;
+    if (kind === 'call_group') return DEFAULT_GROUP_CALL_PROMPT_PRESET;
     return DEFAULT_CHAT_PROMPT_PRESET;
 }
 
@@ -857,7 +860,10 @@ export async function createPhonieApp() {
             const selected = current.some((entry) => entry.id === characterId)
                 ? current.filter((entry) => entry.id !== characterId)
                 : [...current.filter((entry) => state.characters.some((candidate) => candidate.id === entry.id)), character];
-            updateState({ chatParticipants: selected.length ? selected : [character] });
+            updateState({ chatParticipants: selected });
+        },
+        clearGroupSelection() {
+            updateState({ chatParticipants: [] });
         },
         openGroupChat() {
             const state = store.getState();
@@ -1069,9 +1075,10 @@ export async function createPhonieApp() {
                 const imported = importPromptPresetLibrary(payload, {
                     body: settings.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET,
                     chat: settings.chatPromptPreset || DEFAULT_CHAT_PROMPT_PRESET,
-                    call: settings.callPromptPreset || DEFAULT_CALL_PROMPT_PRESET,
+                    call_single: settings.callPromptPreset || DEFAULT_CALL_PROMPT_PRESET,
+                    call_group: settings.groupCallPromptPreset || DEFAULT_GROUP_CALL_PROMPT_PRESET,
                 });
-                const library = Object.fromEntries(['body', 'chat', 'call'].map((kind) => {
+                const library = Object.fromEntries(['body', 'chat', 'call_single', 'call_group'].map((kind) => {
                     const merged = [...(settings.promptPresetLibraries?.[kind] || []), ...(imported[kind] || [])];
                     return [kind, [...new Map(merged.map((preset) => [preset.id, preset])).values()]];
                 }));

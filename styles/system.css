@@ -917,6 +917,47 @@
     scrollbar-width: thin;
 }
 
+.phonie-group-selection {
+    display: flex;
+    min-height: 42px;
+    padding: 7px 10px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-block: 1px solid var(--phonie-hairline);
+}
+
+.phonie-group-selection > span {
+    display: grid;
+    gap: 2px;
+}
+
+.phonie-group-selection small {
+    color: var(--phonie-ink-muted);
+    font-size: 8px;
+}
+
+.phonie-group-selection strong {
+    color: var(--phonie-ink);
+    font-size: 10px;
+}
+
+.phonie-group-selection button {
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 10px;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    border-radius: 11px;
+    color: var(--phonie-ink-muted);
+    background: var(--phonie-surface-muted);
+    font: inherit;
+    font-size: 9px;
+}
+
+.phonie-group-selection button .phonie-icon { width: 13px; height: 13px; }
+
 .phonie-contact-group-launch {
     display: inline-flex;
     width: 100%;
@@ -934,6 +975,14 @@
 }
 
 .phonie-contact-group-launch .phonie-icon { width: 16px; height: 16px; }
+
+.phonie-contact-group-launch:disabled {
+    cursor: default;
+    opacity: .54;
+    color: var(--phonie-ink-muted);
+    border-color: var(--phonie-border);
+    background: var(--phonie-surface-muted);
+}
 
 .phonie-character-route {
     display: grid;
@@ -985,9 +1034,32 @@
     place-items: center;
 }
 
+.phonie-character-route__actions .phonie-character-route__group {
+    width: auto;
+    min-width: 56px;
+    padding: 0 8px;
+    grid-template-columns: 14px auto;
+    gap: 4px;
+    border-radius: 11px;
+    color: var(--phonie-signal);
+}
+
+.phonie-character-route__group span {
+    font-size: 8px;
+    font-weight: 760;
+}
+
+.phonie-character-route__actions .phonie-character-route__chat {
+    border-radius: 50%;
+}
+
 .phonie-character-route__actions button[aria-pressed='true'] {
     border-color: color-mix(in srgb, var(--phonie-signal) 42%, var(--phonie-border));
     color: var(--phonie-signal);
+}
+
+.phonie-character-route__actions .phonie-character-route__group[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--phonie-signal) 12%, var(--phonie-surface-muted));
 }
 
 .phonie-character-route__actions .phonie-icon { width: 14px; height: 14px; }

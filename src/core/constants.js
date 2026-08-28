@@ -1,6 +1,6 @@
 export const MODULE_ID = 'phonie';
-export const APP_VERSION = '0.13.0';
-export const SCHEMA_VERSION = 10;
+export const APP_VERSION = '0.15.0';
+export const SCHEMA_VERSION = 11;
 export const EXTENSION_BASE = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 export const THEMES = Object.freeze({
@@ -53,9 +53,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
     autoDecorateMessages: true,
     bodyPromptEnabled: true,
     promptWorkflowKind: 'body',
-    promptPresetLibraries: { body: [], chat: [], call: [] },
+    promptPresetLibraries: { body: [], chat: [], call_single: [], call_group: [] },
     chatPromptPreset: null,
     callPromptPreset: null,
+    groupCallPromptPreset: null,
     autoTranslate: true,
     autoPlayPhoneReplies: true,
     injectContinuity: true,

@@ -34,29 +34,12 @@ function appMarkup(app) {
         </button>`;
 }
 
-const HOME_RAIN_LINES = Object.freeze([
-    ['8%', '-1.7s', '44%'],
-    ['19%', '-4.2s', '57%'],
-    ['31%', '-.8s', '39%'],
-    ['44%', '-5.1s', '63%'],
-    ['57%', '-2.6s', '49%'],
-    ['69%', '-6.3s', '58%'],
-    ['82%', '-3.4s', '42%'],
-    ['93%', '-.2s', '54%'],
-]);
-
-function homeRainMarkup() {
-    return HOME_RAIN_LINES.map(([x, delay, length], index) => (
-        `<i style="--rain-x:${x};--rain-delay:${delay};--rain-length:${length};--rain-index:${index}"></i>`
-    )).join('');
-}
-
 export function homeScreenMarkup() {
     const primaryApps = HOME_APPS.slice(0, 8);
     const secondaryApps = HOME_APPS.slice(8);
     return `
         <section class="phonie-screen phonie-home-screen" data-screen="${SCREENS.HOME}" aria-label="手机桌面">
-            <div class="phonie-home-rain" aria-hidden="true">${homeRainMarkup()}</div>
+            <canvas class="phonie-motion-canvas" data-phonie-motion-canvas aria-hidden="true"></canvas>
             <div class="phonie-home-content">
                 <section class="phonie-time-widget" aria-label="当前聊天概览">
                     <div class="phonie-time-widget__clock">
@@ -122,7 +105,11 @@ export function auxiliaryScreensMarkup() {
                     <input type="search" data-role="character-search" placeholder="搜索有声联系人" autocomplete="off">
                 </label>
                 <div class="phonie-character-add"><input type="text" maxlength="80" data-role="manual-character-name" placeholder="手动添加说话人"><button type="button" data-action="add-manual-character">${icon('plus')}<span>添加</span></button></div>
-                <button class="phonie-contact-group-launch" type="button" data-action="open-group-chat">${icon('message')}<span>打开所选群聊</span></button>
+                <section class="phonie-group-selection" aria-live="polite">
+                    <span><small>群聊成员</small><strong data-role="group-selection-summary">尚未选择</strong></span>
+                    <button type="button" data-action="clear-group-selection" hidden>${icon('close')}<span>清空</span></button>
+                </section>
+                <button class="phonie-contact-group-launch" type="button" data-action="open-group-chat" disabled>${icon('message')}<span data-role="group-launch-label">至少选择 2 位联系人</span></button>
                 <div class="phonie-character-directory" data-role="character-directory"></div>
                 <section class="phonie-character-card">
                     <span class="phonie-character-card__portrait" data-role="character-portrait"><b data-role="character-initials">P</b></span>

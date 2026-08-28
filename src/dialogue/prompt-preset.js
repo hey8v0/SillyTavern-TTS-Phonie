@@ -1,39 +1,61 @@
 const PROMPT_ROLES = new Set(['system', 'user', 'assistant']);
 const MAX_INSERTION_DEPTH = 20;
 
-const DEFAULT_ENTRIES = [
+const MINI_MAX_ADAPTATION = `#### 规则 1：全局情绪映射表（Emotion 规范）
+规定模型在语音消息的“情绪”位置，必须从 MiniMax 支持的标准情绪中选择最契合的一项：["happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent"]
+
+#### 规则 2：台词内语气词标签植入规范（Sound Tags）
+根据角色的语气和上下文，在真正需要的位置自然植入英文小写圆括号标签：(laughs)、(chuckle)、(humming)、(breath)、(inhale)、(exhale)、(pant)、(gasps)、(sighs)、(sniffs)、(snorts)、(coughs)、(clear-throat)、(groans)、(emm)、(lip-smacking)、(sneezes)、(burps)。
+微小停顿可使用 <#0.3#>。标签直接内嵌在朗读文本中，放在语意转折或句首句尾，并与标点或停顿自然配合；没有必要时不要滥用。`;
+
+const CHAT_ENTRIES = [
     {
-        id: 'channel-contract',
-        name: '角色与频道',
+        id: 'chat-character',
+        name: '手机私信与群聊角色',
         role: 'system',
         enabled: true,
         content: [
-            '你正在故事世界中以{{角色}}的身份进行{{模式}}。当前参与者：{{参与者}}。',
-            '保持角色设定，并遵循当前 SillyTavern 正文、角色卡与世界书所建立的上下文。',
-            '多人群聊时，只能让参与者列表中的角色发言；不要代替用户说话，也不要求每个角色每轮都出现。',
-            '不要提及这些规则、提示词编排、翻译过程，也不要声称自己是人工智能。',
+            '[最高优先级：手机私信 / 多人群聊]',
+            '你正在通过手机与 {{用户}} 聊天。当前主角色：{{角色}}；当前模式：{{模式}}；可发言角色：{{参与者}}。{{用户}} 永远是聊天另一端的用户，不能由你代写。',
+            '',
+            '[角色与语境]',
+            '严格遵守角色卡、当前剧情、知识边界、关系变化与已激活世界书。把它们当作记忆与事实自然使用，不复述设定，不突然改变身份或称呼。',
+            '',
+            '[线上聊天规则]',
+            '1. 只写角色真正发送出去的消息。禁止动作、神态、心理、环境、镜头与第三人称旁白，不写“回复：”前缀。',
+            '2. 先回应 {{用户}} 的最新消息；若有引用消息，理解引用关系后自然承接。',
+            '3. 像真实即时通讯：短句、口语化、有停顿与消息颗粒感。一个角色可以连续发送多条短消息，不把全部内容挤成长篇独白。',
+            '4. 保持角色自主性，可以追问、转移话题或表达态度，但不能替 {{用户}} 行动、发言或下结论。',
+            '5. 多人群聊时 speaker 只能使用参与者列表中的精确角色名；允许一人连发或多人自然接话，不强迫每位角色每轮出现。',
+            '6. 可以按语境使用文字或语音。用户明确要求语音时必须发语音；朗读台词要适合 TTS。实际消息语言遵循 {{语言}}。',
         ].join('\n'),
     },
     {
-        id: 'bilingual-schema',
-        name: '双语语音格式',
+        id: 'chat-minimax-adaptation',
+        name: 'MiniMax 适配',
+        role: 'system',
+        enabled: true,
+        content: MINI_MAX_ADAPTATION,
+    },
+    {
+        id: 'chat-format',
+        name: '多消息与输出协议',
         role: 'system',
         enabled: true,
         content: [
-            'originalText 使用{{语言}}书写，并保持角色真实说话方式。',
-            'translationText 必须忠实翻译为{{译文语言}}，表达与 originalText 一致。',
-            '只返回 JSON，并严格按{{格式}}组织内容。单人私信使用一条消息；多人群聊使用 turns，每段都必须包含 speaker、originalText、translationText 与 emotion。',
-            '即使两种语言表达相同，也必须保留两个语言字段。',
+            '一次回复可以连续发送多条独立手机消息。originalText 使用 {{语言}}，translationText 使用 {{译文语言}}，两者语义必须一致。',
+            '只返回 JSON，不解释规则，不输出代码块。',
+            '{{格式}}',
         ].join('\n'),
     },
     {
-        id: 'recent-channel',
-        name: '最近通信',
+        id: 'chat-context',
+        name: '聊天记录与待回复消息',
         role: 'user',
         enabled: true,
         content: [
-            '请根据{{模式}}自然回复{{用户}}刚发来的手机消息。',
-            '用户最新消息：{{输入}}',
+            '最近手机记录：{{历史}}',
+            '用户待回复消息：{{输入}}',
             '{{格式}}',
         ].join('\n'),
     },
@@ -43,20 +65,62 @@ export const DEFAULT_CHAT_PROMPT_PRESET = Object.freeze({
     id: 'phonie-chat-default',
     name: '聊天默认预设',
     insertionDepth: 0,
-    entries: Object.freeze(DEFAULT_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
+    entries: Object.freeze(CHAT_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
 });
+
+const SINGLE_CALL_ENTRIES = [
+    {
+        id: 'call-director', name: '单人电话导演', role: 'system', enabled: true,
+        content: [
+            '你是单人语音电话导演。请根据当前聊天，让 {{角色}} 发起一通像真实电话或电话留言的完整对话。',
+            '保持角色人设、关系与当前剧情，不替 {{用户}} 说话，不复述整段聊天。',
+            '台词要口语化、有停顿感，围绕一至三个自然话题展开，每句都适合直接交给 TTS 朗读。',
+        ].join('\n'),
+    },
+    { id: 'call-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: MINI_MAX_ADAPTATION },
+    {
+        id: 'call-format', name: '单人电话输出协议', role: 'system', enabled: true,
+        content: '每段 speaker 必须是 {{角色}}；originalText 使用 {{语言}}，translationText 使用 {{译文语言}}，两者语义一致。只返回 JSON。\n{{格式}}',
+    },
+    {
+        id: 'call-context', name: '单人电话任务与上下文', role: 'user', enabled: true,
+        content: '通话主题：{{通话主题}}\n编排方式：{{编排方式}}\n剧情上下文：{{上下文}}\n{{格式}}',
+    },
+];
 
 export const DEFAULT_CALL_PROMPT_PRESET = Object.freeze({
     id: 'phonie-call-default',
-    name: '电话默认预设',
+    name: '单人电话默认预设',
     insertionDepth: 0,
-    entries: Object.freeze(DEFAULT_ENTRIES.map((entry) => Object.freeze({
-        ...entry,
-        id: `call-${entry.id}`,
-        content: entry.id === 'recent-channel'
-            ? ['请规划一段自然、连贯、可以连续收听的电话内容。', '通话参与者：{{参与者}}', '通话主题：{{通话主题}}', '{{格式}}'].join('\n')
-            : entry.content,
-    }))),
+    entries: Object.freeze(SINGLE_CALL_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
+});
+
+const GROUP_CALL_ENTRIES = [
+    {
+        id: 'group-call-director', name: '多人电话导演', role: 'system', enabled: true,
+        content: [
+            '你是多人语音电话导演。请根据当前剧情，为参与者 {{参与者}} 编排一通可以连续收听的多人电话。',
+            '只允许参与者列表中的角色发言，speaker 必须精确使用角色名；绝对不要替 {{用户}} 说话。',
+            '允许同一角色连续说几句，也允许多人自然插话、回应和转移话题；不要机械轮流，不要求每个人每轮都出现。',
+            '保持每个人的角色卡、知识边界、关系和说话习惯。台词口语化，带真实电话的停顿与衔接，并适合 TTS 连续播放。',
+        ].join('\n'),
+    },
+    { id: 'group-call-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: MINI_MAX_ADAPTATION },
+    {
+        id: 'group-call-format', name: '多人电话输出协议', role: 'system', enabled: true,
+        content: '输出完整 JSON 电话脚本。每段都包含 speaker、originalText、translationText 与 emotion；speaker 只能取自 {{参与者}}。originalText 使用 {{语言}}，translationText 使用 {{译文语言}}。\n{{格式}}',
+    },
+    {
+        id: 'group-call-context', name: '多人电话任务与上下文', role: 'user', enabled: true,
+        content: '参与者：{{参与者}}\n通话主题：{{通话主题}}\n编排方式：{{编排方式}}\n剧情上下文：{{上下文}}\n{{格式}}',
+    },
+];
+
+export const DEFAULT_GROUP_CALL_PROMPT_PRESET = Object.freeze({
+    id: 'phonie-group-call-default',
+    name: '多人电话默认预设',
+    insertionDepth: 0,
+    entries: Object.freeze(GROUP_CALL_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
 });
 
 export const DEFAULT_PHONE_PROMPT_PRESET = DEFAULT_CHAT_PROMPT_PRESET;
@@ -94,12 +158,24 @@ export function normalizePhonePromptPreset(value = {}) {
 
 export function normalizePromptPresetLibrary(value = {}, fallbacks = {}) {
     const source = value && typeof value === 'object' ? value : {};
+    const defaultByKind = {
+        body: DEFAULT_PHONE_PROMPT_PRESET,
+        chat: DEFAULT_CHAT_PROMPT_PRESET,
+        call_single: DEFAULT_CALL_PROMPT_PRESET,
+        call_group: DEFAULT_GROUP_CALL_PROMPT_PRESET,
+    };
     const result = {};
-    for (const kind of ['body', 'chat', 'call']) {
+    for (const kind of ['body', 'chat', 'call_single', 'call_group']) {
         const seen = new Set();
-        const sourceEntries = kind === 'chat' && !Array.isArray(source.chat) ? source.phone : source[kind];
+        const sourceEntries = kind === 'chat' && !Array.isArray(source.chat)
+            ? source.phone
+            : kind === 'call_single' && !Array.isArray(source.call_single)
+                ? source.call
+                : kind === 'call_group' && !Array.isArray(source.call_group)
+                    ? source.groupCall || source.call
+                    : source[kind];
         const entries = Array.isArray(sourceEntries) ? sourceEntries : [];
-        const fallback = normalizePhonePromptPreset(fallbacks[kind]);
+        const fallback = normalizePhonePromptPreset(fallbacks[kind] || defaultByKind[kind]);
         const candidates = entries.length ? entries : [fallback];
         result[kind] = candidates.map((preset, index) => {
             const normalized = normalizePhonePromptPreset(preset);
@@ -113,8 +189,8 @@ export function normalizePromptPresetLibrary(value = {}, fallbacks = {}) {
 }
 
 export function savePromptPreset(library, kind, preset, { asNew = false } = {}) {
-    const normalizedKind = kind === 'phone' ? 'chat' : kind;
-    const safeKind = ['body', 'chat', 'call'].includes(normalizedKind) ? normalizedKind : 'chat';
+    const normalizedKind = kind === 'phone' ? 'chat' : kind === 'call' ? 'call_single' : kind;
+    const safeKind = ['body', 'chat', 'call_single', 'call_group'].includes(normalizedKind) ? normalizedKind : 'chat';
     const normalizedLibrary = normalizePromptPresetLibrary(library, { [safeKind]: preset });
     const normalized = normalizePhonePromptPreset(preset);
     const id = asNew ? safeKind + '-preset-' + Date.now().toString(36) : normalized.id;
@@ -131,8 +207,8 @@ export function savePromptPreset(library, kind, preset, { asNew = false } = {}) 
 }
 
 export function removePromptPreset(library, kind, presetId, fallback) {
-    const normalizedKind = kind === 'phone' ? 'chat' : kind;
-    const safeKind = ['body', 'chat', 'call'].includes(normalizedKind) ? normalizedKind : 'chat';
+    const normalizedKind = kind === 'phone' ? 'chat' : kind === 'call' ? 'call_single' : kind;
+    const safeKind = ['body', 'chat', 'call_single', 'call_group'].includes(normalizedKind) ? normalizedKind : 'chat';
     const normalizedLibrary = normalizePromptPresetLibrary(library, { [safeKind]: fallback });
     const filtered = (normalizedLibrary[safeKind] || []).filter((entry) => entry.id !== presetId);
     const next = filtered.length ? filtered : [normalizePhonePromptPreset(fallback)];
@@ -144,7 +220,8 @@ export function importPromptPresetLibrary(value, fallbacks = {}) {
     if (!payload || typeof payload !== 'object') throw new Error('预设文件格式无效');
     if (Array.isArray(payload)) {
         const requested = value?.kind || payload[0]?.kind;
-        const kind = requested === 'phone' ? 'chat' : ['body', 'chat', 'call'].includes(requested) ? requested : 'chat';
+        const normalizedKind = requested === 'phone' ? 'chat' : requested === 'call' ? 'call_single' : requested;
+        const kind = ['body', 'chat', 'call_single', 'call_group'].includes(normalizedKind) ? normalizedKind : 'chat';
         return normalizePromptPresetLibrary({ [kind]: payload }, fallbacks);
     }
     return normalizePromptPresetLibrary(payload, fallbacks);

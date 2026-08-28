@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildContinuityPrompt, buildPhoneReplyMessages, buildPhoneReplyPrompt, parsePhoneReply, resolveCallTurnRange } from '../src/dialogue/prompt-service.js';
-import { DEFAULT_PHONE_PROMPT_PRESET } from '../src/dialogue/prompt-preset.js';
+import {
+    DEFAULT_CALL_PROMPT_PRESET,
+    DEFAULT_GROUP_CALL_PROMPT_PRESET,
+    DEFAULT_PHONE_PROMPT_PRESET,
+    normalizePromptPresetLibrary,
+} from '../src/dialogue/prompt-preset.js';
 
 test('phone reply prompt declares both languages and channel', () => {
     const prompt = buildPhoneReplyPrompt({
@@ -183,8 +188,23 @@ test('continuity prompt is bounded', () => {
 
 test('default injected prompts are written in Chinese', () => {
     const content = DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => entry.content).join('\n');
-    assert.match(content, /保持角色设定/);
+    assert.match(content, /严格遵守角色卡/);
     assert.match(content, /只返回 JSON/);
     assert.match(content, /多人群聊/);
+    assert.doesNotMatch(content, /对话追踪/);
     assert.doesNotMatch(content, /Continue an in-world|Write originalText|Reply naturally/);
+});
+
+test('single and group calls keep separate editable preset libraries', () => {
+    const library = normalizePromptPresetLibrary({});
+    assert.ok(Array.isArray(library.call_single));
+    assert.ok(Array.isArray(library.call_group));
+    assert.notEqual(DEFAULT_CALL_PROMPT_PRESET.id, DEFAULT_GROUP_CALL_PROMPT_PRESET.id);
+
+    const singleContent = DEFAULT_CALL_PROMPT_PRESET.entries.map((entry) => entry.content).join('\n');
+    const groupContent = DEFAULT_GROUP_CALL_PROMPT_PRESET.entries.map((entry) => entry.content).join('\n');
+    assert.match(singleContent, /单人语音电话/);
+    assert.match(groupContent, /多人语音电话导演/);
+    assert.match(groupContent, /知识边界/);
+    assert.doesNotMatch(groupContent, /对话追踪/);
 });
