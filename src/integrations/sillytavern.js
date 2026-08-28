@@ -12,7 +12,7 @@ import {
 } from '/script.js';
 import { extension_settings, getContext } from '/scripts/extensions.js';
 
-import { DEFAULT_SETTINGS, MODULE_ID, PHONE_CALL_SCRIPT_SCHEMA, PHONE_REPLY_SCHEMA } from '../core/constants.js';
+import { DEFAULT_SETTINGS, MODULE_ID, PHONE_CALL_SCRIPT_SCHEMA, PHONE_GROUP_REPLY_SCHEMA, PHONE_REPLY_SCHEMA } from '../core/constants.js';
 import { getCurrentGenerationTarget, requestPhoneGeneration } from './generation-compat.js';
 import {
     DEFAULT_CALL_PROMPT_PRESET,
@@ -391,6 +391,7 @@ export class SillyTavernBridge {
             callLength,
         });
         const participantCount = participants.length || 1;
+        const groupChatMode = !callMode && participantCount > 1;
         const lengthBudget = participantCount > 1
             ? 12288
             : callLength === 'long' ? 8192 : callLength === 'short' ? 2048 : 4096;
@@ -399,8 +400,13 @@ export class SillyTavernBridge {
             phoneResponseLength: scriptMode
                 ? Math.max(settings.callScriptResponseLength, lengthBudget)
                 : settings.callResponseLength,
+        } : groupChatMode ? {
+            ...settings,
+            phoneResponseLength: Math.max(settings.phoneResponseLength, 4096),
         } : settings;
-        const jsonSchema = scriptMode ? PHONE_CALL_SCRIPT_SCHEMA : PHONE_REPLY_SCHEMA;
+        const jsonSchema = scriptMode
+            ? PHONE_CALL_SCRIPT_SCHEMA
+            : groupChatMode ? PHONE_GROUP_REPLY_SCHEMA : PHONE_REPLY_SCHEMA;
         const request = (messages) => requestPhoneGeneration({
             settings: generationSettings,
             prompt: messages,
@@ -415,13 +421,15 @@ export class SillyTavernBridge {
                 role: 'system',
                 content: scriptMode
                     ? '上一次输出无效。立即重新输出完整 JSON。turns 不得为空，每段 originalText 必须是可直接朗读的非空台词。禁止返回空对象。'
-                    : '上一次输出无效。立即重新输出完整 JSON，originalText 必须是可直接朗读的非空台词。禁止返回空对象。',
+                    : groupChatMode
+                        ? '上一次群聊输出无效。立即重新输出完整 JSON。turns 必须有 2 到 8 条，每条都要有群聊参与者 speaker 与非空 originalText；不要替用户说话。'
+                        : '上一次输出无效。立即重新输出完整 JSON，originalText 必须是可直接朗读的非空台词。禁止返回空对象。',
             }];
             const retry = await request(retryPrompt);
             try {
                 return parsePhoneReply(retry, { targetLanguage: settings.targetLanguage });
             } catch (retryError) {
-                throw new Error('模型连续两次返回空白电话内容', { cause: retryError || firstError });
+                throw new Error(groupChatMode ? '模型连续两次返回无效群聊内容' : '模型连续两次返回空白电话内容', { cause: retryError || firstError });
             }
         }
     }

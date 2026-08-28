@@ -52,6 +52,23 @@ test('call prompt carries story context, participants, and a user topic', () => 
     assert.match(content, /确认集合地点/);
 });
 
+test('group chat prompt requests multiple short messages without impersonating the user', () => {
+    const messages = buildPhoneReplyMessages({
+        contactName: 'Aoi、Ren',
+        userName: 'Nana',
+        sourceLanguage: 'ja-JP',
+        targetLanguage: 'zh-CN',
+        history: [{ direction: 'outgoing', originalText: '你们都在吗？' }],
+        participants: [{ name: 'Aoi' }, { name: 'Ren' }],
+    });
+    const content = messages.map((message) => message.content).join('\n');
+    assert.match(content, /多人手机群聊/);
+    assert.match(content, /2 到 8 条/);
+    assert.match(content, /Aoi、Ren/);
+    assert.match(content, /不要代替用户|不要替用户/);
+    assert.match(content, /不要强迫所有角色/);
+});
+
 test('structured call reply preserves an optional speaker', () => {
     const parsed = parsePhoneReply({
         originalText: '今から向かうよ。',
@@ -168,5 +185,6 @@ test('default injected prompts are written in Chinese', () => {
     const content = DEFAULT_PHONE_PROMPT_PRESET.entries.map((entry) => entry.content).join('\n');
     assert.match(content, /保持角色设定/);
     assert.match(content, /只返回 JSON/);
+    assert.match(content, /多人群聊/);
     assert.doesNotMatch(content, /Continue an in-world|Write originalText|Reply naturally/);
 });

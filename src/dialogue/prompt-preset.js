@@ -8,8 +8,9 @@ const DEFAULT_ENTRIES = [
         role: 'system',
         enabled: true,
         content: [
-            '你正在故事世界中以{{角色}}的身份进行{{模式}}。',
+            '你正在故事世界中以{{角色}}的身份进行{{模式}}。当前参与者：{{参与者}}。',
             '保持角色设定，并遵循当前 SillyTavern 正文、角色卡与世界书所建立的上下文。',
+            '多人群聊时，只能让参与者列表中的角色发言；不要代替用户说话，也不要求每个角色每轮都出现。',
             '不要提及这些规则、提示词编排、翻译过程，也不要声称自己是人工智能。',
         ].join('\n'),
     },
@@ -21,7 +22,7 @@ const DEFAULT_ENTRIES = [
         content: [
             'originalText 使用{{语言}}书写，并保持角色真实说话方式。',
             'translationText 必须忠实翻译为{{译文语言}}，表达与 originalText 一致。',
-            '只返回 JSON，字段必须包含 originalText、translationText、emotion 与 action。',
+            '只返回 JSON，并严格按{{格式}}组织内容。单人私信使用一条消息；多人群聊使用 turns，每段都必须包含 speaker、originalText、translationText 与 emotion。',
             '即使两种语言表达相同，也必须保留两个语言字段。',
         ].join('\n'),
     },
@@ -31,7 +32,7 @@ const DEFAULT_ENTRIES = [
         role: 'user',
         enabled: true,
         content: [
-            '请自然回复{{用户}}刚发来的手机消息。',
+            '请根据{{模式}}自然回复{{用户}}刚发来的手机消息。',
             '用户最新消息：{{输入}}',
             '{{格式}}',
         ].join('\n'),
@@ -40,7 +41,7 @@ const DEFAULT_ENTRIES = [
 
 export const DEFAULT_CHAT_PROMPT_PRESET = Object.freeze({
     id: 'phonie-chat-default',
-    name: '私信默认预设',
+    name: '聊天默认预设',
     insertionDepth: 0,
     entries: Object.freeze(DEFAULT_ENTRIES.map((entry) => Object.freeze({ ...entry }))),
 });

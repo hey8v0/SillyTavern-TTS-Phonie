@@ -45,6 +45,7 @@ export function buildPhoneReplyMessages({
     }));
     const latestInput = [...history].reverse().find((message) => message.direction === 'outgoing')?.originalText || '';
     const participantNames = participants.map((entry) => String(entry?.name || entry || '').trim()).filter(Boolean);
+    const groupChatMode = !callMode && participantNames.length > 1;
     const turnRange = resolveCallTurnRange(callLength, participantNames.length);
     const messages = assemblePhonePromptMessages({
         preset,
@@ -54,20 +55,34 @@ export function buildPhoneReplyMessages({
             user: userName,
             sourceLanguage,
             targetLanguage,
-            mode: callMode ? '电话通话' : '手机私信',
+            mode: callMode ? '电话通话' : groupChatMode ? '多人手机群聊' : '手机私信',
             history: JSON.stringify(compact),
             input: latestInput,
             format: callMode
                 ? scriptMode
                     ? `一次写完整段电话内容。${turnRange.label}必须包含 ${turnRange.minimum} 到 ${turnRange.maximum} 段自然口语。每段 speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。不要让用户逐轮输入。`
                     : `只写一轮自然、适合直接朗读的简短口语；speaker 必须从这些参与者中选择：${participantNames.join('、') || contactName}。`
-                : '像私人聊天消息一样回复；除非理解语音必须，否则不要写舞台指示。',
+                : groupChatMode
+                    ? `返回一个 JSON 对象，包含 turns 和 action。turns 必须有 2 到 8 条，每条都包含 speaker、originalText、translationText 与 emotion；speaker 只能从这些参与者中选择：${participantNames.join('、')}。角色可以连续发送多条短消息，也可以多人交替，但不要代替用户发言，不要强迫所有角色都出现，不要把多条手机消息合并成长段。action 固定为 reply。`
+                    : '返回一个 JSON 对象，包含 originalText、translationText、emotion 与 action。像私人聊天消息一样简短自然地回复；除非理解语音必须，否则不要写舞台指示。',
             context: storyContext,
             participants: participantNames.join('、') || contactName,
             topic: topic || '根据当前剧情自然继续',
             strategy: strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划',
         },
     });
+    if (groupChatMode) {
+        messages.unshift({
+            role: 'system',
+            content: [
+                '[多人手机群聊编排]',
+                `群聊参与者：${participantNames.join('、')}`,
+                '一次回复可以由一位角色连续发出多条短消息，也可以由多位角色自然接话。',
+                '只允许群聊参与者发言；绝对不要替用户补写消息，也不要为了轮流而强迫所有角色出现。',
+                '输出 2 到 8 条 turns，保持手机聊天的短句、停顿和消息颗粒感。',
+            ].join('\n'),
+        });
+    }
     if (callMode) {
         messages.unshift({
             role: 'system',
@@ -76,7 +91,7 @@ export function buildPhoneReplyMessages({
                 `参与者：${participantNames.join('、') || contactName}`,
                 `编排方式：${strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划'}`,
                 `通话主题：${topic || '根据当前剧情自然继续'}`,
-                scriptMode ? `输出一段可连续播放的完整电话或电话留言。turns 必须有 ${turnRange.minimum} 到 ${turnRange.maximum} 段，每段都包含 speaker、originalText、translationText 与 emotion；同时输出简短 title 和 summary，供通话轨迹识别主题。禁止返回空对象、空数组、空台词或省略字段。` : '',
+                scriptMode ? `输出一段可连续播放的完整电话或电话留言。turns 必须有 ${turnRange.minimum} 到 ${turnRange.maximum} 段，每段都包含 speaker、originalText、translationText 与 emotion；同时输出简短 title 和 summary，供通话记录显示主题。禁止返回空对象、空数组、空台词或省略字段。` : '',
                 storyContext ? `[酒馆剧情、世界书与摘要]\n${storyContext}` : '',
                 '以上内容只用于保持剧情连续性，不要逐字复述。',
             ].filter(Boolean).join('\n'),
