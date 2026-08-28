@@ -575,3 +575,192 @@
   #phonie-root .phonie-app-tile__icon,
   #phonie-root .phonie-call-dialpad button { transition: none; }
 }
+
+/* v0.15: the original modified signal-rain canvas and bottom-anchored home stack. */
+#phonie-root .phonie-home-screen,
+#phonie-root .phonie-home-content {
+  position: relative;
+}
+
+#phonie-root .phonie-motion-canvas {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: .78;
+  pointer-events: none;
+}
+
+#phonie-root .phonie-home-content {
+  z-index: 1;
+  height: 100%;
+  padding-bottom: 96px;
+}
+
+#phonie-root .phonie-home-pages {
+  min-height: 0;
+}
+
+#phonie-root .phonie-page-rail {
+  position: absolute;
+  z-index: 3;
+  bottom: 75px;
+  left: 50%;
+  min-height: 18px;
+  margin: 0;
+  transform: translateX(-50%);
+}
+
+#phonie-root .phonie-service-card {
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: 8px;
+  left: 16px;
+  width: auto;
+  margin: 0;
+}
+
+/* Idle dialer: begin immediately below the topline and keep each region distinct. */
+#phonie-root[data-screen="call"] .phonie-call-screen[data-call-state="idle"] {
+  justify-content: flex-start;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-screen[data-call-state="idle"] .phonie-call-idle-action {
+  position: absolute;
+  z-index: 3;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  padding: 4px 22px 18px;
+  gap: 10px;
+}
+
+#phonie-root .phonie-call-contact-picker {
+  padding-bottom: 10px;
+}
+
+#phonie-root .phonie-call-contacts .phonie-call-contact-picker button {
+  position: relative;
+  display: grid;
+  overflow: visible;
+  color: var(--phonie-signal);
+  place-items: center;
+}
+
+#phonie-root .phonie-call-contacts .phonie-call-contact-picker button .phonie-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+  stroke-width: 2.2;
+}
+
+#phonie-root .phonie-call-selection {
+  min-height: 0;
+  padding: 2px 0 7px;
+  gap: 8px;
+}
+
+#phonie-root .phonie-call-selection__chip {
+  box-shadow: none;
+}
+
+#phonie-root .phonie-call-number-row {
+  margin-top: 1px;
+}
+
+#phonie-root .phonie-call-plan {
+  margin-top: 5px;
+  padding-top: 10px;
+}
+
+#phonie-root .phonie-call-launch--message {
+  border-color: color-mix(in srgb, var(--phonie-signal) 28%, var(--phonie-border));
+  color: var(--phonie-ink);
+  background: color-mix(in srgb, var(--phonie-signal) 9%, var(--phonie-surface-raised));
+}
+
+#phonie-root .phonie-call-launch--message .phonie-icon {
+  color: var(--phonie-signal);
+}
+
+/* Active call follows the old upper-weighted composition while retaining theme colors. */
+#phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) {
+  gap: 8px;
+  padding-top: 14px;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) .phonie-contact-mark {
+  width: 106px;
+  height: 106px;
+  margin: 10px auto 0;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  animation: phonie-call-portrait-enter 420ms cubic-bezier(.23, 1, .32, 1) both;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) .phonie-call-ripples {
+  top: 66px;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) .phonie-call-participants {
+  min-height: 86px;
+  margin: 8px auto 0;
+  animation: phonie-call-portrait-enter 420ms cubic-bezier(.23, 1, .32, 1) both;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) .phonie-call-participant > i {
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-identity {
+  margin-top: 6px;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-live-wave {
+  margin: 8px auto 1px;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-captions {
+  min-height: 88px;
+  max-height: 154px;
+  color: var(--phonie-ink);
+  background: color-mix(in srgb, var(--phonie-surface-raised) 88%, transparent);
+}
+
+#phonie-root[data-screen="call"] .phonie-call-caption-source {
+  color: var(--phonie-ink);
+  font-weight: 580;
+}
+
+#phonie-root[data-screen="call"] .phonie-call-caption-translation {
+  color: color-mix(in srgb, var(--phonie-ink) 74%, var(--phonie-surface));
+}
+
+@keyframes phonie-call-portrait-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-height: 720px) {
+  #phonie-root .phonie-home-content { padding-bottom: 90px; }
+  #phonie-root .phonie-page-rail { bottom: 69px; }
+  #phonie-root .phonie-service-card { bottom: 6px; }
+  #phonie-root[data-screen="call"] .phonie-call-screen[data-call-state="idle"] .phonie-call-idle-action { padding-inline: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #phonie-root .phonie-motion-canvas { display: none; }
+  #phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) .phonie-contact-mark,
+  #phonie-root[data-screen="call"] .phonie-call-screen:not([data-call-state="idle"]):not([data-call-state="ended"]) .phonie-call-participants { animation: none; }
+}

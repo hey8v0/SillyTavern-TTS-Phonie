@@ -85,7 +85,7 @@ test('prompt entry editing helpers add, update, move, and remove immutably', () 
     const updated = updatePhonePromptEntry(added, newEntry.id, { name: 'Custom', role: 'assistant' });
     const moved = movePhonePromptEntry(updated, newEntry.id, -1);
     const removed = removePhonePromptEntry(moved, newEntry.id);
-    assert.equal(original.entries.length, 3);
+    assert.equal(original.entries.length, DEFAULT_PHONE_PROMPT_PRESET.entries.length);
     assert.equal(updated.entries.at(-1).name, 'Custom');
     assert.equal(moved.entries.at(-2).id, newEntry.id);
     assert.equal(removed.entries.length, original.entries.length);

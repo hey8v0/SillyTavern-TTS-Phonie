@@ -17,6 +17,7 @@ import { getCurrentGenerationTarget, requestPhoneGeneration } from './generation
 import {
     DEFAULT_CALL_PROMPT_PRESET,
     DEFAULT_CHAT_PROMPT_PRESET,
+    DEFAULT_GROUP_CALL_PROMPT_PRESET,
     DEFAULT_PHONE_PROMPT_PRESET,
     normalizePhonePromptPreset,
     normalizePromptPresetLibrary,
@@ -74,20 +75,24 @@ function mergeSettings(value = {}) {
     const legacyPrompt = value.promptPreset || DEFAULT_PHONE_PROMPT_PRESET;
     merged.chatPromptPreset = normalizePhonePromptPreset(value.chatPromptPreset || legacyPrompt || DEFAULT_CHAT_PROMPT_PRESET);
     merged.callPromptPreset = normalizePhonePromptPreset(value.callPromptPreset || legacyPrompt || DEFAULT_CALL_PROMPT_PRESET);
+    merged.groupCallPromptPreset = normalizePhonePromptPreset(value.groupCallPromptPreset || DEFAULT_GROUP_CALL_PROMPT_PRESET);
     merged.promptPreset = merged.chatPromptPreset;
     merged.bodyPromptPreset = normalizePhonePromptPreset(value.bodyPromptPreset || DEFAULT_BODY_PROMPT_PRESET);
     const sourceLibraries = { ...(value.promptPresetLibraries || {}) };
     if (!sourceLibraries.chat && sourceLibraries.phone) sourceLibraries.chat = sourceLibraries.phone;
-    if (!sourceLibraries.call && sourceLibraries.phone) sourceLibraries.call = sourceLibraries.phone;
+    if (!sourceLibraries.call_single) sourceLibraries.call_single = sourceLibraries.call || sourceLibraries.phone || [merged.callPromptPreset];
+    if (!sourceLibraries.call_group) sourceLibraries.call_group = sourceLibraries.groupCall || [merged.groupCallPromptPreset];
     merged.promptPresetLibraries = normalizePromptPresetLibrary(sourceLibraries, {
         body: merged.bodyPromptPreset,
         chat: merged.chatPromptPreset,
-        call: merged.callPromptPreset,
+        call_single: merged.callPromptPreset,
+        call_group: merged.groupCallPromptPreset,
     });
     merged.bodyPromptEnabled = value.bodyPromptEnabled !== false;
-    merged.promptWorkflowKind = ['body', 'chat', 'call'].includes(value.promptWorkflowKind)
-        ? value.promptWorkflowKind
-        : value.promptWorkflowKind === 'phone' ? 'chat' : 'body';
+    const workflowKind = value.promptWorkflowKind === 'call' ? 'call_single' : value.promptWorkflowKind;
+    merged.promptWorkflowKind = ['body', 'chat', 'call_single', 'call_group'].includes(workflowKind)
+        ? workflowKind
+        : workflowKind === 'phone' ? 'chat' : 'body';
     const providerIds = new Set(TTS_PROVIDERS.map((provider) => provider.id));
     merged.ttsActiveProvider = providerIds.has(value.ttsActiveProvider) ? value.ttsActiveProvider : DEFAULT_SETTINGS.ttsActiveProvider;
     merged.ttsFallbackProvider = providerIds.has(value.ttsFallbackProvider) && value.ttsFallbackProvider !== merged.ttsActiveProvider
@@ -374,6 +379,7 @@ export class SillyTavernBridge {
 
     async generatePhoneReply({ history, callMode = false, participants = [], topic = '', strategy = 'context', scriptMode = false, callLength = 'normal' }) {
         const settings = this.getSettings();
+        const participantCount = participants.length || 1;
         const storyContext = callMode ? await this.getCallPlanningContext({ participants, topic }) : '';
         const prompt = buildPhoneReplyMessages({
             contactName: participants.map((entry) => entry?.name || entry).filter(Boolean).join('、') || this.getContact().name,
@@ -382,7 +388,9 @@ export class SillyTavernBridge {
             targetLanguage: settings.targetLanguage,
             history,
             callMode,
-            preset: callMode ? settings.callPromptPreset : settings.chatPromptPreset,
+            preset: callMode
+                ? participantCount > 1 ? settings.groupCallPromptPreset : settings.callPromptPreset
+                : settings.chatPromptPreset,
             storyContext,
             participants,
             topic,
@@ -390,7 +398,6 @@ export class SillyTavernBridge {
             scriptMode,
             callLength,
         });
-        const participantCount = participants.length || 1;
         const groupChatMode = !callMode && participantCount > 1;
         const lengthBudget = participantCount > 1
             ? 12288
