@@ -350,18 +350,24 @@ export async function createPhonieApp() {
             });
             if (bridge.getChatId() !== originChatId) return;
             const currentSettings = store.getState().settings;
-            const incoming = createPhoneMessage({
+            const currentState = store.getState();
+            const activeParticipants = callMode ? currentState.callParticipants : currentState.chatParticipants;
+            const participantNames = new Set((activeParticipants || []).map((entry) => entry.name).filter(Boolean));
+            const fallbackAuthor = activeParticipants?.[0]?.name || currentState.contact.name;
+            const replyTurns = !callMode && Array.isArray(reply.turns) && reply.turns.length
+                ? reply.turns.slice(0, 8)
+                : [reply];
+            const incomingMessages = replyTurns.map((turn) => createPhoneMessage({
                 direction: 'incoming',
-                author: reply.speaker
-                    || (callMode ? store.getState().callParticipants?.[0]?.name : store.getState().chatParticipants?.[0]?.name)
-                    || store.getState().contact.name,
-                originalText: reply.originalText,
-                translationText: reply.translationText,
+                author: participantNames.has(turn.speaker) ? turn.speaker : fallbackAuthor,
+                originalText: turn.originalText,
+                translationText: turn.translationText,
                 kind: callMode || currentSettings.autoPlayPhoneReplies ? MESSAGE_KINDS.VOICE : MESSAGE_KINDS.TEXT,
-                emotion: reply.emotion,
+                emotion: turn.emotion,
                 channel: callMode ? 'call' : 'chat',
-            });
-            const messages = [...store.getState().messages, incoming];
+            }));
+            const incoming = incomingMessages[0];
+            const messages = [...currentState.messages, ...incomingMessages];
             const nextPending = callMode ? store.getState().pendingUserMessageIds : [];
             updateState({
                 messages,
@@ -370,7 +376,7 @@ export async function createPhonieApp() {
                 callCaption: callMode
                     ? { source: incoming.originalText, translation: incoming.translationText }
                     : store.getState().callCaption,
-                unread: store.getState().open ? 0 : store.getState().unread + 1,
+                unread: store.getState().open ? 0 : store.getState().unread + incomingMessages.length,
             });
             persistPhoneState(messages, store.getState().calls, nextPending);
 

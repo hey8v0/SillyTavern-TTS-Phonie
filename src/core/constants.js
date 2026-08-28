@@ -111,6 +111,35 @@ export const PHONE_REPLY_SCHEMA = Object.freeze({
     },
 });
 
+export const PHONE_GROUP_REPLY_SCHEMA = Object.freeze({
+    type: 'object',
+    additionalProperties: false,
+    required: ['turns', 'action'],
+    properties: {
+        turns: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 8,
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['speaker', 'originalText', 'translationText', 'emotion'],
+                properties: {
+                    speaker: { type: 'string' },
+                    originalText: { type: 'string' },
+                    translationText: { type: 'string' },
+                    emotion: {
+                        type: 'string',
+                        enum: ['neutral', 'warm', 'bright', 'quiet', 'tense', 'sad', 'angry'],
+                    },
+                },
+            },
+        },
+        action: { type: 'string', enum: ['reply'] },
+        title: { type: 'string' },
+    },
+});
+
 export const PHONE_CALL_SCRIPT_SCHEMA = Object.freeze({
     type: 'object',
     additionalProperties: false,

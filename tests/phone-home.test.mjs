@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { SCREENS } from '../src/core/constants.js';
 import { DOCK_ITEMS, HOME_APPS, homeScreenMarkup } from '../src/ui/phone-home.js';
+
+const atmosphereCss = readFileSync(new URL('../styles/atmosphere.css', import.meta.url), 'utf8');
 
 test('home exposes ten unique application tiles across two pages', () => {
     assert.equal(HOME_APPS.length, 10);
@@ -19,9 +22,25 @@ test('dock keeps the five primary phone destinations', () => {
         SCREENS.HOME,
         SCREENS.CHAT,
         SCREENS.CALL,
-        SCREENS.TRACE,
+        SCREENS.CHARACTER,
         SCREENS.SETTINGS,
     ]);
+});
+
+test('home exposes group chat instead of the legacy trace destination', () => {
+    const markup = homeScreenMarkup();
+    assert.match(markup, /data-app="group"/);
+    assert.match(markup, /phonie-home-rain/);
+    assert.doesNotMatch(markup, /data-app="trace"/);
+});
+
+test('home polish keeps the compact icon scale and bottom stack', () => {
+    assert.match(atmosphereCss, /\.phonie-app-tile__icon\s*\{[\s\S]*?width:\s*50px/);
+    assert.match(atmosphereCss, /\.phonie-wallpaper__image\s*\{[\s\S]*?object-fit:\s*cover/);
+    assert.match(atmosphereCss, /object-position:\s*center 18%/);
+    assert.match(atmosphereCss, /transform:\s*scale\(1\.03\)/);
+    assert.match(atmosphereCss, /\.phonie-service-card\s*\{[\s\S]*?margin-top:\s*0/);
+    assert.match(atmosphereCss, /\.phonie-home-rain\s*\{/);
 });
 
 test('home page rail sits directly above the voice service card', () => {

@@ -61,6 +61,20 @@ function setBackgroundImage(element, url) {
     element.dataset.hasImage = 'true';
 }
 
+function setImageSource(element, url) {
+    if (!(element instanceof HTMLImageElement)) return;
+    const container = element.closest('.phonie-wallpaper');
+    if (!url) {
+        element.removeAttribute('src');
+        element.hidden = true;
+        if (container) container.dataset.hasImage = 'false';
+        return;
+    }
+    element.src = String(url);
+    element.hidden = false;
+    if (container) container.dataset.hasImage = 'true';
+}
+
 function formatRecordDate(timestamp) {
     if (!timestamp) return '时间未知';
     return new Intl.DateTimeFormat('zh-CN', {
@@ -249,7 +263,7 @@ export class PhoneView {
                 <span class="phonie-hardware-key phonie-hardware-key--volume" aria-hidden="true"></span>
                 <span class="phonie-hardware-key phonie-hardware-key--power" aria-hidden="true"></span>
                 <div class="phonie-frame">
-                    <div class="phonie-wallpaper" data-role="wallpaper" aria-hidden="true"></div>
+                    <div class="phonie-wallpaper" data-role="wallpaper" aria-hidden="true"><img class="phonie-wallpaper__image" data-role="wallpaper-image" alt="" hidden></div>
                     <div class="phonie-wallpaper-veil" aria-hidden="true"></div>
                     <div class="phonie-rain-curtain" aria-hidden="true">
                         <i style="--rain-index:0;--rain-x:5%;--rain-delay:-0.1s"></i><i style="--rain-index:1;--rain-x:14%;--rain-delay:-1.7s"></i><i style="--rain-index:2;--rain-x:23%;--rain-delay:-3.1s"></i><i style="--rain-index:3;--rain-x:32%;--rain-delay:-0.9s"></i><i style="--rain-index:4;--rain-x:41%;--rain-delay:-4.2s"></i><i style="--rain-index:5;--rain-x:50%;--rain-delay:-2.4s"></i><i style="--rain-index:6;--rain-x:59%;--rain-delay:-0.5s"></i><i style="--rain-index:7;--rain-x:68%;--rain-delay:-3.6s"></i><i style="--rain-index:8;--rain-x:77%;--rain-delay:-1.2s"></i><i style="--rain-index:9;--rain-x:86%;--rain-delay:-4.6s"></i><i style="--rain-index:10;--rain-x:93%;--rain-delay:-2.8s"></i><i style="--rain-index:11;--rain-x:97%;--rain-delay:-0.3s"></i>
@@ -1434,12 +1448,13 @@ export class PhoneView {
 
     #renderCall(state) {
         const primary = state.callParticipants?.[0] || state.contact;
+        const primaryAvatarUrl = primary.avatarUrl || state.contact.avatarUrl || '';
         this.#setText('[data-role="call-initials"]', initials(primary.name));
         this.#setText('[data-role="call-contact"]', primary.name);
         this.#setText('[data-role="call-status"]', state.callPreparationLabel || callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
         this.#setText('[data-role="call-direction-label"]', state.callDirection === 'incoming' ? '来电' : state.callDirection === 'outgoing' ? '去电' : '拨号');
-        setBackgroundImage(this.#root.querySelector('[data-role="call-backdrop"]'), primary.avatarUrl);
-        setBackgroundImage(this.#root.querySelector('[data-role="call-mark"]'), primary.avatarUrl);
+        setBackgroundImage(this.#root.querySelector('[data-role="call-backdrop"]'), primaryAvatarUrl);
+        setBackgroundImage(this.#root.querySelector('[data-role="call-mark"]'), primaryAvatarUrl);
         const callScreen = this.#root.querySelector('.phonie-call-screen');
         if (callScreen) {
             callScreen.dataset.callState = state.callState;
@@ -1481,7 +1496,11 @@ export class PhoneView {
                 for (const entry of callParticipants) {
                     const avatar = [...participantOrbit.querySelectorAll('[data-participant-avatar]')]
                         .find((node) => node.dataset.participantAvatar === String(entry.id || entry.name));
-                    setBackgroundImage(avatar, entry.avatarUrl);
+                    const directoryEntry = state.characters?.find((character) => (
+                        String(character.id) === String(entry.id)
+                        || character.name === entry.name
+                    ));
+                    setBackgroundImage(avatar, entry.avatarUrl || directoryEntry?.avatarUrl || primaryAvatarUrl);
                 }
             }
         }
@@ -1534,8 +1553,8 @@ export class PhoneView {
         this.#setText('[data-role="home-chat-count"]', `${chatMessageCount} 条`);
         this.#setText('[data-role="home-call-count"]', `${state.calls.length} 通`);
         this.#setText('[data-role="home-voice-count"]', `${voiceCount} 个`);
-        this.#setText('[data-role="home-trace-count"]', `${state.calls.length} 段`);
-        setBackgroundImage(this.#root.querySelector('[data-role="wallpaper"]'), state.contact.avatarUrl);
+        this.#setText('[data-role="home-group-count"]', chatParticipants.length > 1 ? `${chatParticipants.length} 人` : '选人开聊');
+        setImageSource(this.#root.querySelector('[data-role="wallpaper-image"]'), state.contact.avatarUrl);
         this.#root.dataset.hasWallpaper = String(Boolean(state.contact.avatarUrl));
     }
 

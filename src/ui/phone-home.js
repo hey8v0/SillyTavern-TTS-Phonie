@@ -5,7 +5,7 @@ export const HOME_APPS = Object.freeze([
     { id: 'chat', label: '私信', detailRole: 'home-chat-count', screen: SCREENS.CHAT, icon: 'message', tone: 'aqua' },
     { id: 'call', label: '电话', detailRole: 'home-call-count', screen: SCREENS.CALL, icon: 'phone', tone: 'verdant' },
     { id: 'voice', label: '声线', detailRole: 'home-voice-count', screen: SCREENS.VOICE, icon: 'wave', tone: 'amber' },
-    { id: 'trace', label: '轨迹', detailRole: 'home-trace-count', screen: SCREENS.TRACE, icon: 'headphones', tone: 'violet' },
+    { id: 'group', label: '群聊', detailRole: 'home-group-count', screen: SCREENS.CHARACTER, icon: 'person', tone: 'violet' },
     { id: 'engine', label: '模型', detail: '生成连接', screen: SCREENS.MODEL, icon: 'spark', tone: 'blue' },
     { id: 'character', label: '通讯录', detail: '私信与声线', screen: SCREENS.CHARACTER, icon: 'person', tone: 'rose' },
     { id: 'format', label: '预设', detail: '提示词编排', screen: SCREENS.PROMPTS, icon: 'layers', tone: 'silver' },
@@ -18,7 +18,7 @@ export const DOCK_ITEMS = Object.freeze([
     { label: '主页', screen: SCREENS.HOME, icon: 'home' },
     { label: '私信', screen: SCREENS.CHAT, icon: 'message' },
     { label: '电话', screen: SCREENS.CALL, icon: 'phone' },
-    { label: '轨迹', screen: SCREENS.TRACE, icon: 'headphones' },
+    { label: '群聊', screen: SCREENS.CHARACTER, icon: 'person' },
     { label: '设置', screen: SCREENS.SETTINGS, icon: 'sliders' },
 ]);
 
@@ -34,11 +34,29 @@ function appMarkup(app) {
         </button>`;
 }
 
+const HOME_RAIN_LINES = Object.freeze([
+    ['8%', '-1.7s', '44%'],
+    ['19%', '-4.2s', '57%'],
+    ['31%', '-.8s', '39%'],
+    ['44%', '-5.1s', '63%'],
+    ['57%', '-2.6s', '49%'],
+    ['69%', '-6.3s', '58%'],
+    ['82%', '-3.4s', '42%'],
+    ['93%', '-.2s', '54%'],
+]);
+
+function homeRainMarkup() {
+    return HOME_RAIN_LINES.map(([x, delay, length], index) => (
+        `<i style="--rain-x:${x};--rain-delay:${delay};--rain-length:${length};--rain-index:${index}"></i>`
+    )).join('');
+}
+
 export function homeScreenMarkup() {
     const primaryApps = HOME_APPS.slice(0, 8);
     const secondaryApps = HOME_APPS.slice(8);
     return `
         <section class="phonie-screen phonie-home-screen" data-screen="${SCREENS.HOME}" aria-label="手机桌面">
+            <div class="phonie-home-rain" aria-hidden="true">${homeRainMarkup()}</div>
             <div class="phonie-home-content">
                 <section class="phonie-time-widget" aria-label="当前聊天概览">
                     <div class="phonie-time-widget__clock">
@@ -46,9 +64,9 @@ export function homeScreenMarkup() {
                         <span data-role="home-date"></span>
                     </div>
                     <div class="phonie-time-widget__context">
-                        <span>当前频道</span>
+                        <small>当前频道</small>
                         <strong data-role="home-contact">Character</strong>
-                        <small data-role="home-message-summary">0 条手机消息</small>
+                        <span data-role="home-message-summary">0 条手机消息</span>
                     </div>
                 </section>
                 <div class="phonie-home-pages" data-role="home-pages" aria-label="Phonie 应用分页">
