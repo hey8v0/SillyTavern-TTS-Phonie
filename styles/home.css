@@ -124,9 +124,10 @@
 .phonie-status::before {
     position: absolute;
     z-index: -1;
-    inset: 3px 8px 0;
-    border: 1px solid color-mix(in srgb, var(--phonie-border) 52%, transparent);
-    border-radius: 15px;
+    inset: 0;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--phonie-border) 52%, transparent);
+    border-radius: 0;
     background:
         linear-gradient(110deg, color-mix(in srgb, var(--phonie-emphasis) 10%, transparent), color-mix(in srgb, var(--phonie-point) 8%, transparent)),
         color-mix(in srgb, var(--phonie-surface-raised) 58%, transparent);
@@ -475,6 +476,7 @@
 .phonie-app-tile__icon[data-tone="silver"] { background: linear-gradient(145deg, #ecf0f7, #adb9cb); }
 .phonie-app-tile__icon[data-tone="graphite"] { background: linear-gradient(145deg, #b9c2cc, #7f8b99); }
 .phonie-app-tile__icon[data-tone="cobalt"] { background: linear-gradient(145deg, #83b9df, #4577aa); }
+.phonie-app-tile__icon[data-tone="coral"] { background: linear-gradient(145deg, #f1a68c, #ce6f78); }
 
 .phonie-app-tile__label {
     max-width: 100%;
@@ -974,14 +976,16 @@ button.phonie-record-card__play {
 }
 
 #phonie-root[data-screen="home"] .phonie-wallpaper[data-has-image="true"] {
+    background-position: center top;
+    background-size: 100% auto;
     -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 54%, rgba(0, 0, 0, 0.92) 68%, rgba(0, 0, 0, 0.58) 86%, rgba(0, 0, 0, 0.24) 100%);
     mask-image: linear-gradient(180deg, #000 0%, #000 54%, rgba(0, 0, 0, 0.92) 68%, rgba(0, 0, 0, 0.58) 86%, rgba(0, 0, 0, 0.24) 100%);
 }
 
 #phonie-root[data-screen="home"] .phonie-wallpaper-veil {
     background:
-        linear-gradient(0deg, color-mix(in srgb, var(--phonie-surface) 76%, transparent), color-mix(in srgb, var(--phonie-surface) 34%, transparent) 36%, transparent 68%),
-        linear-gradient(135deg, color-mix(in srgb, var(--phonie-emphasis) 10%, transparent), color-mix(in srgb, var(--phonie-point) 8%, transparent));
+        linear-gradient(0deg, color-mix(in srgb, var(--phonie-surface) 88%, transparent), color-mix(in srgb, var(--phonie-surface) 58%, transparent) 36%, color-mix(in srgb, var(--phonie-surface) 18%, transparent) 76%, transparent 92%),
+        linear-gradient(135deg, color-mix(in srgb, var(--phonie-emphasis) 16%, transparent), color-mix(in srgb, var(--phonie-point) 12%, transparent));
 }
 
 .phonie-rain-curtain {

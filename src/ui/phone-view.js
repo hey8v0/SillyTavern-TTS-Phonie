@@ -291,7 +291,6 @@ export class PhoneView {
                                 <span class="phonie-chat-appbar__avatar" data-role="chat-contact-avatar"><b data-role="chat-contact-initials">P</b></span>
                                 <span class="phonie-chat-appbar__identity"><strong data-role="chat-contact-name">Character</strong><small>私人频道 · 在线</small></span>
                                 <span class="phonie-chat-appbar__actions">
-                                    <button class="phonie-icon-button" type="button" data-action="open-chat-preset" aria-label="打开私信提示词预设">${icon('layers')}</button>
                                     <button class="phonie-icon-button" type="button" data-action="open-chat-settings" aria-label="打开私信设置">${icon('settings')}</button>
                                 </span>
                             </header>
@@ -340,6 +339,7 @@ export class PhoneView {
                                 <div class="phonie-call-backdrop" data-role="call-backdrop" aria-hidden="true"></div>
                                 <div class="phonie-call-veil" aria-hidden="true"></div>
                                 <div class="phonie-call-topline"><button type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">${icon('back')}</button><span>语音通话</span><i></i><span data-role="call-direction-label">拨号</span></div>
+                                <div class="phonie-call-ripples" aria-hidden="true"><i></i><i></i><i></i></div>
                                 <div class="phonie-contact-mark" data-role="call-mark"><span data-role="call-initials">P</span></div>
                                 <div class="phonie-call-participants" data-role="call-participant-orbit" hidden></div>
                                 <div class="phonie-call-identity">
@@ -354,7 +354,7 @@ export class PhoneView {
                                     </div>
                                 </div>
                                 <div class="phonie-call-idle-action" data-role="call-idle-action">
-                                    <section class="phonie-call-contacts phonie-call-contacts--select"><header><span>正文联系人</span><small data-role="call-selected-summary">1 人</small></header><div class="phonie-call-contact-picker"><select data-role="call-contact-picker" aria-label="选择电话联系人"></select><button type="button" data-action="toggle-call-participant">${icon('plus')}<span>加入多人</span></button></div><select data-role="call-participants" multiple hidden></select></section>
+                                    <section class="phonie-call-contacts phonie-call-contacts--select"><header><span>正文联系人</span><small data-role="call-selected-summary">1 人</small></header><div class="phonie-call-contact-picker"><select data-role="call-contact-picker" aria-label="选择电话联系人"></select><button type="button" data-action="add-call-participant">${icon('plus')}<span>加入通话</span></button></div><div class="phonie-call-selection" data-role="call-selection" aria-label="已选通话联系人"></div><select data-role="call-participants" multiple hidden></select></section>
                                     <div class="phonie-call-number-row"><input class="phonie-call-number" data-role="call-number" inputmode="tel" readonly placeholder="选择联系人或输入号码"><button type="button" data-action="call-backspace" aria-label="删除一位">${icon('back')}</button></div>
                                     <div class="phonie-call-dialpad" aria-label="模拟拨号盘">${callDialPadMarkup()}</div>
                                     <details class="phonie-call-plan"><summary>${icon('spark')}<span>通话内容</span>${icon('chevron')}</summary><div><label><span>想聊什么</span><textarea data-role="call-topic" maxlength="600" rows="3" placeholder="通话主题"></textarea></label><label><span>编排方式</span><select data-role="call-strategy"><option value="context">根据上下文</option><option value="topic">指定内容优先</option></select></label><label><span>电话长度</span><select data-role="call-length"><option value="short">短来电 · 4–6 句</option><option value="normal" selected>普通 · 7–10 句</option><option value="long">长来电 · 12–18 句</option></select></label></div></details>
@@ -390,10 +390,8 @@ export class PhoneView {
         orb.setAttribute('aria-label', '打开 Phonie');
         orb.setAttribute('aria-controls', 'phonie-phone');
         orb.innerHTML = icon('wave')
-            + '<span class="phonie-orb__seam" aria-hidden="true"></span>'
+            + `<span class='phonie-orb__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`
             + '<span class="phonie-orb__unread" data-role="unread" hidden></span>';
-
-        orb.querySelector('.phonie-orb__seam')?.insertAdjacentHTML('beforebegin', `<span class='phonie-orb__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`);
         document.body.append(root, orb);
         this.#root = root;
         this.#orb = orb;
@@ -678,13 +676,19 @@ export class PhoneView {
                     if (number instanceof HTMLInputElement) number.value = selected.length > 1 ? `多人通话 · ${selected.length} 人` : target.dataset.number || '';
                     this.#syncCallContactButtons();
                 }
-            } else if (action === 'toggle-call-participant') {
+            } else if (action === 'add-call-participant') {
                 const picker = this.#root.querySelector('[data-role=call-contact-picker]');
                 const selected = this.#root.querySelector('[data-role=call-participants]');
                 if (picker instanceof HTMLSelectElement && selected instanceof HTMLSelectElement) {
                     const option = [...selected.options].find((entry) => entry.value === picker.value);
-                    if (option) option.selected = !option.selected;
-                    if (![...selected.selectedOptions].length && option) option.selected = true;
+                    if (option) option.selected = true;
+                    this.#syncCallContactButtons();
+                }
+            } else if (action === 'remove-call-participant') {
+                const selected = this.#root.querySelector('[data-role=call-participants]');
+                if (selected instanceof HTMLSelectElement) {
+                    const option = [...selected.options].find((entry) => entry.value === target.dataset.characterId);
+                    if (option) option.selected = false;
                     this.#syncCallContactButtons();
                 }
             } else if (action === 'start-call') {
@@ -765,6 +769,7 @@ export class PhoneView {
                 const size = String(this.#root.querySelector('[data-role="novelai-size"]')?.value || '832x1216').split('x').map(Number);
                 this.#actions.generateNovelAiImage?.({
                     prompt: this.#root.querySelector('[data-role="novelai-prompt"]')?.value || '',
+                    artistTags: this.#root.querySelector('[data-role="novelai-artist-tags"]')?.value || '',
                     negativePrompt: this.#store.getState().settings.novelAiNegativePrompt,
                     model: this.#store.getState().settings.novelAiModel,
                     steps: this.#store.getState().settings.novelAiSteps,
@@ -772,6 +777,40 @@ export class PhoneView {
                     width: size[0],
                     height: size[1],
                 });
+            } else if (action === 'generate-novelai-tags') {
+                const idea = this.#root.querySelector('[data-role="novelai-idea"]')?.value || '';
+                const instruction = this.#store.getState().settings.novelAiTagInstruction;
+                this.#actions.generateNovelAiTags?.({ idea, instruction }).then((result) => {
+                    if (result) this.#writeNovelAiFields(result);
+                });
+            } else if (action === 'save-novelai-preset') {
+                const state = this.#store.getState();
+                const select = this.#root.querySelector('[data-role="novelai-preset-select"]');
+                const activeId = select instanceof HTMLSelectElement ? select.value : '';
+                const existing = state.settings.novelAiPromptPresets?.find((entry) => entry.id === activeId);
+                const name = existing?.name || window.prompt?.('预设名称', '新绘图预设')?.trim();
+                if (name) {
+                    const preset = {
+                        id: existing?.id || `nai-${Date.now().toString(36)}`,
+                        name,
+                        prompt: this.#root.querySelector('[data-role="novelai-prompt"]')?.value || '',
+                        artistTags: this.#root.querySelector('[data-role="novelai-artist-tags"]')?.value || '',
+                        negativePrompt: this.#store.getState().settings.novelAiNegativePrompt,
+                    };
+                    const next = existing
+                        ? state.settings.novelAiPromptPresets.map((entry) => entry.id === existing.id ? preset : entry)
+                        : [...(state.settings.novelAiPromptPresets || []), preset];
+                    this.#actions.updateSetting?.('novelAiPromptPresets', next);
+                    this.#actions.updateSetting?.('novelAiActivePresetId', preset.id);
+                }
+            } else if (action === 'delete-novelai-preset') {
+                const state = this.#store.getState();
+                const select = this.#root.querySelector('[data-role="novelai-preset-select"]');
+                const activeId = select instanceof HTMLSelectElement ? select.value : '';
+                if (activeId && window.confirm?.('删除当前绘图提示词预设吗？') !== false) {
+                    this.#actions.updateSetting?.('novelAiPromptPresets', (state.settings.novelAiPromptPresets || []).filter((entry) => entry.id !== activeId));
+                    this.#actions.updateSetting?.('novelAiActivePresetId', '');
+                }
             } else if (action === 'send-novelai-image') {
                 this.#actions.sendNovelAiImage?.();
             } else if (action === 'download-novelai-image') {
@@ -879,14 +918,16 @@ export class PhoneView {
                 return;
             }
             if (target.dataset.role === 'call-contact-picker' && target instanceof HTMLSelectElement) {
-                const selected = this.#root.querySelector('[data-role=call-participants]');
                 const character = this.#store.getState().characters.find((entry) => entry.id === target.value);
-                if (selected instanceof HTMLSelectElement) {
-                    for (const option of selected.options) option.selected = option.value === target.value;
-                }
                 const number = this.#root.querySelector('[data-role=call-number]');
                 if (number instanceof HTMLInputElement && character) number.value = contactNumber(character.id || character.name);
-                this.#syncCallContactButtons();
+                this.#syncCallContactButtons({ preserveNumber: true });
+                return;
+            }
+            if (target.dataset.role === 'novelai-preset-select' && target instanceof HTMLSelectElement) {
+                const preset = this.#store.getState().settings.novelAiPromptPresets?.find((entry) => entry.id === target.value);
+                this.#actions.updateSetting?.('novelAiActivePresetId', target.value);
+                if (preset) this.#writeNovelAiFields(preset);
                 return;
             }
             if (target.dataset.role === 'character-provider-select') {
@@ -1169,16 +1210,30 @@ export class PhoneView {
         this.#syncCallContactButtons();
     }
 
-    #syncCallContactButtons() {
+    #syncCallContactButtons({ preserveNumber = false } = {}) {
         const select = this.#root.querySelector('[data-role=call-participants]');
-        const selected = new Set(select instanceof HTMLSelectElement ? [...select.selectedOptions].map((option) => option.value) : []);
-        this.#setText('[data-role="call-selected-summary"]', `${selected.size || 1} 人`);
-        const button = this.#root.querySelector('[data-action=toggle-call-participant]');
+        const selectedOptions = select instanceof HTMLSelectElement ? [...select.selectedOptions] : [];
+        const selected = new Set(selectedOptions.map((option) => option.value));
+        this.#setText('[data-role="call-selected-summary"]', `${selected.size} 人`);
+        const button = this.#root.querySelector('[data-action=add-call-participant]');
         const picker = this.#root.querySelector('[data-role=call-contact-picker]');
         if (button && picker instanceof HTMLSelectElement) {
             const active = selected.has(picker.value);
             button.dataset.selected = String(active);
-            button.querySelector('span').textContent = active ? '移出多人' : '加入多人';
+            button.disabled = active || !picker.value;
+            button.querySelector('span').textContent = active ? '已在通话' : '加入通话';
+        }
+        const selection = this.#root.querySelector('[data-role="call-selection"]');
+        if (selection) selection.innerHTML = selectedOptions.map((option) => `
+            <span class="phonie-call-selection__chip"><b>${escapeHtml(initials(option.textContent))}</b><span>${escapeHtml(String(option.textContent || '').split(' · ')[0])}</span><button type="button" data-action="remove-call-participant" data-character-id="${escapeHtml(option.value)}" aria-label="移除 ${escapeHtml(option.textContent)}">${icon('close')}</button></span>
+        `).join('');
+        if (!preserveNumber) {
+            const number = this.#root.querySelector('[data-role=call-number]');
+            if (number instanceof HTMLInputElement) {
+                number.value = selectedOptions.length > 1
+                    ? `多人通话 · ${selectedOptions.length} 人`
+                    : selectedOptions[0]?.dataset.number || '';
+            }
         }
     }
 
@@ -1188,6 +1243,7 @@ export class PhoneView {
         this.#root.dataset.open = String(Boolean(state.open));
         this.#root.dataset.dock = state.settings.dockSide;
         this.#root.dataset.screen = state.screen;
+        this.#root.dataset.callState = state.callState || 'idle';
         this.#root.dataset.audioState = state.audioState || 'idle';
         this.#root.dataset.launcher = state.settings.launcherMode || 'orb';
         this.#root.hidden = !state.open;
@@ -1276,18 +1332,45 @@ export class PhoneView {
         const image = result?.querySelector('img');
         if (result) result.hidden = !state.novelImage;
         if (image instanceof HTMLImageElement && image.src !== state.novelImage) image.src = state.novelImage || '';
+        const tagButton = this.#root.querySelector('[data-action="generate-novelai-tags"]');
+        if (tagButton instanceof HTMLButtonElement) {
+            tagButton.disabled = Boolean(state.novelTagBusy);
+            tagButton.setAttribute('aria-busy', String(Boolean(state.novelTagBusy)));
+            const label = tagButton.querySelector('span');
+            if (label) label.textContent = state.novelTagBusy ? '正在整理提示词…' : '让当前模型整理画面提示词';
+        }
+        const presetSelect = this.#root.querySelector('[data-role="novelai-preset-select"]');
+        if (presetSelect instanceof HTMLSelectElement) {
+            const presets = state.settings.novelAiPromptPresets || [];
+            const signature = JSON.stringify(presets.map((entry) => [entry.id, entry.name]));
+            if (presetSelect.dataset.signature !== signature) {
+                presetSelect.dataset.signature = signature;
+                presetSelect.innerHTML = '<option value="">未选择预设</option>' + presets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`).join('');
+            }
+            presetSelect.value = presets.some((entry) => entry.id === state.settings.novelAiActivePresetId)
+                ? state.settings.novelAiActivePresetId : '';
+        }
+    }
+
+    #writeNovelAiFields(value = {}) {
+        const prompt = this.#root.querySelector('[data-role="novelai-prompt"]');
+        const artists = this.#root.querySelector('[data-role="novelai-artist-tags"]');
+        const negative = this.#root.querySelector('[data-setting="novelAiNegativePrompt"]');
+        if (prompt instanceof HTMLTextAreaElement) prompt.value = String(value.prompt || '');
+        if (artists instanceof HTMLTextAreaElement) artists.value = String(value.artistTags || '');
+        if (negative instanceof HTMLTextAreaElement) negative.value = String(value.negativePrompt || '');
+        if (value.artistTags != null) this.#actions.updateSetting?.('novelAiArtistTags', String(value.artistTags || ''));
+        if (value.negativePrompt != null) this.#actions.updateSetting?.('novelAiNegativePrompt', String(value.negativePrompt || ''));
     }
 
     #renderDynamicIsland(state) {
         const island = this.#root.querySelector('[data-role="dynamic-island"]');
         if (!island) return;
         const inCall = ACTIVE_CALL_STATES.has(state.callState);
-        const islandState = inCall
-            ? 'call'
-            : state.generating || state.audioState === 'generating'
+        const islandState = state.generating || state.audioState === 'generating' || state.callState === CALL_STATES.GENERATING
                 ? 'generating'
                 : state.audioState === 'speaking'
-                    ? 'playing'
+                    ? inCall ? 'call' : 'playing'
                     : 'idle';
         const labels = { idle: '', generating: '生成中', playing: '播放中', call: '通话中' };
         island.dataset.state = islandState;
@@ -1298,6 +1381,8 @@ export class PhoneView {
     #renderMessages(state) {
         const list = this.#root.querySelector('[data-role="message-list"]');
         if (!list) return;
+        const callMessageIds = new Set((state.calls || []).flatMap((record) => record.messageIds || []));
+        const chatMessages = state.messages.filter((message) => message.channel !== 'call' && !callMessageIds.has(message.id));
         const chatParticipants = state.chatParticipants?.length ? state.chatParticipants : [state.contact];
         const primary = chatParticipants[0];
         const chatName = chatParticipants.length > 1 ? `群聊 · ${chatParticipants.length} 人` : primary.name;
@@ -1313,26 +1398,26 @@ export class PhoneView {
         }
         const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
         const previousTop = list.scrollTop;
-        const signature = JSON.stringify(state.messages.map((message) => [
+        const signature = JSON.stringify(chatMessages.map((message) => [
             message.id, message.kind, message.originalText, message.translationText, message.isPlaying, message.audioStatus,
             message.durationLabel, message.amount, message.note, message.recalledAt,
             message.replySnapshot?.content, message.imageUrl,
         ]));
         if (signature !== this.#messageSignature) {
             this.#messageSignature = signature;
-            if (state.messages.length === 0) {
+            if (chatMessages.length === 0) {
                 list.innerHTML = `
                 <div class="phonie-chat-empty">
                     <div class="phonie-chat-empty__mark">${icon('message')}</div>
                     <h2 class="phonie-chat-empty__title">暂无消息</h2>
                 </div>`;
             } else {
-                list.innerHTML = state.messages.map((message) => renderMessage(message, state.settings.showTranslation, state)).join('');
+                list.innerHTML = chatMessages.map((message) => renderMessage(message, state.settings.showTranslation, state)).join('');
             }
         }
         const generating = this.#root.querySelector('[data-role="generating"]');
         if (generating) generating.hidden = !state.generating;
-        for (const message of state.messages) {
+        for (const message of chatMessages) {
             const action = [...list.querySelectorAll('[data-action=play-phone-audio]')].find((button) => button.dataset.messageId === String(message.id));
             const voice = action?.closest('.phonie-message__voice');
             if (voice) voice.dataset.audioState = message.audioStatus || (message.isPlaying ? 'playing' : 'idle');
@@ -1343,7 +1428,7 @@ export class PhoneView {
         }
         this.#renderReplyComposer(state);
         requestAnimationFrame(() => {
-            list.scrollTop = nearBottom || state.messages.length <= 1 ? list.scrollHeight : previousTop;
+            list.scrollTop = nearBottom || chatMessages.length <= 1 ? list.scrollHeight : previousTop;
         });
     }
 
@@ -1439,12 +1524,14 @@ export class PhoneView {
 
     #renderHome(state) {
         const voiceCount = (state.characters || []).filter((character) => character.route?.voiceId || character.route?.referenceAudio).length;
+        const callMessageIds = new Set((state.calls || []).flatMap((record) => record.messageIds || []));
+        const chatMessageCount = state.messages.filter((message) => message.channel !== 'call' && !callMessageIds.has(message.id)).length;
         const chatParticipants = state.chatParticipants?.length ? state.chatParticipants : [state.contact];
         this.#setText('[data-role="home-contact"]', chatParticipants.length > 1 ? `群聊 · ${chatParticipants.length} 人` : chatParticipants[0].name);
         this.#setText('[data-role="home-contact-service"]', state.contact.name);
         this.#setText('[data-role="home-provider"]', state.providerLabel);
-        this.#setText('[data-role="home-message-summary"]', `${state.messages.length} 条手机消息`);
-        this.#setText('[data-role="home-chat-count"]', `${state.messages.length} 条`);
+        this.#setText('[data-role="home-message-summary"]', `${chatMessageCount} 条手机消息`);
+        this.#setText('[data-role="home-chat-count"]', `${chatMessageCount} 条`);
         this.#setText('[data-role="home-call-count"]', `${state.calls.length} 通`);
         this.#setText('[data-role="home-voice-count"]', `${voiceCount} 个`);
         this.#setText('[data-role="home-trace-count"]', `${state.calls.length} 段`);
@@ -1563,10 +1650,10 @@ export class PhoneView {
         }
         list.innerHTML = records.map((record) => `
             <article class="phonie-record-card phonie-record-card--call">
-                ${record.messageIds?.length
+                ${record.messageIds?.length || record.messages?.length
                     ? `<button class="phonie-record-card__play" type="button" data-action="replay-call-record" data-call-id="${escapeHtml(record.id)}" aria-label="重播这次通话">${icon('play')}</button>`
                     : `<span class="phonie-record-card__play" aria-hidden="true">${icon('phone')}</span>`}
-                <span class="phonie-record-card__copy"><strong>${escapeHtml(record.contactName || state.contact.name)}</strong><small>${record.direction === 'incoming' ? '来电' : '外呼'} · ${record.outcome === 'declined' ? '未接通' : '已结束'} · ${escapeHtml(record.summary || '通话已结束')}</small></span>
+                <span class="phonie-record-card__copy"><strong>${escapeHtml(record.title || record.contactName || state.contact.name)}</strong><small>${escapeHtml(record.contactName || state.contact.name)} · ${record.direction === 'incoming' ? '来电' : '外呼'} · ${record.outcome === 'declined' ? '未接通' : '已结束'}</small><em>${escapeHtml(record.summary || '通话已结束')}</em></span>
                 <time>${escapeHtml(formatDuration(record.startedAt, record.endedAt))}<br>${escapeHtml(formatRecordDate(record.startedAt))}</time>
                 <button class="phonie-record-card__delete" type="button" data-action="delete-call-record" data-call-id="${escapeHtml(record.id)}" aria-label="删除这条通话记录">${icon('trash')}</button>
             </article>`).join('');

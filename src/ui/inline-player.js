@@ -124,7 +124,10 @@ export class InlinePlayerManager {
                 regenerate: () => this.#regenerate(entry),
             });
             const cached = await this.#cache.get(cacheKey);
-            if (cached instanceof Blob) this.#audioFocus.setSource(audioKey, cached);
+            if (cached instanceof Blob) {
+                this.#audioFocus.setSource(audioKey, cached);
+                this.#setButtonState(entry, 'ready');
+            }
         }
 
         const stored = segments.map(publicSegment);
@@ -202,7 +205,7 @@ export class InlinePlayerManager {
         const slot = button.querySelector('.phonie-inline-button__icon');
         if (slot) slot.innerHTML = icon(state === 'playing' ? 'pause' : 'play');
         button.setAttribute('aria-pressed', String(state === 'playing'));
-        const labels = { generating: '正在生成这句原声', playing: '暂停这句原声', paused: '继续播放这句原声', error: '语音生成失败，点击重试' };
+        const labels = { generating: '正在生成这句原声', playing: '暂停这句原声', paused: '继续播放这句原声', ready: '播放已生成的原声', error: '语音生成失败，点击重试' };
         button.setAttribute('aria-label', labels[state] || `播放${entry.segment.speaker || '角色'}这句原声`);
     }
 
@@ -258,10 +261,11 @@ export class InlinePlayerManager {
     #handleFocus(detail) {
         for (const entry of this.#entries.values()) {
             const matched = detail.current?.owner === 'inline' && detail.current?.entryKey === entry.key;
+            const restingState = this.#audioFocus.hasSource(entry.audioKey) ? 'ready' : 'idle';
             if (matched) {
-                this.#setButtonState(entry, detail.state === 'playing' ? 'playing' : detail.state === 'paused' ? 'paused' : 'idle');
+                this.#setButtonState(entry, detail.state === 'playing' ? 'playing' : detail.state === 'paused' ? 'paused' : restingState);
             } else if (entry.element?.dataset.audioState !== 'generating') {
-                this.#setButtonState(entry, 'idle');
+                this.#setButtonState(entry, restingState);
             }
         }
     }

@@ -8,6 +8,7 @@ export class AudioFocusController {
     #analyser = null;
     #frequencyData = null;
     #levelFrame = 0;
+    #levelTick = 0;
 
     constructor() {
         this.#audio = new Audio();
@@ -138,9 +139,12 @@ export class AudioFocusController {
     }
 
     #readLevels(count = 18) {
+        this.#levelTick += 1;
         if (!this.#analyser || !this.#frequencyData) {
             return Array.from({ length: count }, (_, index) => (
-                this.#audio.paused ? 0 : 0.18 + ((index * 7) % 5) * 0.045
+                this.#audio.paused
+                    ? 0
+                    : 0.12 + Math.abs(Math.sin((index * 1.73) + (this.#levelTick * 0.09))) * 0.36
             ));
         }
         this.#analyser.getByteFrequencyData(this.#frequencyData);
@@ -149,8 +153,10 @@ export class AudioFocusController {
             const position = index / Math.max(1, count - 1);
             const bin = Math.min(audibleBins.length - 1, Math.floor(Math.pow(position, 1.35) * audibleBins.length));
             const neighbour = audibleBins[Math.min(audibleBins.length - 1, bin + 1)] || 0;
-            const value = ((audibleBins[bin] || 0) * 0.72 + neighbour * 0.28) / 172;
-            return Math.min(1, Math.max(0.055, value));
+            const raw = ((audibleBins[bin] || 0) * 0.72 + neighbour * 0.28) / 150;
+            const shaped = Math.pow(Math.min(1, Math.max(0, raw)), 0.72);
+            const variation = 0.78 + Math.abs(Math.sin((index * 1.91) + (this.#levelTick * 0.075))) * 0.42;
+            return Math.min(1, Math.max(0.07, shaped * variation));
         });
     }
 

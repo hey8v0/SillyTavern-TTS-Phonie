@@ -948,6 +948,24 @@
     height: 13px;
 }
 
+.phonie-inline-button--body[data-audio-state='ready'] {
+    border-color: color-mix(in srgb, var(--phonie-inline-signal) 68%, var(--phonie-inline-border));
+    background: color-mix(in srgb, var(--phonie-inline-signal) 16%, var(--SmartThemeBotMesBlurTintColor, rgba(30, 31, 36, 0.72)));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 0 0 2px color-mix(in srgb, var(--phonie-inline-signal) 9%, transparent);
+}
+
+.phonie-inline-button--body[data-audio-state='generating'] {
+    border-color: color-mix(in srgb, #d9a84b 70%, var(--phonie-inline-border));
+    background: color-mix(in srgb, #d9a84b 20%, var(--SmartThemeBotMesBlurTintColor, rgba(30, 31, 36, 0.72)));
+    color: #e9bd68;
+}
+
+.phonie-inline-button--body[data-audio-state='playing'] {
+    border-color: color-mix(in srgb, #60c3cf 76%, var(--phonie-inline-border));
+    background: color-mix(in srgb, #60c3cf 22%, var(--SmartThemeBotMesBlurTintColor, rgba(30, 31, 36, 0.72)));
+    color: #72d9e2;
+}
+
 .phonie-inline-button__wave {
     display: none;
     height: 13px;
@@ -1180,6 +1198,16 @@
 .phonie-message__generated-image figcaption { padding: 7px 10px; color: var(--phonie-ink-muted); font-size: 9px; }
 
 .phonie-novelai-pane { gap: 12px; }
+.phonie-novelai-presetbar { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 7px; }
+.phonie-novelai-presetbar select,
+.phonie-novelai-presetbar button { min-width: 0; min-height: 42px; border: 1px solid var(--phonie-border); border-radius: 14px; color: var(--phonie-ink); background: color-mix(in srgb, var(--phonie-surface-raised) 82%, transparent); font: inherit; }
+.phonie-novelai-presetbar select { padding: 0 34px 0 11px; }
+.phonie-novelai-presetbar button { display: inline-flex; padding: 0 11px; align-items: center; justify-content: center; gap: 5px; }
+.phonie-novelai-presetbar button .phonie-icon { width: 15px; height: 15px; }
+.phonie-novelai-taggen { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid color-mix(in srgb, var(--phonie-signal) 45%, var(--phonie-border)); border-radius: 16px; color: var(--phonie-signal); background: linear-gradient(125deg, color-mix(in srgb, var(--phonie-signal) 13%, transparent), color-mix(in srgb, var(--phonie-point) 10%, transparent)); font: inherit; font-weight: 720; }
+.phonie-novelai-taggen .phonie-icon { width: 18px; height: 18px; }
+.phonie-novelai-taggen[aria-busy='true'] .phonie-icon { animation: phonie-novelai-tag-pulse 850ms ease-in-out infinite alternate; }
+@keyframes phonie-novelai-tag-pulse { to { opacity: .45; transform: rotate(16deg) scale(.92); } }
 .phonie-novelai-hero {
     display: grid;
     min-height: 86px;
@@ -1215,6 +1243,11 @@
 .phonie-novelai-result img { display: block; width: 100%; max-height: 420px; object-fit: contain; background: var(--phonie-canvas); }
 .phonie-novelai-result figcaption { display: grid; padding: 9px; grid-template-columns: 1fr 1fr; gap: 8px; }
 .phonie-novelai-result button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 14px; color: var(--phonie-ink); background: var(--phonie-surface-muted); }
+.phonie-record-card__copy em { display: block; max-width: 100%; overflow: hidden; color: var(--phonie-ink-muted); font-size: 8px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+    .phonie-novelai-taggen[aria-busy='true'] .phonie-icon { animation: none; }
+}
 
 .phonie-reply-composer {
     display: flex;

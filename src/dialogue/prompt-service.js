@@ -76,7 +76,7 @@ export function buildPhoneReplyMessages({
                 `参与者：${participantNames.join('、') || contactName}`,
                 `编排方式：${strategy === 'topic' ? '优先围绕用户指定主题' : '根据酒馆上下文自主规划'}`,
                 `通话主题：${topic || '根据当前剧情自然继续'}`,
-                scriptMode ? `输出一段可连续播放的完整电话或电话留言。turns 必须有 ${turnRange.minimum} 到 ${turnRange.maximum} 段，每段都包含 speaker、originalText、translationText 与 emotion。禁止返回空对象、空数组、空台词或省略字段。` : '',
+                scriptMode ? `输出一段可连续播放的完整电话或电话留言。turns 必须有 ${turnRange.minimum} 到 ${turnRange.maximum} 段，每段都包含 speaker、originalText、translationText 与 emotion；同时输出简短 title 和 summary，供通话轨迹识别主题。禁止返回空对象、空数组、空台词或省略字段。` : '',
                 storyContext ? `[酒馆剧情、世界书与摘要]\n${storyContext}` : '',
                 '以上内容只用于保持剧情连续性，不要逐字复述。',
             ].filter(Boolean).join('\n'),
@@ -142,6 +142,7 @@ export function parsePhoneReply(value, { targetLanguage = 'zh-CN' } = {}) {
                 ...turns[0],
                 turns,
                 action: data.action === 'end_call' ? 'end_call' : 'reply',
+                title: String(data.title || '').trim(),
                 summary: String(data.summary || '').trim(),
             };
         }

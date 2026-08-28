@@ -141,16 +141,25 @@ export function auxiliaryScreensMarkup() {
         <section class="phonie-screen phonie-novelai-screen" data-screen="${SCREENS.NOVELAI}" aria-label="NovelAI 文生图">
             <div class="phonie-app-pane phonie-novelai-pane">
                 <section class="phonie-novelai-hero"><span>${icon('image')}</span><div><small>NovelAI Diffusion</small><strong>角色影像工坊</strong></div><i data-role="novelai-status">待命</i></section>
-                <label class="phonie-novelai-field"><span>画面描述</span><textarea rows="5" maxlength="6000" data-role="novelai-prompt" placeholder="例如：角色在雨后的东京街头分享一张随手拍，柔和街灯，生活感"></textarea></label>
+                <section class="phonie-novelai-presetbar">
+                    <select data-role="novelai-preset-select" aria-label="选择绘图提示词预设"><option value="">未选择预设</option></select>
+                    <button type="button" data-action="save-novelai-preset">${icon('check')}<span>保存</span></button>
+                    <button type="button" data-action="delete-novelai-preset" aria-label="删除当前绘图预设">${icon('trash')}</button>
+                </section>
+                <label class="phonie-novelai-field"><span>画面意图</span><textarea rows="3" maxlength="3000" data-role="novelai-idea" placeholder="例如：角色在雨后的东京街头分享一张随手拍，柔和街灯，生活感"></textarea></label>
+                <button class="phonie-novelai-taggen" type="button" data-action="generate-novelai-tags">${icon('spark')}<span>让当前模型整理画面提示词</span></button>
+                <label class="phonie-novelai-field"><span>正面提示词</span><textarea rows="5" maxlength="6000" data-role="novelai-prompt" placeholder="自然语言描述与主体、构图、光线 Tag"></textarea></label>
+                <label class="phonie-novelai-field"><span>画师串与风格 Tag</span><textarea rows="3" maxlength="3000" data-role="novelai-artist-tags" data-setting="novelAiArtistTags" placeholder="artist:xxx, style:xxx, cinematic lighting"></textarea></label>
                 <details class="phonie-novelai-options"><summary>${icon('sliders')}<span>生成参数</span>${icon('chevron')}</summary><div>
-                    <label><span>模型</span><select data-setting="novelAiModel"><option value="nai-diffusion-4-5-full">Anime V4.5 Full</option><option value="nai-diffusion-4-5-curated">Anime V4.5 Curated</option><option value="nai-diffusion-4-full">Anime V4 Full</option><option value="nai-diffusion-3">Anime V3</option><option value="nai-diffusion-furry-3">Furry V3</option></select></label>
+                    <label><span>模型</span><select data-setting="novelAiModel"><option value="nai-diffusion-5-full">V5 Full · 最新</option><option value="nai-diffusion-5-curated">V5 Curated</option><option value="nai-diffusion-4-5-full">V4.5 Full</option><option value="nai-diffusion-4-5-curated">V4.5 Curated</option><option value="nai-diffusion-4-full">V4 Full</option><option value="nai-diffusion-3">Anime V3</option><option value="nai-diffusion-furry-3">Furry V3</option></select></label>
                     <label><span>尺寸</span><select data-role="novelai-size"><option value="832x1216">竖图 · 832×1216</option><option value="1216x832">横图 · 1216×832</option><option value="1024x1024">方图 · 1024×1024</option></select></label>
                     <label><span>负面提示词</span><textarea rows="3" data-setting="novelAiNegativePrompt"></textarea></label>
+                    <label><span>AI 提示词指令</span><textarea rows="5" maxlength="6000" data-setting="novelAiTagInstruction"></textarea></label>
                     <div class="phonie-novelai-numbers"><label><span>步数</span><input type="number" min="1" max="50" data-setting="novelAiSteps"></label><label><span>引导</span><input type="number" min="1" max="10" step="0.1" data-setting="novelAiScale"></label></div>
                     <label><span>Persistent API Token</span><div class="phonie-novelai-secret"><input type="password" autocomplete="new-password" data-role="novelai-token" placeholder="保存后不会回显"><button type="button" data-action="save-novelai-token">安全保存</button></div></label>
                 </div></details>
                 <button class="phonie-novelai-generate" type="button" data-action="generate-novelai-image">${icon('spark')}<span>生成图片</span></button>
-                <figure class="phonie-novelai-result" data-role="novelai-result" hidden><img alt="NovelAI 生成结果"><figcaption><button type="button" data-action="download-novelai-image">${icon('download')}<span>下载</span></button><button type="button" data-action="send-novelai-image">${icon('send')}<span>发到当前私信</span></button></figcaption></figure>
+                <figure class="phonie-novelai-result" data-role="novelai-result" hidden><img alt="NovelAI 生成结果"><figcaption><button type="button" data-action="download-novelai-image">${icon('download')}<span>下载</span></button><button type="button" data-action="send-novelai-image">${icon('send')}<span>作为角色发送</span></button></figcaption></figure>
             </div>
         </section>`;
 }

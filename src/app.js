@@ -33,6 +33,13 @@ function buildCallSummary(messages, contactName) {
     return lines.join(' / ').slice(0, 900);
 }
 
+function buildCallTitle(value, fallback = '一通电话') {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!text) return fallback;
+    const first = text.split(/[。！？!?/]/u).find(Boolean) || text;
+    return first.slice(0, 24);
+}
+
 function promptSettingKey(kind) {
     if (kind === 'body') return 'bodyPromptPreset';
     if (kind === 'call') return 'callPromptPreset';
@@ -116,12 +123,15 @@ export async function createPhonieApp() {
         callScriptQueue: [],
         callScriptIndex: -1,
         callPreparationLabel: '',
+        callTitle: '',
+        callSummary: '',
         callReplayMode: false,
         audioState: 'idle',
         audioCacheStats: { count: 0, bytes: 0 },
         cacheBusy: false,
         novelImage: '',
         novelBusy: false,
+        novelTagBusy: false,
         novelStatus: '待命',
         unread: 0,
         toast: null,
@@ -290,6 +300,7 @@ export async function createPhonieApp() {
                 author: bridge.getUserName(),
                 originalText: cleanText,
                 kind,
+                channel: callMode ? 'call' : 'chat',
                 ...payload,
                 replySnapshot: replyTarget ? {
                     sender: replyTarget.author,
@@ -348,6 +359,7 @@ export async function createPhonieApp() {
                 translationText: reply.translationText,
                 kind: callMode || currentSettings.autoPlayPhoneReplies ? MESSAGE_KINDS.VOICE : MESSAGE_KINDS.TEXT,
                 emotion: reply.emotion,
+                channel: callMode ? 'call' : 'chat',
             });
             const messages = [...store.getState().messages, incoming];
             const nextPending = callMode ? store.getState().pendingUserMessageIds : [];
@@ -444,12 +456,15 @@ export async function createPhonieApp() {
                 translationText: turn.translationText,
                 kind: MESSAGE_KINDS.VOICE,
                 emotion: turn.emotion,
+                channel: 'call',
             }));
             const messages = [...store.getState().messages, ...prepared];
             const queue = prepared.map((message) => message.id);
             updateState({
                 messages,
                 callScriptQueue: queue,
+                callTitle: buildCallTitle(reply.title || reply.summary, `${fallbackSpeaker}来电`),
+                callSummary: String(reply.summary || '').trim(),
                 callPreparationLabel: `正在准备语音 0/${prepared.length}`,
             });
             persistPhoneState(messages, store.getState().calls);
@@ -492,6 +507,8 @@ export async function createPhonieApp() {
             callScriptQueue: [],
             callScriptIndex: -1,
             callPreparationLabel: '',
+            callTitle: '',
+            callSummary: '',
             callReplayMode: false,
         });
         callConnectTimer = window.setTimeout(() => {
@@ -526,6 +543,8 @@ export async function createPhonieApp() {
             callScriptQueue: [],
             callScriptIndex: -1,
             callPreparationLabel: '',
+            callTitle: '',
+            callSummary: '',
             callReplayMode: false,
         });
         globalThis.navigator?.vibrate?.([160, 90, 160, 360, 160, 90, 160]);
@@ -556,14 +575,24 @@ export async function createPhonieApp() {
         }
         if (state.callDirection && !state.callReplayMode) {
             const endedAt = Date.now();
+            const callMessages = state.callScriptQueue
+                .map((id) => state.messages.find((message) => message.id === id))
+                .filter(Boolean)
+                .map((message) => ({ ...message, channel: 'call' }));
             const record = createCallRecord({
                 contactName: state.callParticipants?.map((entry) => entry.name).join('、') || state.contact.name,
                 startedAt: startedAt || endedAt,
                 endedAt,
                 direction: state.callDirection,
                 outcome,
-                summary: outcome === 'declined' ? '已拒绝来电' : buildCallSummary(state.messages, state.callParticipants?.[0]?.name || state.contact.name),
+                title: outcome === 'declined'
+                    ? '未接来电'
+                    : buildCallTitle(state.callTitle || state.callSummary, `${state.callParticipants?.[0]?.name || state.contact.name}的电话`),
+                summary: outcome === 'declined'
+                    ? '已拒绝来电'
+                    : state.callSummary || buildCallSummary(state.messages.filter((message) => message.channel === 'call'), state.callParticipants?.[0]?.name || state.contact.name),
                 messageIds: state.callScriptQueue,
+                messages: callMessages,
                 participants: state.callParticipants,
             });
             const calls = [...state.calls, record];
@@ -575,6 +604,8 @@ export async function createPhonieApp() {
                 callScriptQueue: [],
                 callScriptIndex: -1,
                 callPreparationLabel: '',
+                callTitle: '',
+                callSummary: '',
                 callSpeaker: '',
                 callReplayMode: false,
             });
@@ -587,6 +618,8 @@ export async function createPhonieApp() {
                 callScriptQueue: [],
                 callScriptIndex: -1,
                 callPreparationLabel: '',
+                callTitle: '',
+                callSummary: '',
                 callSpeaker: '',
                 callReplayMode: false,
             });
@@ -641,7 +674,10 @@ export async function createPhonieApp() {
     function replayCallRecord(callId) {
         const state = store.getState();
         const record = state.calls.find((entry) => entry.id === callId);
-        const queue = (record?.messageIds || []).filter((id) => state.messages.some((message) => message.id === id));
+        const knownIds = new Set(state.messages.map((message) => message.id));
+        const restored = (record?.messages || []).filter((message) => message?.id && !knownIds.has(message.id));
+        const replayMessages = [...state.messages, ...restored];
+        const queue = (record?.messageIds || []).filter((id) => replayMessages.some((message) => message.id === id));
         if (!record || !queue.length) {
             showToast('这条旧记录没有可重播的语音段');
             return;
@@ -657,6 +693,7 @@ export async function createPhonieApp() {
             screen: SCREENS.CALL,
             callDirection: record.direction || 'incoming',
             callParticipants: participants.length ? participants : [state.contact],
+            messages: replayMessages,
             callScriptQueue: queue,
             callScriptIndex: -1,
             callCaption: { source: '', translation: '' },
@@ -941,22 +978,36 @@ export async function createPhonieApp() {
                 return '';
             }
         },
+        async generateNovelAiTags(payload) {
+            updateState({ novelTagBusy: true, novelStatus: '正在整理提示词…' });
+            try {
+                const tags = await bridge.generateNovelAiTags(payload);
+                updateState({ novelTagBusy: false, novelStatus: '提示词已生成' });
+                showToast('画面提示词已生成');
+                return tags;
+            } catch (error) {
+                console.error('[Phonie] NovelAI tag generation failed.', error);
+                updateState({ novelTagBusy: false, novelStatus: error?.message || '提示词生成失败' });
+                showToast(error?.message || '提示词生成失败');
+                return null;
+            }
+        },
         sendNovelAiImage() {
             const state = store.getState();
             if (!state.novelImage) return;
             const message = createPhoneMessage({
-                direction: 'outgoing',
-                author: bridge.getUserName(),
+                direction: 'incoming',
+                author: state.chatParticipants?.[0]?.name || state.contact.name,
                 originalText: '分享了一张图片',
                 kind: MESSAGE_KINDS.IMAGE,
                 attachmentName: 'NovelAI 生成图片',
-                description: '用户在私人频道分享了一张生成图片',
+                description: '角色在私人频道分享了一张图片',
                 imageUrl: state.novelImage,
             });
             const messages = [...state.messages, message];
             updateState({ messages, screen: SCREENS.CHAT });
-            persistPhoneState(messages, state.calls, [...state.pendingUserMessageIds, message.id]);
-            showToast('图片已发送到当前会话');
+            persistPhoneState(messages, state.calls, state.pendingUserMessageIds);
+            showToast('角色图片已加入当前会话');
         },
         downloadNovelAiImage() {
             const image = store.getState().novelImage;

@@ -29,11 +29,15 @@ test('phone metadata and call records retain recovery and replay data', () => {
         contactName: 'Aoi',
         startedAt: 1,
         endedAt: 2,
+        title: '雨夜回家',
         messageIds: ['m1', 'm1', 'm2'],
+        messages: [{ id: 'm1', originalText: '到家了吗？' }],
         participants: [{ id: 'speaker:aoi', name: 'Aoi', avatarUrl: '/aoi.png' }],
     });
     assert.equal(metadata.updatedAt, 123);
     assert.deepEqual(record.messageIds, ['m1', 'm2']);
+    assert.equal(record.title, '雨夜回家');
+    assert.equal(record.messages[0].channel, 'call');
     assert.equal(record.participants[0].name, 'Aoi');
 });
 

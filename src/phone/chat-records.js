@@ -58,6 +58,7 @@ export function createPhoneMessage({
     imageUrl = '',
     replyToId = null,
     replySnapshot = null,
+    channel = 'chat',
 }) {
     return {
         id: createId('message'),
@@ -75,6 +76,7 @@ export function createPhoneMessage({
         imageUrl: String(imageUrl || ''),
         replyToId: replyToId ? String(replyToId) : null,
         replySnapshot: replySnapshot && typeof replySnapshot === 'object' ? { ...replySnapshot } : null,
+        channel: channel === 'call' ? 'call' : 'chat',
         originalType: null,
         originalContent: '',
         recalledAt: null,
@@ -101,10 +103,12 @@ export function createCallRecord({
     contactName,
     startedAt,
     endedAt,
+    title = '',
     summary = '',
     direction = 'outgoing',
     outcome = 'completed',
     messageIds = [],
+    messages = [],
     participants = [],
 }) {
     return {
@@ -112,10 +116,14 @@ export function createCallRecord({
         contactName,
         startedAt,
         endedAt,
+        title: String(title || '').trim().slice(0, 80),
         summary: String(summary || '').trim(),
         direction,
         outcome,
         messageIds: Array.isArray(messageIds) ? [...new Set(messageIds.map(String).filter(Boolean))] : [],
+        messages: Array.isArray(messages)
+            ? messages.map((message) => ({ ...message, channel: 'call' }))
+            : [],
         participants: Array.isArray(participants)
             ? participants.map((entry) => ({
                 id: String(entry?.id || ''),

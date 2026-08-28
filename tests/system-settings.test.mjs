@@ -38,6 +38,11 @@ test('model app owns providers while voice app owns routed voices', async () => 
     assert.match(home, /data-role="tts-provider-editor"/);
     assert.match(home, /data-screen="\$\{SCREENS\.PROVIDER\}"/);
     assert.match(home, /data-role="character-directory"/);
+    assert.match(home, /nai-diffusion-5-full/);
+    assert.match(home, /正面提示词/);
+    assert.match(home, /画师串与风格 Tag/);
+    assert.match(home, /data-action="generate-novelai-tags"/);
+    assert.match(home, /data-action="save-novelai-preset"/);
     assert.match(view, /data-action="set-tts-provider"/);
     assert.match(view, /data-action="open-tts-provider"/);
     assert.match(view, /data-provider-tone/);
@@ -53,6 +58,9 @@ test('model app owns providers while voice app owns routed voices', async () => 
     assert.match(view, /data-role="audio-cache-size"/);
     assert.match(view, /data-action="open-chat-preset"/);
     assert.match(view, /data-action="open-chat-settings"/);
+    assert.match(view, /data-action="add-call-participant"/);
+    assert.match(view, /data-action="remove-call-participant"/);
+    assert.match(view, /phonie-call-ripples/);
     assert.match(view, /AudioActionMenu/);
     assert.match(view, /#audioMenu\.bind[\s\S]*?regenerate:/);
     assert.match(view, /data-action="replay-call-record"/);

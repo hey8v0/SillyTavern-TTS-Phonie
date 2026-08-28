@@ -59,6 +59,18 @@ function mergeSettings(value = {}) {
     merged.novelAiSteps = Math.min(50, Math.max(1, Math.round(Number(merged.novelAiSteps) || 28)));
     merged.novelAiScale = Math.min(10, Math.max(1, Number(merged.novelAiScale) || 5));
     merged.novelAiNegativePrompt = String(merged.novelAiNegativePrompt || DEFAULT_SETTINGS.novelAiNegativePrompt).slice(0, 6000);
+    merged.novelAiArtistTags = String(merged.novelAiArtistTags || '').slice(0, 3000);
+    merged.novelAiTagInstruction = String(merged.novelAiTagInstruction || DEFAULT_SETTINGS.novelAiTagInstruction).slice(0, 6000);
+    merged.novelAiActivePresetId = String(merged.novelAiActivePresetId || '').slice(0, 120);
+    merged.novelAiPromptPresets = Array.isArray(merged.novelAiPromptPresets)
+        ? merged.novelAiPromptPresets.slice(0, 80).map((entry, index) => ({
+            id: String(entry?.id || `nai-preset-${index + 1}`).slice(0, 120),
+            name: String(entry?.name || `提示词 ${index + 1}`).trim().slice(0, 80),
+            prompt: String(entry?.prompt || '').slice(0, 6000),
+            artistTags: String(entry?.artistTags || '').slice(0, 3000),
+            negativePrompt: String(entry?.negativePrompt || '').slice(0, 6000),
+        }))
+        : [];
     const legacyPrompt = value.promptPreset || DEFAULT_PHONE_PROMPT_PRESET;
     merged.chatPromptPreset = normalizePhonePromptPreset(value.chatPromptPreset || legacyPrompt || DEFAULT_CHAT_PROMPT_PRESET);
     merged.callPromptPreset = normalizePhonePromptPreset(value.callPromptPreset || legacyPrompt || DEFAULT_CALL_PROMPT_PRESET);
@@ -231,16 +243,20 @@ export class SillyTavernBridge {
         return true;
     }
 
-    async generateNovelAiImage({ prompt, negativePrompt, model, width, height, steps, scale, seed } = {}) {
+    async generateNovelAiImage({ prompt, artistTags, negativePrompt, model, width, height, steps, scale, seed } = {}) {
         const cleanPrompt = String(prompt || '').trim();
         if (!cleanPrompt) throw new Error('请先填写画面描述');
+        const cleanArtistTags = String(artistTags || '').trim();
+        const combinedPrompt = [cleanArtistTags, cleanPrompt].filter(Boolean).join(', ');
+        const isV5 = String(model || '').includes('nai-diffusion-5');
         const response = await fetch('/api/novelai/generate-image', {
             method: 'POST',
             headers: getRequestHeaders(),
             body: JSON.stringify({
-                prompt: cleanPrompt,
+                prompt: combinedPrompt,
                 negative_prompt: String(negativePrompt || ''),
-                model: model || 'nai-diffusion-4-5-full',
+                model: model || 'nai-diffusion-5-full',
+                params_version: isV5 ? 4 : 3,
                 sampler: 'k_euler_ancestral',
                 scheduler: 'karras',
                 steps: Number(steps) || 28,
@@ -250,7 +266,7 @@ export class SillyTavernBridge {
                 seed: Number.isFinite(Number(seed)) ? Number(seed) : undefined,
                 upscale_ratio: 1,
                 decrisper: false,
-                variety_boost: true,
+                variety_boost: !isV5,
                 sm: false,
                 sm_dyn: false,
             }),
@@ -263,6 +279,51 @@ export class SillyTavernBridge {
         const base64 = (await response.text()).trim();
         if (!base64) throw new Error('NovelAI 没有返回图片');
         return `data:image/png;base64,${base64}`;
+    }
+
+    async generateNovelAiTags({ idea, instruction } = {}) {
+        const settings = this.getSettings();
+        const cleanIdea = String(idea || '').trim();
+        if (!cleanIdea) throw new Error('请先写画面意图');
+        const context = await this.getCallPlanningContext({ participants: [this.getContact()], topic: cleanIdea });
+        const schema = {
+            type: 'object',
+            additionalProperties: false,
+            required: ['prompt', 'artistTags', 'negativePrompt'],
+            properties: {
+                prompt: { type: 'string' },
+                artistTags: { type: 'string' },
+                negativePrompt: { type: 'string' },
+            },
+        };
+        const prompt = [
+            { role: 'system', content: String(instruction || settings.novelAiTagInstruction || DEFAULT_SETTINGS.novelAiTagInstruction) },
+            { role: 'user', content: `[角色与上下文]\n${context}\n\n[画面意图]\n${cleanIdea}\n\n只输出符合 Schema 的 JSON。` },
+        ];
+        const result = await requestPhoneGeneration({
+            settings: { ...settings, phoneResponseLength: Math.max(1600, settings.phoneResponseLength) },
+            prompt,
+            jsonSchema: schema,
+            generateQuietPrompt,
+        });
+        let value = result;
+        while (value && typeof value === 'object') {
+            if (value.prompt != null) break;
+            if (value.content != null) { value = value.content; continue; }
+            if (Array.isArray(value.choices) && value.choices.length) { value = value.choices[0]?.message?.content ?? value.choices[0]?.text; continue; }
+            break;
+        }
+        if (typeof value === 'string') {
+            const clean = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+            value = JSON.parse(clean);
+        }
+        const generated = {
+            prompt: String(value?.prompt || '').trim(),
+            artistTags: String(value?.artistTags || '').trim(),
+            negativePrompt: String(value?.negativePrompt || '').trim(),
+        };
+        if (!generated.prompt) throw new Error('模型没有返回正面提示词');
+        return generated;
     }
 
     async getCallPlanningContext({ participants = [], topic = '' } = {}) {
