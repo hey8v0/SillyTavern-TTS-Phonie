@@ -1,4 +1,4 @@
-export const extension_settings = {};
+export const extension_settings = window.__phoniePreviewSettings || {};
 
 export function getContext() {
     return {

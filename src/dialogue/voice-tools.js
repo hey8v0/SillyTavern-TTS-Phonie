@@ -768,73 +768,80 @@ function ensureStore() {
     store.planner.phonePrompt = getPrimaryWorkflowPrompt(store, 'single_call') || DEFAULT_PHONE_PROMPT;
     store.planner.trackPrompt = getPrimaryWorkflowPrompt(store, 'group_call') || DEFAULT_TRACK_PROMPT;
     store.phoneChat.settings.prompt = getPrimaryWorkflowPrompt(store, 'chat') || DEFAULT_CHAT_PROMPT;
-    if (storedSchemaVersion < 13) {
-        // 迁移：把工作流里遗留的旧 [TTSVoice:…] 格式改写为 PLAN 的 [TTS:…]。
-        for (const workflow of Object.values(store.promptWorkflows)) {
-            const rewrite = entries => entries.forEach(entry => {
-                entry.content = String(entry.content || '').replaceAll('[TTSVoice:', '[TTS:');
-            });
-            rewrite(workflow.entries);
-            workflow.presets.forEach(preset => rewrite(preset.entries));
-        }
-    }
-    if (storedSchemaVersion < 14) {
-        // 迁移：给手机聊天工作流补上行为执行、图片与主动来电三个默认条目。
-        const chatWorkflow = store.promptWorkflows.chat;
-        const inserts = [
-            ['chat-execution-principle', 'chat-character', '手机行为执行原则', DEFAULT_CHAT_EXECUTION_PROMPT],
-            ['chat-image-behavior', 'chat-execution-principle', '图片与多媒体行为', DEFAULT_CHAT_IMAGE_PROMPT],
-            ['chat-proactive-call', 'chat-image-behavior', '主动来电判断', DEFAULT_CHAT_PROACTIVE_CALL_PROMPT],
-        ];
-        for (const [id, afterId, name, content] of inserts) {
-            if (chatWorkflow.entries.some(entry => entry.id === id)) continue;
-            const anchor = chatWorkflow.entries.findIndex(entry => entry.id === afterId);
-            chatWorkflow.entries.splice(anchor < 0 ? chatWorkflow.entries.length : anchor + 1, 0, { id, name, role: 'system', enabled: true, content });
-        }
-        // 旧协议里的 red_packet / 假装发图说法统一改成 sticker。
-        const normalizeChatEntries = entries => entries.forEach(entry => {
-            entry.content = String(entry.content || '').replaceAll('red_packet', 'sticker');
-        });
-        normalizeChatEntries(chatWorkflow.entries);
-        chatWorkflow.presets.forEach(preset => normalizeChatEntries(preset.entries));
-        const formatEntry = chatWorkflow.entries.find(entry => entry.id === 'chat-format');
-        if (formatEntry) formatEntry.content = DEFAULT_CHAT_FORMAT_PROMPT;
-    }
-    if (storedSchemaVersion < 15) {
-        // 迁移：把单人电话工作流里旧版“来电导演/输出协议”升级为硬约束版本。
-        const upgradeSingleCall = workflow => {
-            const director = workflow.entries.find(entry => entry.id === 'phone-director' || entry.id === 'single_call-director' || entry.name === '来电导演');
-            if (director) director.content = DEFAULT_PHONE_PROMPT;
-            const format = workflow.entries.find(entry => entry.id === 'phone-format' || entry.id === 'single_call-format' || entry.name === '输出协议');
-            if (format) format.content = DEFAULT_PHONE_FORMAT_PROMPT;
-            workflow.presets.forEach(preset => upgradeSingleCall(preset));
-        };
-        upgradeSingleCall(store.promptWorkflows.single_call);
-    }
-    if (storedSchemaVersion < 16) {
-        // 迁移：按新版方案升级聊天 / 单人电话 / 多人电话工作流条目，职责彻底分家。
-        const upgradeEntries = (workflow, upgrades) => {
-            for (const [matches, content] of upgrades) {
-                const entry = workflow.entries.find(item => matches(item));
-                if (entry) entry.content = content;
+    // 迁移一律防御式执行：任何一步出错都不能阻止扩展启动。
+    try {
+        if (storedSchemaVersion < 13) {
+            // 迁移：把工作流里遗留的旧 [TTSVoice:…] 格式改写为 PLAN 的 [TTS:…]。
+            for (const workflow of Object.values(store.promptWorkflows)) {
+                const rewrite = entries => entries.forEach(entry => {
+                    entry.content = String(entry.content || '').replaceAll('[TTSVoice:', '[TTS:');
+                });
+                rewrite(workflow.entries);
+                workflow.presets.forEach(preset => rewrite(preset.entries));
             }
-            workflow.presets.forEach(preset => upgradeEntries(preset, upgrades));
-        };
-        const isEntry = (ids, names) => item => ids.includes(item.id) || names.includes(item.name);
-        upgradeEntries(store.promptWorkflows.single_call, [
-            [isEntry(['phone-director', 'single_call-director'], ['来电导演', '单人电话导演']), DEFAULT_PHONE_PROMPT],
-            [isEntry(['phone-format', 'single_call-format'], ['输出协议', '单人电话输出协议']), DEFAULT_PHONE_FORMAT_PROMPT],
-        ]);
-        upgradeEntries(store.promptWorkflows.group_call, [
-            [isEntry(['track-director', 'group_call-director'], ['私聊导演', '多人通话导演']), DEFAULT_TRACK_PROMPT],
-            [isEntry(['track-format', 'group_call-format'], ['输出协议', '多人电话输出协议']), DEFAULT_TRACK_FORMAT_PROMPT],
-        ]);
-        upgradeEntries(store.promptWorkflows.chat, [
-            [isEntry(['chat-character'], ['手机私聊角色']), DEFAULT_CHAT_PROMPT],
-            [isEntry(['chat-execution-principle'], ['手机行为执行原则']), DEFAULT_CHAT_EXECUTION_PROMPT],
-            [isEntry(['chat-proactive-call'], ['主动来电判断']), DEFAULT_CHAT_PROACTIVE_CALL_PROMPT],
-            [isEntry(['chat-format'], ['多消息与富消息协议', '多消息与富消息输出协议']), DEFAULT_CHAT_FORMAT_PROMPT],
-        ]);
+        }
+        if (storedSchemaVersion < 14) {
+            // 迁移：给手机聊天工作流补上行为执行、图片与主动来电三个默认条目。
+            const chatWorkflow = store.promptWorkflows.chat;
+            const inserts = [
+                ['chat-execution-principle', 'chat-character', '手机行为执行原则', DEFAULT_CHAT_EXECUTION_PROMPT],
+                ['chat-image-behavior', 'chat-execution-principle', '图片与多媒体行为', DEFAULT_CHAT_IMAGE_PROMPT],
+                ['chat-proactive-call', 'chat-image-behavior', '主动来电判断', DEFAULT_CHAT_PROACTIVE_CALL_PROMPT],
+            ];
+            for (const [id, afterId, name, content] of inserts) {
+                if (chatWorkflow.entries.some(entry => entry.id === id)) continue;
+                const anchor = chatWorkflow.entries.findIndex(entry => entry.id === afterId);
+                chatWorkflow.entries.splice(anchor < 0 ? chatWorkflow.entries.length : anchor + 1, 0, { id, name, role: 'system', enabled: true, content });
+            }
+            // 旧协议里的 red_packet / 假装发图说法统一改成 sticker。
+            const normalizeChatEntries = entries => entries.forEach(entry => {
+                entry.content = String(entry.content || '').replaceAll('red_packet', 'sticker');
+            });
+            normalizeChatEntries(chatWorkflow.entries);
+            chatWorkflow.presets.forEach(preset => normalizeChatEntries(preset.entries));
+            const formatEntry = chatWorkflow.entries.find(entry => entry.id === 'chat-format');
+            if (formatEntry) formatEntry.content = DEFAULT_CHAT_FORMAT_PROMPT;
+        }
+        if (storedSchemaVersion < 15) {
+            // 迁移：把单人电话工作流里旧版“来电导演/输出协议”升级为硬约束版本。
+            const upgradeSingleCall = workflow => {
+                const director = workflow.entries.find(entry => entry.id === 'phone-director' || entry.id === 'single_call-director' || entry.name === '来电导演');
+                if (director) director.content = DEFAULT_PHONE_PROMPT;
+                const format = workflow.entries.find(entry => entry.id === 'phone-format' || entry.id === 'single_call-format' || entry.name === '输出协议');
+                if (format) format.content = DEFAULT_PHONE_FORMAT_PROMPT;
+                const nested = Array.isArray(workflow.presets) ? workflow.presets : [];
+                nested.forEach(preset => upgradeSingleCall(preset));
+            };
+            upgradeSingleCall(store.promptWorkflows.single_call);
+        }
+        if (storedSchemaVersion < 16) {
+            // 迁移：按新版方案升级聊天 / 单人电话 / 多人电话工作流条目，职责彻底分家。
+            const upgradeEntries = (workflow, upgrades) => {
+                for (const [matches, content] of upgrades) {
+                    const entry = workflow.entries.find(item => matches(item));
+                    if (entry) entry.content = content;
+                }
+                const nested = Array.isArray(workflow.presets) ? workflow.presets : [];
+                nested.forEach(preset => upgradeEntries(preset, upgrades));
+            };
+            const isEntry = (ids, names) => item => ids.includes(item.id) || names.includes(item.name);
+            upgradeEntries(store.promptWorkflows.single_call, [
+                [isEntry(['phone-director', 'single_call-director'], ['来电导演', '单人电话导演']), DEFAULT_PHONE_PROMPT],
+                [isEntry(['phone-format', 'single_call-format'], ['输出协议', '单人电话输出协议']), DEFAULT_PHONE_FORMAT_PROMPT],
+            ]);
+            upgradeEntries(store.promptWorkflows.group_call, [
+                [isEntry(['track-director', 'group_call-director'], ['私聊导演', '多人通话导演']), DEFAULT_TRACK_PROMPT],
+                [isEntry(['track-format', 'group_call-format'], ['输出协议', '多人电话输出协议']), DEFAULT_TRACK_FORMAT_PROMPT],
+            ]);
+            upgradeEntries(store.promptWorkflows.chat, [
+                [isEntry(['chat-character'], ['手机私聊角色']), DEFAULT_CHAT_PROMPT],
+                [isEntry(['chat-execution-principle'], ['手机行为执行原则']), DEFAULT_CHAT_EXECUTION_PROMPT],
+                [isEntry(['chat-proactive-call'], ['主动来电判断']), DEFAULT_CHAT_PROACTIVE_CALL_PROMPT],
+                [isEntry(['chat-format'], ['多消息与富消息协议', '多消息与富消息输出协议']), DEFAULT_CHAT_FORMAT_PROMPT],
+            ]);
+        }
+    } catch (error) {
+        console.warn('[Phonie] 提示词工作流迁移失败，已跳过并保留现有数据。', error);
     }
     store.planner.schemaVersion = 16;
     if (!store.phoneChat.presets.some(item => item.id === store.phoneChat.settings.activePresetId)) {
