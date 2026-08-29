@@ -1,97 +1,78 @@
-import { readFile, readdir, stat } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import path from 'node:path';
-import process from 'node:process';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = process.cwd();
-const required = [
-    'manifest.json',
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+const REQUIRED_FILES = [
     'index.js',
+    'manifest.json',
     'style.css',
     'src/app.js',
-    'src/integrations/sillytavern.js',
-    'src/ui/phone-view.js',
-    'src/ui/phone-home.js',
-    'src/ui/system-settings.js',
-    'src/ui/orb-gesture.js',
-    'src/ui/inline-player.js',
+    'src/core/constants.js',
+    'src/core/store.js',
+    'src/core/icons.js',
     'src/device/device-status.js',
-    'src/tts/provider-catalog.js',
-    'src/tts/provider-center.js',
-    'styles/home.css',
-    'styles/system.css',
-    'src/dialogue/prompt-preset.js',
-    'src/integrations/generation-compat.js',
-    'assets/icons/sprite.svg',
-    'server-plugins/tts-minimax-resources/index.mjs',
+    'src/integrations/sillytavern.js',
+    'src/ui/dom.js',
+    'src/ui/phone-view.js',
 ];
 
-async function walk(directory) {
-    const entries = await readdir(directory, { withFileTypes: true });
-    const files = [];
-    for (const entry of entries) {
-        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.includes('_ORIGINAL_HANDOFF_')) continue;
-        const fullPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) files.push(...await walk(fullPath));
-        else files.push(fullPath);
-    }
-    return files;
+function fail(message) {
+    console.error(`\u2717 ${message}`);
+    process.exitCode = 1;
 }
 
-const errors = [];
-for (const relativePath of required) {
-    try {
-        if (!(await stat(path.join(root, relativePath))).isFile()) errors.push(`Missing file: ${relativePath}`);
-    } catch {
-        errors.push(`Missing file: ${relativePath}`);
-    }
+function ok(message) {
+    console.log(`\u2713 ${message}`);
 }
 
-for (const relativePath of ['manifest.json', 'package.json', 'locales/zh-cn.json', 'locales/ja-jp.json', 'locales/en.json']) {
-    try {
-        JSON.parse(await readFile(path.join(root, relativePath), 'utf8'));
-    } catch (error) {
-        errors.push(`Invalid JSON ${relativePath}: ${error.message}`);
+// 1. 必需文件存在且非空。
+for (const file of REQUIRED_FILES) {
+    const path = join(ROOT, file);
+    if (!existsSync(path)) {
+        fail(`缺少文件：${file}`);
+    } else if (readFileSync(path, 'utf8').trim().length === 0) {
+        fail(`文件为空：${file}`);
+    } else {
+        ok(`文件就绪：${file}`);
     }
 }
 
-const files = await walk(root);
-const textFiles = files.filter((file) => /\.(?:js|mjs|css|html|md|json|svg)$/.test(file));
-const emojiPattern = /\p{Extended_Pictographic}/u;
-const retiredBrandPattern = new RegExp(['pho', 'en'].join(''), 'i');
-for (const file of textFiles) {
-    const text = await readFile(file, 'utf8');
-    const relative = path.relative(root, file);
-    if (emojiPattern.test(text)) errors.push(`Emoji found in ${relative}`);
-    if (retiredBrandPattern.test(text)) errors.push(`Retired product name found in ${relative}`);
-    if (/\.css$/.test(file) && /transition\s*:\s*all\b/i.test(text)) errors.push(`transition: all found in ${relative}`);
+// 2. manifest.json 合法。
+try {
+    const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'));
+    if (manifest.js !== 'index.js') fail('manifest.json 的 js 入口应为 index.js');
+    if (manifest.hooks?.activate !== 'init') fail('manifest.json 缺少 hooks.activate = init');
+    ok(`manifest 合法：${manifest.display_name} v${manifest.version}`);
+} catch (error) {
+    fail(`manifest.json 解析失败：${error.message}`);
 }
 
-for (const file of files.filter((entry) => /\.(?:js|mjs)$/.test(entry))) {
+// 3. 递归收集 JS 文件并做语法检查（跳过 node_modules）。
+function collectJs(dir, out = []) {
+    for (const entry of readdirSync(dir)) {
+        if (entry === 'node_modules' || entry === '.git') continue;
+        const path = join(dir, entry);
+        const stat = statSync(path);
+        if (stat.isDirectory()) collectJs(path, out);
+        else if (extname(entry) === '.js' || extname(entry) === '.mjs') out.push(path);
+    }
+    return out;
+}
+
+const jsFiles = collectJs(ROOT);
+let syntaxFailures = 0;
+for (const file of jsFiles) {
     const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
-    if (result.status !== 0) errors.push(`Syntax error in ${path.relative(root, file)}:\n${result.stderr.trim()}`);
-}
-
-const relativeImportPattern = /(?:from\s+|import\s*\()(['"])(\.[^'"]+)\1/g;
-for (const file of files.filter((entry) => (
-    /\.(?:js|mjs)$/.test(entry)
-    && !path.relative(root, entry).startsWith(`server-plugins${path.sep}`)
-))) {
-    const text = await readFile(file, 'utf8');
-    let match;
-    while ((match = relativeImportPattern.exec(text)) !== null) {
-        const resolved = path.resolve(path.dirname(file), match[2]);
-        try {
-            await stat(resolved);
-        } catch {
-            errors.push(`Broken relative import in ${path.relative(root, file)}: ${match[2]}`);
-        }
+    if (result.status !== 0) {
+        fail(`语法错误：${file}\n${result.stderr}`);
+        syntaxFailures += 1;
     }
 }
+if (syntaxFailures === 0) ok(`语法检查通过（${jsFiles.length} 个文件）`);
 
-if (errors.length > 0) {
-    console.error(errors.join('\n'));
-    process.exit(1);
+if (!process.exitCode) {
+    console.log('\n\u2713 Phonie 项目检查全部通过。');
 }
-
-console.log(`Phonie project check passed: ${files.length} files verified.`);

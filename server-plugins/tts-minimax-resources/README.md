@@ -1,7 +1,5 @@
-# Phonie MiniMax 安全代理
+# MiniMax 安全代理服务
 
-这个目录属于 Phonie 自己的 TTS 管线，不会调用 SillyTavern 的前端 TTS 扩展。
+这是 SillyTavern 的轻量服务插件，只复用酒馆自身已经运行的服务和密钥保险箱，不会启动额外黑框或 Python 后端。它负责同步模型、拉取账户音色，并通过当前官方 `/v1/t2a_v2` 接口合成语音。
 
-使用安全代理模式时，将 `tts-minimax-resources` 文件夹复制到 SillyTavern 根目录的 `plugins` 文件夹，确认 `config.yaml` 中 `enableServerPlugins: true`，重启 SillyTavern 一次。随后可在 Phonie 的“声线”App 中保存 MiniMax 密钥、同步模型与账号音色并合成语音。
-
-不想安装服务组件时，可在 MiniMax 配置中选择“浏览器直连”。直连密钥会保存在当前用户的 Phonie 扩展设置中，仅建议在可信的私有 SillyTavern 实例使用。
+将 `tts-minimax-resources` 文件夹复制到 SillyTavern 根目录的 `plugins` 文件夹，确认 `config.yaml` 中 `enableServerPlugins: true`，然后重启 SillyTavern 一次。客户端即可从 MiniMax 官方接口同步最新模型、系统音色、快速复刻音色和音色设计结果。

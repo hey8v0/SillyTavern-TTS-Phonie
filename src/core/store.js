@@ -1,11 +1,17 @@
 function clone(value) {
     if (typeof structuredClone === 'function') {
-        return structuredClone(value);
+        try {
+            return structuredClone(value);
+        } catch {
+            // 回退到 JSON 克隆。
+        }
     }
-
     return JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * 极简响应式状态容器：与 SillyTavern 解耦，可在浏览器与 Node 测试中复用。
+ */
 export function createStore(initialState) {
     let state = clone(initialState);
     const listeners = new Set();

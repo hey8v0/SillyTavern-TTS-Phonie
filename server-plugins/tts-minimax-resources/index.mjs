@@ -39,14 +39,9 @@ const EMOTION_NAMES = new Map([
     ['disgusted', 'disgusted'],
     ['惊讶', 'surprised'],
     ['surprised', 'surprised'],
-    ['平静', 'calm'],
-    ['中性', 'calm'],
-    ['neutral', 'calm'],
-    ['冷静', 'calm'],
-    ['calm', 'calm'],
-    ['流畅', 'fluent'],
-    ['自然', 'fluent'],
-    ['fluent', 'fluent'],
+    ['平静', 'neutral'],
+    ['中性', 'neutral'],
+    ['neutral', 'neutral'],
 ]);
 
 function resolveApiHost(value) {

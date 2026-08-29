@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Phonie 声纹手机 · 预览</title>
+    <link rel="stylesheet" href="../style.css" />
+    <script type="importmap">
+        {
+            "imports": {
+                "/script.js": "./stubs/script.js",
+                "/scripts/extensions.js": "./stubs/extensions.js",
+                "/scripts/power-user.js": "./stubs/power-user.js",
+                "/scripts/secrets.js": "./stubs/secrets.js",
+                "/scripts/world-info.js": "./stubs/world-info.js"
+            }
+        }
+    </script>
+    <style>
+        html, body { margin: 0; height: 100%; background: radial-gradient(120% 100% at 50% 0%, #2a2f3a 0%, #14161c 100%); }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import { init } from '../index.js';
+        const app = await init();
+        window.__phonieApp = app;
+    </script>
+</body>
+</html>

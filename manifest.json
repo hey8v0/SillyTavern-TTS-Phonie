@@ -1,12 +1,12 @@
 {
-    "display_name": "Phonie Voice Phone",
+    "display_name": "Phonie 手机",
     "loading_order": 110,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
     "author": "Phonie",
-    "version": "0.15.0",
+    "version": "1.0.0",
     "homePage": "https://github.com/hey8v0/SillyTavern-TTS-Phonie",
     "auto_update": true,
     "hooks": {

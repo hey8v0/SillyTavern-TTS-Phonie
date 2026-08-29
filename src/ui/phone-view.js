@@ -1,228 +1,52 @@
-import { CALL_STATES, MESSAGE_KINDS, SCREENS, THEMES } from '../core/constants.js';
 import {
-    DEFAULT_CALL_PROMPT_PRESET,
-    DEFAULT_CHAT_PROMPT_PRESET,
-    DEFAULT_GROUP_CALL_PROMPT_PRESET,
-    addPhonePromptEntry,
-    movePhonePromptEntry,
-    normalizePhonePromptPreset,
-    removePhonePromptEntry,
-    updatePhonePromptEntry,
-} from '../dialogue/prompt-preset.js';
-import { DEFAULT_BODY_PROMPT_PRESET } from '../dialogue/body-speech.js';
-import { clamp, escapeHtml, formatClock, icon, initials } from './dom.js';
-import { AudioActionMenu } from './audio-action-menu.js';
-import { auxiliaryScreensMarkup, dockMarkup, homeScreenMarkup } from './phone-home.js';
-import { createPhoneMotionRuntime } from './phone-motion-runtime.js';
-import { getOrbDockTargetFromRect, getOrbTop, isOrbTap, shouldStartOrbDrag, updateOrbDrag } from './orb-gesture.js';
-import { promptEntryMarkup, systemSettingsScreensMarkup } from './system-settings.js';
+    APPS,
+    CALL_STATES,
+    DOCK_APP_IDS,
+    ENGINES,
+    ISLAND_STATES,
+    MESSAGE_KINDS,
+    PROMPT_ROLES,
+    PROMPT_WORKFLOWS,
+    SCREENS,
+    THEMES,
+    THEME_OPTIONS,
+    THEME_PALETTES,
+} from '../core/constants.js';
+import { icon } from '../core/icons.js';
+import { virtualPhoneNumber } from '../core/id.js';
+import { escapeHtml, formatBytes, formatClock, formatDuration, initials } from './dom.js';
 
-const ACTIVE_CALL_STATES = new Set([
-    CALL_STATES.DIALING,
-    CALL_STATES.RINGING,
-    CALL_STATES.CONNECTED,
-    CALL_STATES.GENERATING,
-    CALL_STATES.SPEAKING,
-]);
-
-const LANGUAGE_OPTIONS = Object.freeze([
-    ['ja-JP', '日本語'],
-    ['zh-CN', '简体中文'],
-    ['zh-TW', '繁體中文'],
-    ['en-US', 'English'],
-    ['ko-KR', '한국어'],
-    ['yue-HK', '粤语'],
-    ['de-DE', 'Deutsch'],
-    ['fr-FR', 'Français'],
-    ['es-ES', 'Español'],
-]);
-
-const SCREEN_COPY = Object.freeze({
-    [SCREENS.HOME]: { title: 'Phonie', eyebrow: 'Resonance OS' },
-    [SCREENS.CHAT]: { title: '', eyebrow: '私人频道' },
-    [SCREENS.CALL]: { title: '电话', eyebrow: '实时声线' },
-    [SCREENS.VOICE]: { title: '声线', eyebrow: '语音资料库' },
-    [SCREENS.PROVIDER]: { title: '语音引擎', eyebrow: '供应商配置' },
-    [SCREENS.TRACE]: { title: '轨迹', eyebrow: '通话记录' },
-    [SCREENS.CHARACTER]: { title: '通讯录', eyebrow: '联系人与声线' },
-    [SCREENS.MODEL]: { title: '模型', eyebrow: '生成连接' },
-    [SCREENS.PROMPTS]: { title: '提示词', eyebrow: '消息编排' },
-    [SCREENS.GUIDE]: { title: '说明', eyebrow: 'Phonie 指南' },
-    [SCREENS.NOVELAI]: { title: '绘图', eyebrow: 'NovelAI Diffusion' },
-    [SCREENS.SETTINGS]: { title: '设置', eyebrow: '手机与编排' },
+const ISLAND_COPY = Object.freeze({
+    [ISLAND_STATES.GENERATING]: '正在生成',
+    [ISLAND_STATES.SYNTHESIZING]: '正在合成',
+    [ISLAND_STATES.PREPARING_CALL]: '准备来电',
+    [ISLAND_STATES.RINGING]: '来电响铃',
+    [ISLAND_STATES.CONNECTED]: '通话中',
 });
 
-function setBackgroundImage(element, url) {
-    if (!(element instanceof HTMLElement)) return;
-    if (!url) {
-        element.style.removeProperty('background-image');
-        element.dataset.hasImage = 'false';
-        return;
-    }
-    element.style.backgroundImage = `url(${JSON.stringify(String(url))})`;
-    element.dataset.hasImage = 'true';
+function appIconMarkup(app, extraClass = '') {
+    return `<span class="phonie-app-icon ${extraClass}" style="--app-color:${app.color}">${icon(app.icon)}</span>`;
 }
 
-function setImageSource(element, url) {
-    if (!(element instanceof HTMLImageElement)) return;
-    const container = element.closest('.phonie-wallpaper');
-    if (!url) {
-        element.removeAttribute('src');
-        element.hidden = true;
-        if (container) container.dataset.hasImage = 'false';
-        return;
-    }
-    element.src = String(url);
-    element.hidden = false;
-    if (container) container.dataset.hasImage = 'true';
+function appTileMarkup(app) {
+    return `<button class="phonie-app-tile" type="button" data-action="navigate" data-target-screen="${app.id}" aria-label="打开 ${escapeHtml(app.name)}">
+        ${appIconMarkup(app)}
+        <span class="phonie-app-label">${escapeHtml(app.name)}</span>
+    </button>`;
 }
 
-function formatRecordDate(timestamp) {
-    if (!timestamp) return '时间未知';
-    return new Intl.DateTimeFormat('zh-CN', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(timestamp));
+function dockTileMarkup(app) {
+    return `<button class="phonie-dock-tile" type="button" data-action="navigate" data-target-screen="${app.id}" aria-label="打开 ${escapeHtml(app.name)}">
+        ${appIconMarkup(app)}
+    </button>`;
 }
 
-function formatDuration(startedAt, endedAt) {
-    if (!startedAt || !endedAt) return '--:--';
-    const total = Math.max(0, Math.floor((endedAt - startedAt) / 1000));
-    const minutes = Math.floor(total / 60).toString().padStart(2, '0');
-    const seconds = (total % 60).toString().padStart(2, '0');
-    return `${minutes}:${seconds}`;
-}
-
-function messageTime(timestamp) {
-    return formatClock(timestamp);
-}
-
-function formatBytes(bytes) {
-    const value = Math.max(0, Number(bytes) || 0);
-    if (value < 1024 * 1024) return (value / 1024).toFixed(value < 10240 ? 1 : 0) + ' KB';
-    return (value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 2 : 1) + ' MB';
-}
-
-function callStatusLabel(state, elapsed = '', direction = '') {
-    const labels = {
-        [CALL_STATES.IDLE]: '等待拨号',
-        [CALL_STATES.DIALING]: '正在拨号',
-        [CALL_STATES.RINGING]: direction === 'incoming' ? '角色来电' : '等待接听',
-        [CALL_STATES.CONNECTED]: elapsed ? `通话中  ${elapsed}` : '通话中',
-        [CALL_STATES.GENERATING]: '正在组织语言',
-        [CALL_STATES.SPEAKING]: elapsed ? `通话中  ${elapsed}` : '通话中',
-        [CALL_STATES.ENDED]: '通话已结束',
-        [CALL_STATES.ERROR]: '通话连接异常',
-    };
-    return labels[state] || labels[CALL_STATES.IDLE];
-}
-
-function makeWaveBars(seed = '', count = 18) {
-    const text = String(seed || 'phonie');
-    return Array.from({ length: count }, (_, index) => {
-        const code = text.charCodeAt(index % text.length) || 80;
-        const height = 26 + ((code * (index + 3)) % 68);
-        return `<i style="--bar-height:${height}%;--bar-live:var(--phonie-audio-bar-${index % 18},.18)"></i>`;
-    }).join('');
-}
-
-function callDialPadMarkup() {
-    const letters = { 2: 'ABC', 3: 'DEF', 4: 'GHI', 5: 'JKL', 6: 'MNO', 7: 'PQRS', 8: 'TUV', 9: 'WXYZ' };
-    return ['1','2','3','4','5','6','7','8','9','*','0','#']
-        .map((digit) => `<button type='button' data-action='call-digit' data-digit='${digit}'><b>${digit}</b><small>${letters[digit] || (digit === '0' ? '+' : '')}</small></button>`)
-        .join('');
-}
-
-function contactNumber(identity = '') {
-    let hash = 2166136261;
-    for (const character of String(identity)) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
-    const digits = String(Math.abs(hash >>> 0)).padStart(10, '0').slice(0, 10);
-    return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
-}
-
-function renderMessage(message, showTranslation, state) {
-    const outgoing = message.direction === 'outgoing';
-    const recalled = message.kind === MESSAGE_KINDS.RECALLED;
-    const translation = showTranslation && message.translationText
-        ? `<p class="phonie-message__translation" lang="zh-CN">${escapeHtml(message.translationText)}</p>`
-        : '';
-    const avatarUrl = outgoing ? '' : state.contact?.avatarUrl;
-    const avatarName = outgoing ? state.userName : state.contact?.name;
-    const avatarStyle = avatarUrl ? ` style="background-image:url('${escapeHtml(avatarUrl)}')"` : '';
-    const quote = message.replySnapshot
-        ? `<blockquote class="phonie-message__quote"><strong>${escapeHtml(message.replySnapshot.sender || '消息')}</strong><span>${escapeHtml(message.replySnapshot.content || '原消息已撤回')}</span></blockquote>`
-        : '';
-    let body = `<p class="phonie-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>${translation}`;
-    if (message.kind === MESSAGE_KINDS.VOICE) {
-        body = `
-            <div class="phonie-message__voice">
-                <button class="phonie-voice-action" type="button" data-action="play-phone-audio" data-message-id="${escapeHtml(message.id)}" aria-label="播放这条语音消息">
-                    ${icon(message.isPlaying ? 'pause' : 'play')}
-                </button>
-                <span class="phonie-message__waveform" aria-hidden="true">${makeWaveBars(message.id)}</span>
-                <span class="phonie-message__duration">${escapeHtml(message.durationLabel || '--:--')}</span>
-            </div>
-            <details class="phonie-message__transcript">
-                <summary>查看文字与译文</summary>
-                <p class="phonie-message__source" lang="${escapeHtml(message.language || '')}">${escapeHtml(message.originalText)}</p>
-                ${translation}
-            </details>`;
-    } else if (message.kind === MESSAGE_KINDS.IMAGE) {
-        body = message.imageUrl
-            ? `<figure class="phonie-message__generated-image"><img src="${escapeHtml(message.imageUrl)}" alt="${escapeHtml(message.description || message.attachmentName || '聊天图片')}"><figcaption>${escapeHtml(message.attachmentName || '图片')}</figcaption></figure>`
-            : `<div class="phonie-message__image-card">${icon('image')}<span><strong>图片</strong><small>${escapeHtml(message.attachmentName || message.originalText || '模拟图片')}</small></span></div>`;
-    } else if ([MESSAGE_KINDS.TRANSFER, MESSAGE_KINDS.RED_PACKET].includes(message.kind)) {
-        const title = message.kind === MESSAGE_KINDS.TRANSFER ? '转账' : '红包';
-        const mark = message.kind === MESSAGE_KINDS.TRANSFER ? 'wallet' : 'gift';
-        body = `<div class="phonie-message__money-card" data-money-kind="${escapeHtml(message.kind)}">${icon(mark)}<span><small>${title}</small><strong>¥ ${Number(message.amount || 0).toFixed(2)}</strong><i>${escapeHtml(message.note || '请查收')}</i></span></div>`;
-    } else if (recalled) {
-        body = `<p class="phonie-message__recalled">${escapeHtml(message.originalText)}</p>`;
-    }
-
-    const messageActions = recalled ? '' : `
-        <span class="phonie-message__actions">
-            <button type="button" data-action="quote-phone-message" data-message-id="${escapeHtml(message.id)}" aria-label="引用这条消息">${icon('quote')}</button>
-            ${outgoing ? `<button type="button" data-action="recall-phone-message" data-message-id="${escapeHtml(message.id)}" aria-label="撤回这条消息">${icon('recall')}</button>` : ''}
-        </span>`;
-
-    return `
-        <article class="phonie-message ${outgoing ? 'phonie-message--outgoing' : ''}${recalled ? ' phonie-message--recalled' : ''}" data-phone-message-id="${escapeHtml(message.id)}">
-            <span class="phonie-message__avatar"${avatarStyle}><b>${escapeHtml(initials(avatarName))}</b></span>
-            <div class="phonie-message__content">
-                <div class="phonie-message__meta">
-                    <span>${escapeHtml(message.author)}</span>
-                    <time datetime="${new Date(message.createdAt).toISOString()}">${messageTime(message.createdAt)}</time>
-                    ${messageActions}
-                </div>
-                <div class="phonie-message__bubble">
-                    ${quote}
-                    ${body}
-                </div>
-            </div>
-        </article>`;
-}
-
-function providerFieldMarkup(field, provider) {
-    const value = provider.settings?.[field.key];
-    if (field.when && provider.settings?.[field.when[0]] !== field.when[1]) return '';
-    const label = `<span><strong>${escapeHtml(field.label)}</strong>${field.help ? `<small>${escapeHtml(field.help)}</small>` : ''}</span>`;
-    if (field.type === 'secret') {
-        return `<label class="phonie-provider-field phonie-provider-field--secret">${label}<span><input type="password" autocomplete="new-password" data-role="tts-secret-input" data-provider-id="${escapeHtml(provider.id)}" data-secret-key="${escapeHtml(field.key)}" placeholder="保存后不回显"><button type="button" data-action="save-tts-secret" data-provider-id="${escapeHtml(provider.id)}" data-secret-key="${escapeHtml(field.key)}">保存</button></span></label>`;
-    }
-    if (field.type === 'switch') {
-        return `<label class="phonie-provider-field">${label}<span class="phonie-switch"><input type="checkbox" data-provider-field="${escapeHtml(field.key)}"${value ? ' checked' : ''}><span class="phonie-switch__track" aria-hidden="true"></span></span></label>`;
-    }
-    const resources = field.type === 'resource' ? (provider.catalog?.[field.resource] || []) : [];
-    const options = field.type === 'select' ? (field.options || []) : resources.map((item) => [item.id, item.name || item.id]);
-    if (field.type === 'select' || field.type === 'resource') {
-        const choices = value && !options.some(([id]) => String(id) === String(value)) ? [[value, value], ...options] : options;
-        return `<label class="phonie-provider-field">${label}<select data-provider-field="${escapeHtml(field.key)}">${choices.length ? choices.map(([id, name]) => `<option value="${escapeHtml(id)}"${String(id) === String(value) ? ' selected' : ''}>${escapeHtml(name)}</option>`).join('') : '<option value="">请先同步资源</option>'}</select></label>`;
-    }
-    const inputType = field.type === 'range' ? 'range' : field.type === 'password' ? 'password' : field.type === 'url' ? 'url' : 'text';
-    const constraints = field.type === 'range' ? ` min="${field.min}" max="${field.max}" step="${field.step}"` : '';
-    return `<label class="phonie-provider-field">${label}<span class="phonie-provider-field__input"><input type="${inputType}" value="${escapeHtml(value ?? '')}" data-provider-field="${escapeHtml(field.key)}"${constraints}>${field.type === 'range' ? `<b>${escapeHtml(value)}</b>` : ''}</span></label>`;
+function appBarMarkup(title, backTarget = SCREENS.HOME) {
+    return `<header class="phonie-appbar">
+        <button class="phonie-icon-btn" type="button" data-action="navigate" data-target-screen="${backTarget}" aria-label="返回">${icon('back')}</button>
+        <h1 class="phonie-appbar__title">${escapeHtml(title)}</h1>
+        <span class="phonie-appbar__side" aria-hidden="true"></span>
+    </header>`;
 }
 
 export class PhoneView {
@@ -233,20 +57,12 @@ export class PhoneView {
     #launcher = null;
     #wandLauncher = null;
     #unsubscribe = null;
-    #clockTimer = null;
-    #toastTimer = null;
     #drag = null;
-    #suppressOrbClick = false;
     #orbMoveHandler = null;
     #orbEndHandler = null;
-    #orbWakeTimer = null;
+    #suppressOrbClick = false;
     #resizeHandler = null;
-    #characterProviderDraft = null;
-    #messageSignature = '';
-    #quotedMessageId = null;
-    #chatToolMode = null;
-    #motionRuntime = null;
-    #audioMenu = new AudioActionMenu();
+    #signatures = {};
 
     constructor({ store, actions }) {
         this.#store = store;
@@ -260,142 +76,8 @@ export class PhoneView {
         root.id = 'phonie-root';
         root.className = 'phonie-root';
         root.dataset.open = 'false';
-        root.innerHTML = `
-            <div class="phonie-scrim" data-action="close" aria-hidden="true"></div>
-            <section class="phonie-phone" id="phonie-phone" aria-label="Phonie 声纹手机" aria-hidden="true">
-                <span class="phonie-hardware-key phonie-hardware-key--volume" aria-hidden="true"></span>
-                <span class="phonie-hardware-key phonie-hardware-key--power" aria-hidden="true"></span>
-                <div class="phonie-frame">
-                    <div class="phonie-wallpaper" data-role="wallpaper" aria-hidden="true"><img class="phonie-wallpaper__image" data-role="wallpaper-image" alt="" hidden></div>
-                    <div class="phonie-wallpaper-veil" aria-hidden="true"></div>
-                    <span class="phonie-voice-seam" aria-hidden="true"></span>
-                    <header class="phonie-status">
-                        <time class="phonie-status__time" data-role="clock"></time>
-                        <span class="phonie-dynamic-island" data-role="dynamic-island" data-state="idle" aria-live="polite">
-                            <span class="phonie-dynamic-island__label" data-role="dynamic-island-label"></span>
-                            <span class="phonie-dynamic-island__wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                            <b class="phonie-dynamic-island__sensor" aria-hidden="true"></b>
-                        </span>
-                        <span class="phonie-status__signals" aria-label="网络与电量">
-                            <span data-role="network-label">在线</span><span data-role="network-icon">${icon('wifi')}</span>
-                            <span data-role="battery-label">--%</span><span class="phonie-status__battery-icon">${icon('battery')}<i data-role="charging-icon" hidden>${icon('bolt')}</i></span>
-                        </span>
-                    </header>
-                    <div class="phonie-header">
-                        <div>
-                            <p class="phonie-header__eyebrow" data-role="eyebrow">Private channel</p>
-                            <h1 class="phonie-header__title" data-role="title">Phonie</h1>
-                        </div>
-                        <div class="phonie-header__actions">
-                            <button class="phonie-icon-button phonie-icon-button--raised phonie-back-button" type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">
-                                ${icon('back')}
-                            </button>
-                            <button class="phonie-icon-button phonie-icon-button--raised phonie-theme-button" type="button" data-action="cycle-theme" aria-label="切换当前主题">
-                                ${icon('stars')}
-                            </button>
-                            <button class="phonie-icon-button" type="button" data-action="close" aria-label="收起 Phonie">
-                                ${icon('close')}
-                            </button>
-                        </div>
-                    </div>
-                    <main class="phonie-screen-stack">
-                        ${homeScreenMarkup()}
-                        <section class="phonie-screen" data-screen="chat" aria-label="私人消息">
-                            <header class="phonie-chat-appbar">
-                                <span class="phonie-chat-appbar__avatar" data-role="chat-contact-avatar"><b data-role="chat-contact-initials">P</b></span>
-                                <span class="phonie-chat-appbar__identity"><strong data-role="chat-contact-name">Character</strong><small>私人频道 · 在线</small></span>
-                                <span class="phonie-chat-appbar__actions">
-                                    <button class="phonie-icon-button" type="button" data-action="open-chat-settings" aria-label="打开私信设置">${icon('settings')}</button>
-                                </span>
-                            </header>
-                            <div class="phonie-chat-list" data-role="message-list"></div>
-                            <div class="phonie-generating" data-role="generating" hidden>
-                                <span class="phonie-generating__line" aria-hidden="true"></span>
-                                <span>对方正在组织语言</span>
-                            </div>
-                            <div class="phonie-reply-composer" data-role="reply-composer" hidden>
-                                <span>${icon('quote')}<span><small>正在引用</small><strong data-role="reply-composer-text"></strong></span></span>
-                                <button type="button" data-action="cancel-phone-quote" aria-label="取消引用">${icon('close')}</button>
-                            </div>
-                            <div class="phonie-chat-tools" data-role="chat-tools" hidden>
-                                <button type="button" data-action="choose-chat-image">${icon('image')}<span>图片</span></button>
-                                <button type="button" data-action="navigate" data-target-screen="${SCREENS.NOVELAI}">${icon('spark')}<span>AI 图片</span></button>
-                                <button type="button" data-action="open-chat-action" data-chat-kind="transfer">${icon('wallet')}<span>转账</span></button>
-                                <button type="button" data-action="open-chat-action" data-chat-kind="red_packet">${icon('gift')}<span>红包</span></button>
-                                <button type="button" data-action="send-voice">${icon('wave')}<span>语音</span></button>
-                                <button type="button" data-action="start-call">${icon('phone')}<span>电话</span></button>
-                            </div>
-                            <div class="phonie-chat-action-sheet" data-role="chat-action-sheet" hidden>
-                                <header><strong data-role="chat-action-title">转账</strong><button type="button" data-action="close-chat-action" aria-label="关闭">${icon('close')}</button></header>
-                                <label><span>金额</span><input type="number" min="0.01" max="999999" step="0.01" inputmode="decimal" data-role="chat-action-amount" placeholder="0.00"></label>
-                                <label><span>备注</span><input type="text" maxlength="80" data-role="chat-action-note" placeholder="写一句话"></label>
-                                <button type="button" data-action="send-chat-action">发送</button>
-                            </div>
-                            <aside class="phonie-chat-settings-sheet" data-role="chat-settings-sheet" hidden>
-                                <header><strong>聊天设置</strong><button type="button" data-action="close-chat-settings" aria-label="关闭">${icon('close')}</button></header>
-                                <div><button type="button" data-action="open-chat-preset">${icon('layers')}<span><strong>聊天预设</strong></span>${icon('chevron')}</button></div>
-                                <div><button type="button" data-action="clear-chat-history">${icon('reset')}<span><strong>清空聊天记录</strong></span></button></div>
-                                <div><button class="phonie-danger-action" type="button" data-action="delete-chat-conversation">${icon('trash')}<span><strong>删除这个会话</strong></span></button></div>
-                            </aside>
-                            <form class="phonie-composer" data-form="chat">
-                                <button class="phonie-icon-button phonie-icon-button--raised" type="button" data-action="toggle-chat-tools" aria-label="打开聊天工具">
-                                    ${icon('plus')}
-                                </button>
-                                <textarea rows="1" maxlength="1600" data-role="chat-input" placeholder="写一条私人消息" aria-label="私人消息内容"></textarea>
-                                <button class="phonie-icon-button phonie-icon-button--raised phonie-chat-send" type="submit" data-role="chat-send" aria-label="发送消息">
-                                    ${icon('send')}
-                                </button>
-                            </form>
-                            <input type="file" accept="image/*" data-role="chat-image-input" hidden>
-                        </section>
-                        <section class="phonie-screen" data-screen="call" aria-label="电话">
-                            <div class="phonie-call-screen">
-                                <div class="phonie-call-backdrop" data-role="call-backdrop" aria-hidden="true"></div>
-                                <div class="phonie-call-veil" aria-hidden="true"></div>
-                                <div class="phonie-call-topline"><button type="button" data-action="navigate" data-target-screen="home" aria-label="返回桌面">${icon('back')}</button><span>语音通话</span><i></i><span data-role="call-direction-label">拨号</span></div>
-                                <div class="phonie-call-ripples" aria-hidden="true"><i></i><i></i><i></i></div>
-                                <div class="phonie-contact-mark" data-role="call-mark"><span data-role="call-initials">P</span></div>
-                                <div class="phonie-call-participants" data-role="call-participant-orbit" hidden></div>
-                                <div class="phonie-call-identity">
-                                    <h2 data-role="call-contact">Character</h2>
-                                    <p class="phonie-call-status" data-role="call-status">等待拨号</p>
-                                </div>
-                                <div class="phonie-call-live-wave" data-role="call-live-wave" aria-hidden="true">${makeWaveBars('prepared-call', 30)}</div>
-                                <div class="phonie-call-captions" data-role="call-captions" data-empty="true">
-                                    <div data-role="call-caption-content" hidden>
-                                        <p class="phonie-call-caption-source" data-role="call-caption-source"></p>
-                                        <p class="phonie-call-caption-translation" data-role="call-caption-translation"></p>
-                                    </div>
-                                </div>
-                                <div class="phonie-call-idle-action" data-role="call-idle-action">
-                                    <section class="phonie-call-contacts phonie-call-contacts--select"><header><span>正文联系人</span><small data-role="call-selected-summary">1 人</small></header><div class="phonie-call-contact-picker"><select data-role="call-contact-picker" aria-label="选择电话联系人"></select><button type="button" data-action="add-call-participant">${icon('plus')}<span>加入通话</span></button></div><div class="phonie-call-selection" data-role="call-selection" aria-label="已选通话联系人"></div><select data-role="call-participants" multiple hidden></select></section>
-                                    <div class="phonie-call-number-row"><input class="phonie-call-number" data-role="call-number" inputmode="tel" readonly placeholder="选择联系人或输入号码"><button type="button" data-action="call-backspace" aria-label="删除一位">${icon('back')}</button></div>
-                                    <div class="phonie-call-dialpad" aria-label="模拟拨号盘">${callDialPadMarkup()}</div>
-                                    <details class="phonie-call-plan"><summary>${icon('spark')}<span>通话内容</span>${icon('chevron')}</summary><div><label><span>想聊什么</span><textarea data-role="call-topic" maxlength="600" rows="3" placeholder="通话主题"></textarea></label><label><span>编排方式</span><select data-role="call-strategy"><option value="context">根据上下文</option><option value="topic">指定内容优先</option></select></label><label><span>电话长度</span><select data-role="call-length"><option value="short">短来电 · 4–6 句</option><option value="normal" selected>普通 · 7–10 句</option><option value="long">长来电 · 12–18 句</option></select></label></div></details>
-                                    <div class="phonie-call-launchers"><button class="phonie-call-launch phonie-call-launch--message" type="button" data-action="start-incoming-call">${icon('signal')}<span>角色留言</span></button><button class="phonie-call-launch phonie-call-launch--dial" type="button" data-action="start-call">${icon('phone')}<span>拨号</span></button></div>
-                                </div>
-                                <div class="phonie-call-incoming-actions" data-role="call-incoming-actions" hidden>
-                                    <button type="button" data-action="decline-call" aria-label="拒接">${icon('end-call')}<span>拒接</span></button>
-                                    <button type="button" data-action="accept-call" aria-label="接听">${icon('accept-call')}<span>接听</span></button>
-                                </div>
-                                <div class="phonie-call-track" data-role="call-track" hidden aria-label="通话段落进度"></div>
-                                <button class="phonie-call-end" type="button" data-action="end-call" hidden aria-label="挂断电话">
-                                    ${icon('end-call')}
-                                    <span>挂断</span>
-                                </button>
-                            </div>
-                        </section>
-                        ${auxiliaryScreensMarkup()}
-                        ${systemSettingsScreensMarkup()}
-                        <section class="phonie-screen" data-screen="settings" aria-label="设置">
-                            ${this.#settingsMarkup()}
-                        </section>
-                    </main>
-                    ${dockMarkup()}
-                    <div class="phonie-home-indicator" aria-hidden="true"></div>
-                    <div class="phonie-toast" data-role="toast" role="status" aria-live="polite"></div>
-                </div>
-            </section>`;
+        root.dataset.screen = SCREENS.HOME;
+        root.innerHTML = this.#shellMarkup();
 
         const orb = document.createElement('button');
         orb.id = 'phonie-orb';
@@ -403,650 +85,508 @@ export class PhoneView {
         orb.type = 'button';
         orb.setAttribute('aria-label', '打开 Phonie');
         orb.setAttribute('aria-controls', 'phonie-phone');
-        orb.innerHTML = icon('wave')
-            + `<span class='phonie-orb__wave' aria-hidden='true'><i></i><i></i><i></i><i></i></span>`
-            + '<span class="phonie-orb__unread" data-role="unread" hidden></span>';
+        orb.innerHTML = `${icon('qq')}<span class="phonie-orb__wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>`;
         document.body.append(root, orb);
+
         this.#root = root;
         this.#orb = orb;
-        this.#motionRuntime = createPhoneMotionRuntime({ root, screen: root.querySelector('.phonie-screen-stack') });
         this.#bindEvents();
-        const homePages = this.#root.querySelector('[data-role="home-pages"]');
-        if (homePages) {
-            const syncHomePage = () => {
-                const page = Math.max(0, Math.min(1, Math.round(homePages.scrollLeft / Math.max(1, homePages.clientWidth))));
-                this.#root.dataset.homePage = String(page);
-                for (const button of this.#root.querySelectorAll('[data-action="set-home-page"]')) {
-                    button.setAttribute('aria-current', String(Number(button.dataset.page) === page));
-                }
-            };
-            homePages.addEventListener('scroll', syncHomePage, { passive: true });
-            syncHomePage();
-        }
+        this.#bindOrbGestures();
         this.#mountSettingsLauncher();
         this.#mountWandLauncher();
+        this.#resizeHandler = () => this.#fitPhone();
+        window.addEventListener('resize', this.#resizeHandler);
+        this.#fitPhone();
         this.#unsubscribe = this.#store.subscribe((state) => this.render(state));
-        this.#clockTimer = window.setInterval(() => this.#renderClocks(), 1000);
         this.render(this.#store.getState());
     }
 
-    setAudioLevel(level, levels = []) {
-        const value = Math.min(1, Math.max(0, Number(level) || 0));
-        for (const target of [this.#root, this.#orb]) {
-            target?.style.setProperty('--phonie-audio-level', value.toFixed(3));
-            for (let index = 0; index < 18; index += 1) {
-                const bar = Math.min(1, Math.max(0, Number(levels[index]) || value));
-                target?.style.setProperty(`--phonie-audio-bar-${index}`, bar.toFixed(3));
-            }
-        }
+    #shellMarkup() {
+        const dock = DOCK_APP_IDS.map((id) => APPS.find((app) => app.id === id)).filter(Boolean).map(dockTileMarkup).join('');
+        return `
+            <div class="phonie-scrim" data-action="close" aria-hidden="true"></div>
+            <section class="phonie-phone" id="phonie-phone" aria-label="Phonie 声纹手机" aria-hidden="true">
+                <span class="phonie-hardware-key phonie-hardware-key--action" aria-hidden="true"></span>
+                <span class="phonie-hardware-key phonie-hardware-key--volume-up" aria-hidden="true"></span>
+                <span class="phonie-hardware-key phonie-hardware-key--volume-down" aria-hidden="true"></span>
+                <span class="phonie-hardware-key phonie-hardware-key--power" aria-hidden="true"></span>
+                <div class="phonie-frame">
+                    <div class="phonie-screen-glass">
+                        <div class="phonie-wallpaper" data-role="wallpaper" aria-hidden="true"></div>
+                        <div class="phonie-wallpaper-veil" aria-hidden="true"></div>
+                        <header class="phonie-statusbar">
+                            <time class="phonie-statusbar__time" data-role="clock">09:41</time>
+                            <div class="phonie-statusbar__right">
+                                <span class="phonie-statusbar__network" data-role="network">在线</span>
+                                <span class="phonie-statusbar__wifi" data-role="wifi" hidden>${icon('wifi')}</span>
+                                <span class="phonie-battery">
+                                    <span class="phonie-battery__track"><span class="phonie-battery__fill" data-role="battery-fill"></span></span>
+                                    <span class="phonie-battery__nub" aria-hidden="true"></span>
+                                    <span class="phonie-battery__bolt" data-role="charging" hidden>${icon('bolt')}</span>
+                                </span>
+                                <span class="phonie-statusbar__battery-label" data-role="battery-label"></span>
+                            </div>
+                        </header>
+                        <div class="phonie-island" data-role="island" data-state="idle" data-action="resume-active" role="button" tabindex="0" aria-label="灵动岛">
+                            <span class="phonie-island__sensor" aria-hidden="true"></span>
+                            <span class="phonie-island__label" data-role="island-label"></span>
+                            <span class="phonie-island__wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                        </div>
+                        <main class="phonie-screens">
+                            ${this.#homeMarkup()}
+                            ${this.#qqMarkup()}
+                            ${this.#chatMarkup()}
+                            ${this.#phoneMarkup()}
+                            ${this.#contactsMarkup()}
+                            ${this.#traceMarkup()}
+                            ${this.#enginesMarkup()}
+                            ${this.#engineDetailMarkup()}
+                            ${this.#drawingMarkup()}
+                            ${this.#themesMarkup()}
+                            ${this.#settingsMarkup()}
+                            ${this.#settingsModelMarkup()}
+                            ${this.#settingsDisplayMarkup()}
+                            ${this.#settingsPromptsMarkup()}
+                            ${this.#settingsBodyTtsMarkup()}
+                            ${this.#settingsQqMarkup()}
+                            ${this.#settingsStickersMarkup()}
+                            ${this.#settingsCacheMarkup()}
+                        </main>
+                        <div class="phonie-call-overlay" data-role="call-overlay" hidden>${this.#callOverlayMarkup()}</div>
+                        <nav class="phonie-dock" data-role="dock" aria-label="应用底栏">${dock}</nav>
+                        <div class="phonie-home-indicator" aria-hidden="true"></div>
+                        <div class="phonie-toast" data-role="toast" role="status" aria-live="polite" data-visible="false"></div>
+                    </div>
+                </div>
+            </section>`;
+    }
+
+    // ---- 各屏幕静态结构 ---------------------------------------------------
+    #homeMarkup() {
+        const tiles = APPS.map(appTileMarkup).join('');
+        return `<section class="phonie-screen phonie-screen--home" data-screen="${SCREENS.HOME}"><div class="phonie-home"><div class="phonie-app-grid">${tiles}</div></div></section>`;
+    }
+
+    #qqMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.QQ}">
+            ${appBarMarkup('QQ')}
+            <div class="phonie-app-content">
+                <div class="phonie-section-head"><span>好友</span><button class="phonie-mini-btn" type="button" data-action="toggle-add-friend">${icon('plus')}<span>添加</span></button></div>
+                <div class="phonie-list-block" data-role="friend-list"></div>
+                <div class="phonie-section-head"><span>群聊</span><button class="phonie-mini-btn" type="button" data-action="toggle-create-group">${icon('plus')}<span>建群</span></button></div>
+                <div class="phonie-list-block" data-role="group-list"></div>
+                <div class="phonie-sheet" data-role="add-friend-sheet" hidden>
+                    <p class="phonie-sheet-title">添加好友</p>
+                    <select data-role="add-friend-select"></select>
+                    <button class="phonie-primary-btn" type="button" data-action="confirm-add-friend">${icon('check')}<span>添加</span></button>
+                </div>
+                <div class="phonie-sheet" data-role="create-group-sheet" hidden>
+                    <p class="phonie-sheet-title">创建群聊</p>
+                    <input type="text" data-role="group-name" maxlength="80" placeholder="群名">
+                    <div data-role="group-member-picker"></div>
+                    <button class="phonie-primary-btn" type="button" data-action="confirm-create-group">${icon('check')}<span>创建</span></button>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    #chatMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.CHAT}">
+            <header class="phonie-appbar">
+                <button class="phonie-icon-btn" type="button" data-action="navigate" data-target-screen="${SCREENS.QQ}" aria-label="返回">${icon('back')}</button>
+                <span class="phonie-chat-title"><b data-role="chat-title">好友</b><small data-role="chat-subtitle">正在输入…</small></span>
+                <button class="phonie-icon-btn" type="button" data-action="toggle-chat-settings" aria-label="聊天设置">${icon('sliders')}</button>
+            </header>
+            <div class="phonie-chat-settings" data-role="chat-settings" hidden>
+                <button type="button" data-action="clear-chat">清空当前聊天</button>
+                <button type="button" data-action="remove-current-friend">删除好友</button>
+            </div>
+            <div class="phonie-chat-list" data-role="message-list"></div>
+            <div class="phonie-chat-tools" data-role="chat-tools" hidden>
+                <button type="button" data-action="send-kind" data-kind="text">${icon('message')}<span>文字</span></button>
+                <button type="button" data-action="send-kind" data-kind="voice">${icon('headphones')}<span>语音</span></button>
+                <button type="button" data-action="send-kind" data-kind="image">${icon('image')}<span>图片</span></button>
+                <button type="button" data-action="send-kind" data-kind="transfer">${icon('wallet')}<span>转账</span></button>
+                <div class="phonie-chat-stickers" data-role="chat-stickers"></div>
+            </div>
+            <form class="phonie-composer" data-form="chat">
+                <button class="phonie-icon-btn" type="button" data-action="toggle-chat-tools" aria-label="更多">${icon('plus')}</button>
+                <textarea rows="1" maxlength="1600" data-role="chat-input" placeholder="发消息"></textarea>
+                <button class="phonie-icon-btn phonie-send-btn" type="submit" data-role="chat-send" aria-label="发送">${icon('send')}</button>
+            </form>
+        </section>`;
+    }
+
+    #phoneMarkup() {
+        const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+        return `<section class="phonie-screen" data-screen="${SCREENS.PHONE}">
+            ${appBarMarkup('电话')}
+            <div class="phonie-app-content phonie-phone-app">
+                <div class="phonie-dial-display" data-role="dial-display">输入号码或从通讯录选择</div>
+                <label class="phonie-contact-picker-label"><span>通讯录（可多选）</span><select class="phonie-contact-picker" data-role="call-contact-picker" multiple size="3"></select></label>
+                <div class="phonie-dialpad">${digits.map((digit) => `<button type="button" data-action="dial-digit" data-digit="${digit}"><b>${digit}</b></button>`).join('')}</div>
+                <div class="phonie-dial-actions">
+                    <button class="phonie-icon-btn phonie-dial-backspace" type="button" data-action="dial-backspace" aria-label="删除">${icon('back')}</button>
+                    <button class="phonie-call-launch" type="button" data-action="start-call">${icon('phone')}<span>拨打</span></button>
+                </div>
+                <details class="phonie-call-plan">
+                    <summary>${icon('spark')}<span>通话内容</span>${icon('chevron')}</summary>
+                    <label><span>方式</span><select data-role="call-strategy"><option value="context">延续酒馆上下文</option><option value="topic">自定义主题</option></select></label>
+                    <label data-role="call-topic-row" hidden><span>主题</span><textarea rows="2" data-role="call-topic" placeholder="想聊什么"></textarea></label>
+                    <label><span>长度</span><select data-role="call-length"><option value="short">短来电 · 4–6 句</option><option value="normal" selected>普通 · 7–10 句</option><option value="long">长来电 · 12–18 句</option></select></label>
+                </details>
+            </div>
+        </section>`;
+    }
+
+    #callOverlayMarkup() {
+        return `<div class="phonie-call-screen">
+            <div class="phonie-call-topline"><button type="button" data-action="minimize-call" aria-label="收起">${icon('back')}</button><span data-role="call-direction-label">通话</span><i></i></div>
+            <div class="phonie-call-ripples" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="phonie-contact-mark" data-role="call-mark"><span data-role="call-initials">P</span></div>
+            <div class="phonie-call-participants" data-role="call-participant-orbit" hidden></div>
+            <div class="phonie-call-identity"><h2 data-role="call-contact">Character</h2><p data-role="call-status">等待</p></div>
+            <div class="phonie-call-live-wave" data-role="call-live-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="phonie-call-captions" data-role="call-captions" hidden>
+                <p class="phonie-call-caption-source" data-role="call-caption-source"></p>
+                <p class="phonie-call-caption-translation" data-role="call-caption-translation"></p>
+            </div>
+            <div class="phonie-call-incoming-actions" data-role="call-incoming-actions" hidden>
+                <button type="button" data-action="decline-call"><i class="phonie-call-btn phonie-call-btn--decline">${icon('endCall')}</i><span>拒接</span></button>
+                <button type="button" data-action="accept-call"><i class="phonie-call-btn phonie-call-btn--accept">${icon('phone')}</i><span>接听</span></button>
+            </div>
+            <button class="phonie-call-end" type="button" data-action="end-call" data-role="call-end" hidden>${icon('endCall')}<span>挂断</span></button>
+        </div>`;
+    }
+
+    #contactsMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.CONTACTS}">
+            ${appBarMarkup('通讯录')}
+            <div class="phonie-app-content">
+                <div class="phonie-inline-add"><input type="text" maxlength="80" data-role="manual-contact-name" placeholder="添加联系人"><button class="phonie-primary-btn" type="button" data-action="add-manual-contact">${icon('plus')}<span>添加</span></button></div>
+                <div class="phonie-list-block" data-role="contact-directory"></div>
+                <div class="phonie-sheet" data-role="contact-route-sheet" hidden>
+                    <p class="phonie-sheet-title">声线绑定</p>
+                    <div data-role="route-editor"></div>
+                    <button class="phonie-primary-btn" type="button" data-action="save-contact-route">${icon('check')}<span>保存</span></button>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    #traceMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.TRACE}">
+            ${appBarMarkup('追踪')}
+            <div class="phonie-app-content"><div class="phonie-list-block" data-role="trace-list"></div></div>
+        </section>`;
+    }
+
+    #enginesMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.ENGINES}">
+            ${appBarMarkup('引擎')}
+            <div class="phonie-app-content"><div class="phonie-engine-list" data-role="engine-list"></div></div>
+        </section>`;
+    }
+
+    #engineDetailMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.ENGINE_DETAIL}">
+            ${appBarMarkup('引擎设置', SCREENS.ENGINES)}
+            <div class="phonie-app-content"><div data-role="engine-detail"></div></div>
+        </section>`;
+    }
+
+    #drawingMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.DRAWING}">
+            ${appBarMarkup('绘画')}
+            <div class="phonie-app-content">
+                <div class="phonie-draw-preview" data-role="draw-preview"><span>${icon('draw')}</span><small>生成图片将显示在这里</small></div>
+                <div class="phonie-settings-card phonie-draw-card">
+                    <label class="phonie-field"><span>画面意图</span><textarea rows="2" data-role="novelai-idea" placeholder="描述角色此刻想分享的画面"></textarea></label>
+                    <button class="phonie-primary-btn" type="button" data-action="generate-novelai-tags">${icon('spark')}<span>生成动态 Tag</span></button>
+                    <label class="phonie-field"><span>前置固定正面词</span><textarea rows="2" data-novelai-setting="prefix"></textarea></label>
+                    <label class="phonie-field"><span>动态正面 Tag</span><textarea rows="3" data-role="novelai-tags"></textarea></label>
+                    <label class="phonie-field"><span>后置固定正面词</span><textarea rows="2" data-novelai-setting="suffix"></textarea></label>
+                    <label class="phonie-field"><span>固定负面词</span><textarea rows="2" data-novelai-setting="negative"></textarea></label>
+                    <div class="phonie-field-grid">
+                        <label class="phonie-field"><span>模型</span><select data-novelai-setting="model"><option value="nai-diffusion-5-full">NAI Diffusion V5</option><option value="nai-diffusion-4-full">NAI Diffusion V4</option></select></label>
+                        <label class="phonie-field"><span>尺寸</span><select data-novelai-setting="size"><option value="832x1216">竖图 832×1216</option><option value="1216x832">横图 1216×832</option><option value="1024x1024">方图 1024×1024</option></select></label>
+                        <label class="phonie-field"><span>Sampler</span><select data-novelai-setting="sampler"><option value="k_euler_ancestral">Euler Ancestral</option><option value="k_euler">Euler</option><option value="k_dpmpp_2m">DPM++ 2M</option></select></label>
+                        <label class="phonie-field"><span>Scheduler</span><select data-novelai-setting="scheduler"><option value="karras">Karras</option><option value="native">Native</option><option value="exponential">Exponential</option></select></label>
+                        <label class="phonie-field"><span>Seed</span><input type="number" data-novelai-setting="seed"></label>
+                        <label class="phonie-field"><span>Steps（最多 28）</span><input type="number" min="1" max="28" data-novelai-setting="steps"></label>
+                        <label class="phonie-field"><span>Prompt Guidance</span><input type="number" min="0" max="10" step="0.1" data-novelai-setting="scale"></label>
+                        <label class="phonie-field"><span>Guidance Rescale</span><input type="number" min="0" max="1" step="0.05" data-novelai-setting="guidanceRescale"></label>
+                    </div>
+                    <label class="phonie-switch-row"><span>Decrisper</span><input type="checkbox" data-novelai-setting="decrisper"></label>
+                    <button class="phonie-primary-btn phonie-generate-btn" type="button" data-action="generate-novelai-image">${icon('image')}<span>生成一张图片</span></button>
+                </div>
+                <p class="phonie-novelai-status" data-role="novelai-status"></p>
+            </div>
+        </section>`;
+    }
+
+    #themesMarkup() {
+        const tiles = THEME_OPTIONS.map((option) => `<button class="phonie-theme-tile" type="button" data-action="set-theme" data-theme="${option.id}">
+            <span class="phonie-theme-tile__swatch" data-theme-swatch="${option.id}" aria-hidden="true"></span>
+            <span class="phonie-theme-tile__meta"><strong>${escapeHtml(option.name)}</strong><small>${escapeHtml(option.hint)}</small></span>
+            ${icon('chevron')}
+        </button>`).join('');
+        const colors = [['base', '60% 主背景'], ['panel', '30% 重点面板'], ['accent', '7% 激活色'], ['glow', '3% 高光']]
+            .map(([key, label]) => `<label class="phonie-field"><span>${label}</span><input type="color" data-custom-color="${key}"></label>`).join('');
+        return `<section class="phonie-screen" data-screen="${SCREENS.THEMES}">
+            ${appBarMarkup('主题')}
+            <div class="phonie-app-content">
+                <div class="phonie-theme-list">${tiles}</div>
+                <div class="phonie-settings-card" data-role="custom-theme-editor" hidden>
+                    <p class="phonie-list-caption">自定义配色</p>
+                    ${colors}
+                    <label class="phonie-field"><span>壁纸 URL</span><input type="url" data-role="wallpaper-url" placeholder="https://…"></label>
+                    <label class="phonie-field"><span>上传壁纸</span><input type="file" accept="image/*" data-role="wallpaper-file"></label>
+                </div>
+            </div>
+        </section>`;
     }
 
     #settingsMarkup() {
-        return `
-            <div class="phonie-settings-list">
-                <section class="phonie-settings-section">
-                    <h2 class="phonie-settings-section__title">外观</h2>
-                    <div class="phonie-settings-card">
-                        ${this.#selectRow('主题', 'theme', [
-                            [THEMES.DAY, '日间'],
-                            [THEMES.NIGHT, '夜间'],
-                            [THEMES.TAVERN, '跟随酒馆'],
-                        ])}
-                        ${this.#selectRow('打开入口', 'launcherMode', [
-                            ['orb', '悬浮球'],
-                            ['wand', '酒馆魔棒菜单'],
-                            ['both', '两个入口都显示'],
-                        ])}
-                        ${this.#switchRow('显示手机译文', 'showTranslation')}
-                    </div>
-                </section>
-                <section class="phonie-settings-section">
-                    <h2 class="phonie-settings-section__title">语言</h2>
-                    <div class="phonie-settings-card">
-                        ${this.#languageRow('角色语言', 'sourceLanguage')}
-                        ${this.#languageRow('翻译语言', 'targetLanguage')}
-                        ${this.#switchRow('正文双语格式', 'bodyPromptEnabled')}
-                    </div>
-                </section>
-                <section class="phonie-settings-section">
-                    <h2 class="phonie-settings-section__title">语音与连续性</h2>
-                    <div class="phonie-settings-card">
-                        <div class="phonie-setting-row">
-                            <span>
-                                <span class="phonie-setting-label">当前语音提供商</span>
-                            </span>
-                            <span class="phonie-provider-chip" data-role="provider-chip"></span>
-                        </div>
-                        ${this.#switchRow('正文播放器', 'autoDecorateMessages')}
-                        ${this.#switchRow('自动播放手机回复', 'autoPlayPhoneReplies')}
-                        ${this.#switchRow('注入通信连续性', 'injectContinuity')}
-                    </div>
-                </section>
-                <section class="phonie-settings-section">
-                    <h2 class="phonie-settings-section__title">本地数据</h2>
-                    <div class="phonie-settings-card">
-                        <div class="phonie-setting-row">
-                            <span>
-                                <span class="phonie-setting-label">清除音频缓存</span>
-                                <b class="phonie-setting-value" data-role="audio-cache-size">正在统计</b>
-                            </span>
-                            <button class="phonie-icon-button" type="button" data-action="clear-cache" aria-label="清除音频缓存">${icon('trash')}</button>
-                        </div>
-                    </div>
-                </section>
-            </div>`;
+        const pages = [
+            [SCREENS.SETTINGS_MODEL, '模型来源', '酒馆主 API 与 OpenAI 兼容预设', 'spark'],
+            [SCREENS.SETTINGS_DISPLAY, '显示与语言', '入口、字幕与译文语言', 'sliders'],
+            [SCREENS.SETTINGS_PROMPTS, '全部提示词', '五种工作流与可用变量', 'layers'],
+            [SCREENS.SETTINGS_BODY_TTS, '正文 TTS', '解析、提示词与后台渲染', 'headphones'],
+            [SCREENS.SETTINGS_QQ, 'QQ 与主动来电', '回复节奏与联系人冷却', 'message'],
+            [SCREENS.SETTINGS_STICKERS, '表情包', '批量导入与全局管理', 'image'],
+            [SCREENS.SETTINGS_CACHE, '语音缓存', '占用、引用与清理', 'trash'],
+        ];
+        const rows = pages.map(([screen, title, detail, glyph]) => `<button class="phonie-settings-row" type="button" data-action="navigate" data-target-screen="${screen}">
+            <span class="phonie-settings-row__glyph">${icon(glyph)}</span>
+            <span class="phonie-settings-row__meta"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(detail)}</small></span>
+            ${icon('chevron')}
+        </button>`).join('');
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS}">
+            ${appBarMarkup('设置')}
+            <div class="phonie-app-content"><div class="phonie-settings-list">${rows}</div><p class="phonie-settings-foot">Phonie 1.0 · 声纹手机</p></div>
+        </section>`;
     }
 
-    #switchRow(label, key) {
-        return `
-            <label class="phonie-setting-row">
-                <span>
-                    <span class="phonie-setting-label">${escapeHtml(label)}</span>
-                </span>
-                <span class="phonie-switch">
-                    <input type="checkbox" data-setting="${escapeHtml(key)}">
-                    <span class="phonie-switch__track" aria-hidden="true"></span>
-                </span>
-            </label>`;
-    }
-
-    #selectRow(label, key, values) {
-        const options = values.map(([value, text]) => `<option value="${escapeHtml(value)}">${escapeHtml(text)}</option>`).join('');
-        return `
-            <label class="phonie-setting-row">
-                <span>
-                    <span class="phonie-setting-label">${escapeHtml(label)}</span>
-                </span>
-                <select class="phonie-setting-select" data-setting="${escapeHtml(key)}">${options}</select>
-            </label>`;
-    }
-
-    #languageRow(label, key) {
-        const options = LANGUAGE_OPTIONS.map(([value, text]) => `<option value="${escapeHtml(value)}">${escapeHtml(text)} · ${escapeHtml(value)}</option>`).join('');
-        return `<div class='phonie-setting-row phonie-language-row'><span><span class='phonie-setting-label'>${escapeHtml(label)}</span></span><span class='phonie-language-control'><select class='phonie-setting-select' data-language-select='${escapeHtml(key)}'>${options}<option value='custom'>自定义语言</option></select><input class='phonie-setting-select' type='text' data-language-custom='${escapeHtml(key)}' placeholder='例如 ca-ES' hidden></span></div>`;
-    }
-
-    #mountSettingsLauncher() {
-        const container = document.getElementById('extensions_settings') || document.getElementById('extensions_settings2');
-        if (!container) {
-            window.setTimeout(() => {
-                if (this.#root?.isConnected && !this.#launcher) this.#mountSettingsLauncher();
-            }, 700);
-            return;
-        }
-        if (document.getElementById('phonie-settings-launcher')) return;
-        const launcher = document.createElement('div');
-        launcher.id = 'phonie-settings-launcher';
-        launcher.className = 'extension_container phonie-settings-launcher';
-        launcher.innerHTML = `
-            <div class="inline-drawer">
-                <div class="inline-drawer-toggle inline-drawer-header">
-                    <b>Phonie Voice Phone</b>
-                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+    #settingsModelMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_MODEL}">
+            ${appBarMarkup('模型来源', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <div class="phonie-settings-card">
+                    <label class="phonie-field"><span>生成来源</span><select data-setting="generationMode"><option value="tavern">跟随酒馆主 API</option><option value="custom">自定义 OpenAI 兼容</option></select></label>
                 </div>
-                <div class="inline-drawer-content">
-                    <label for="phonie-launcher-mode">打开入口</label>
-                    <select id="phonie-launcher-mode" class="text_pole" data-launcher-setting="launcherMode">
-                        <option value="orb">悬浮球</option>
-                        <option value="wand">酒馆魔棒菜单</option>
-                        <option value="both">两个入口都显示</option>
-                    </select>
-                    <button class="menu_button menu_button_icon" type="button" data-launcher-action="open">
-                        <i class="fa-solid fa-mobile-screen-button"></i>
-                        <span>打开手机设置</span>
-                    </button>
+                <div data-role="openai-profile-list"></div>
+            </div>
+        </section>`;
+    }
+
+    #settingsDisplayMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_DISPLAY}">
+            ${appBarMarkup('显示与语言', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <div class="phonie-settings-card">
+                    <label class="phonie-field"><span>打开入口</span><select data-setting="launcherMode"><option value="orb">悬浮球</option><option value="wand">酒馆魔棒菜单</option><option value="both">两者都显示</option></select></label>
+                    <label class="phonie-field"><span>原文语言</span><input data-setting="sourceLanguage" placeholder="zh-CN"></label>
+                    <label class="phonie-field"><span>译文语言</span><input data-setting="targetLanguage" placeholder="zh-CN"></label>
+                    <label class="phonie-switch-row"><span>显示译文</span><input type="checkbox" data-setting="showTranslation"></label>
                 </div>
-            </div>`;
-        launcher.querySelector('[data-launcher-action="open"]')?.addEventListener('click', () => {
-            this.#actions.open?.();
-            this.#actions.navigate?.(SCREENS.SETTINGS);
-        });
-        launcher.querySelector('[data-launcher-setting="launcherMode"]')?.addEventListener('change', (event) => {
-            this.#actions.updateSetting?.('launcherMode', event.currentTarget.value);
-        });
-        container.append(launcher);
-        this.#launcher = launcher;
+            </div>
+        </section>`;
     }
 
-    #mountWandLauncher() {
-        if (this.#wandLauncher?.isConnected) return;
-        const container = document.getElementById('tts_wand_container') || document.getElementById('extensionsMenu');
-        if (!container) {
-            window.setTimeout(() => {
-                if (this.#root?.isConnected && !this.#wandLauncher?.isConnected) this.#mountWandLauncher();
-            }, 700);
-            return;
-        }
-        document.getElementById('phonie-wand-menu-item')?.remove();
-        const item = document.createElement('div');
-        item.id = 'phonie-wand-menu-item';
-        item.className = 'list-group-item flex-container flexGap5';
-        item.tabIndex = 0;
-        item.setAttribute('role', 'button');
-        item.setAttribute('aria-label', '打开 Phonie 手机');
-        item.innerHTML = '<div class="extensionsMenuExtensionButton fa-solid fa-mobile-screen-button"></div><span>Phonie 手机</span>';
-        const open = () => this.#actions.open?.();
-        item.addEventListener('click', open);
-        item.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                open();
-            }
-        });
-        container.append(item);
-        this.#wandLauncher = item;
+    #settingsPromptsMarkup() {
+        const workflows = PROMPT_WORKFLOWS.map((workflow) => `<option value="${workflow.id}">${escapeHtml(workflow.name)}</option>`).join('');
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_PROMPTS}">
+            ${appBarMarkup('全部提示词', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <select class="phonie-prompt-workflow" data-role="prompt-workflow">${workflows}</select>
+                <div data-role="prompt-editor"></div>
+            </div>
+        </section>`;
     }
 
+    #settingsBodyTtsMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_BODY_TTS}">
+            ${appBarMarkup('正文 TTS', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <div class="phonie-settings-card">
+                    <label class="phonie-switch-row"><span>正文语音总开关</span><input type="checkbox" data-setting="bodyTtsEnabled"></label>
+                    <label class="phonie-switch-row"><span>内置正文 TTS 提示词</span><input type="checkbox" data-setting="bodyPromptEnabled"></label>
+                    <label class="phonie-switch-row"><span>自动渲染正文 TTS</span><input type="checkbox" data-setting="autoRenderBodyTts"></label>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    #settingsQqMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_QQ}">
+            ${appBarMarkup('QQ 与主动来电', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <div class="phonie-settings-card">
+                    <label class="phonie-switch-row"><span>允许单聊主动来电</span><input type="checkbox" data-proactive="enabled"></label>
+                    <label class="phonie-field"><span>联系人冷却（分钟，0–1440）</span><input type="number" min="0" max="1440" data-proactive="cooldownMinutes"></label>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    #settingsStickersMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_STICKERS}">
+            ${appBarMarkup('表情包', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <label class="phonie-field"><span>批量导入（名字URL,名字URL）</span><textarea rows="4" data-role="sticker-import" placeholder="开心https://a.png,生气https://b.gif"></textarea></label>
+                <div class="phonie-button-row"><button class="phonie-primary-btn" type="button" data-action="import-stickers">${icon('plus')}<span>导入</span></button><button class="phonie-danger-btn phonie-danger-btn--soft" type="button" data-action="clear-stickers">${icon('trash')}<span>清空</span></button></div>
+                <div class="phonie-sticker-grid" data-role="sticker-list"></div>
+            </div>
+        </section>`;
+    }
+
+    #settingsCacheMarkup() {
+        return `<section class="phonie-screen" data-screen="${SCREENS.SETTINGS_CACHE}">
+            ${appBarMarkup('语音缓存', SCREENS.SETTINGS)}
+            <div class="phonie-app-content">
+                <div class="phonie-settings-card"><p class="phonie-cache-stats" data-role="cache-stats">正在统计…</p><button class="phonie-danger-btn" type="button" data-action="clear-cache">${icon('trash')}<span>删除缓存</span></button></div>
+            </div>
+        </section>`;
+    }
+
+    // ---- 事件绑定 ---------------------------------------------------------
     #bindEvents() {
         this.#root.addEventListener('click', (event) => {
-            const eventTarget = event.target;
-            if (!(eventTarget instanceof Element)) return;
-            const target = eventTarget.closest('[data-action]');
+            const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
             if (!(target instanceof HTMLElement)) return;
             const action = target.dataset.action;
-
-            if (action === 'open') {
-                if (this.#suppressOrbClick) {
-                    event.preventDefault();
-                    return;
-                }
-                this.#actions.open?.();
-            } else if (action === 'close') {
-                this.#actions.close?.();
-            } else if (action === 'navigate') {
-                this.#actions.navigate?.(target.dataset.targetScreen);
-            } else if (action === 'set-home-page') {
-                const pages = this.#root.querySelector('[data-role="home-pages"]');
-                const page = Number(target.dataset.page) || 0;
-                pages?.scrollTo({ left: page * pages.clientWidth, behavior: 'smooth' });
-            } else if (action === 'send-voice') {
-                this.#submitChat(MESSAGE_KINDS.VOICE);
-            } else if (action === 'toggle-chat-tools') {
-                const tools = this.#root.querySelector('[data-role="chat-tools"]');
-                if (tools) tools.hidden = !tools.hidden;
-            } else if (action === 'choose-chat-image') {
-                this.#root.querySelector('[data-role="chat-image-input"]')?.click();
-            } else if (action === 'open-chat-action') {
-                this.#chatToolMode = target.dataset.chatKind;
-                const sheet = this.#root.querySelector('[data-role="chat-action-sheet"]');
-                if (sheet) sheet.hidden = false;
-                this.#setText('[data-role="chat-action-title"]', this.#chatToolMode === MESSAGE_KINDS.RED_PACKET ? '发送红包' : '发起转账');
-            } else if (action === 'close-chat-action') {
-                this.#closeChatAction();
-            } else if (action === 'send-chat-action') {
-                this.#submitStructuredChat();
-            } else if (action === 'quote-phone-message') {
-                this.#quotedMessageId = target.dataset.messageId || null;
-                this.#renderReplyComposer(this.#store.getState());
-            } else if (action === 'cancel-phone-quote') {
-                this.#quotedMessageId = null;
-                this.#renderReplyComposer(this.#store.getState());
-            } else if (action === 'recall-phone-message') {
-                this.#actions.recallPhoneMessage?.(target.dataset.messageId);
-            } else if (action === 'regenerate-phone-audio') {
-                this.#actions.regeneratePhoneAudio?.(target.dataset.messageId);
-            } else if (action === 'delete-call-record') {
-                this.#actions.deleteCallRecord?.(target.dataset.callId);
-            } else if (action === 'replay-call-record') {
-                this.#actions.replayCallRecord?.(target.dataset.callId);
-            } else if (action === 'open-chat-preset') {
-                this.#actions.updateSetting?.('promptWorkflowKind', 'chat');
-                this.#actions.navigate?.(SCREENS.PROMPTS);
-            } else if (action === 'open-chat-settings') {
-                const sheet = this.#root.querySelector('[data-role="chat-settings-sheet"]');
-                if (sheet) sheet.hidden = false;
-            } else if (action === 'close-chat-settings') {
-                const sheet = this.#root.querySelector('[data-role="chat-settings-sheet"]');
-                if (sheet) sheet.hidden = true;
-            } else if (action === 'clear-chat-history') {
-                if (window.confirm?.('清空当前会话的全部消息吗？') !== false) this.#actions.clearCurrentConversation?.();
-            } else if (action === 'delete-chat-conversation') {
-                if (window.confirm?.('删除当前会话吗？联系人和声线路由会保留。') !== false) this.#actions.deleteCurrentConversation?.();
-            } else if (action === 'open-contact-chat') {
-                this.#actions.openContactChat?.(target.dataset.characterId);
-            } else if (action === 'toggle-chat-contact') {
-                this.#actions.toggleChatContact?.(target.dataset.characterId);
-            } else if (action === 'clear-group-selection') {
-                this.#actions.clearGroupSelection?.();
-            } else if (action === 'open-group-chat') {
-                this.#actions.openGroupChat?.();
-            } else if (action === 'call-digit') {
-                const number = this.#root.querySelector('[data-role=call-number]');
-                if (number instanceof HTMLInputElement) {
-                    number.value = (number.value.replace(/\D/g, '') + (target.dataset.digit || '')).slice(-12);
-                    this.#syncDialSelection(number.value);
-                }
-            } else if (action === 'call-backspace') {
-                const number = this.#root.querySelector('[data-role=call-number]');
-                if (number instanceof HTMLInputElement) {
-                    number.value = number.value.replace(/\D/g, '').slice(0, -1);
-                    this.#syncDialSelection(number.value);
-                }
-            } else if (action === 'select-call-contact') {
-                const select = this.#root.querySelector('[data-role=call-participants]');
-                if (select instanceof HTMLSelectElement) {
-                    const option = [...select.options].find((entry) => entry.value === target.dataset.characterId);
-                    if (option) option.selected = !option.selected;
-                    if (![...select.selectedOptions].length && option) option.selected = true;
-                    const selected = [...select.selectedOptions];
-                    const number = this.#root.querySelector('[data-role=call-number]');
-                    if (number instanceof HTMLInputElement) number.value = selected.length > 1 ? `多人通话 · ${selected.length} 人` : target.dataset.number || '';
-                    this.#syncCallContactButtons();
-                }
-            } else if (action === 'add-call-participant') {
-                const picker = this.#root.querySelector('[data-role=call-contact-picker]');
-                const selected = this.#root.querySelector('[data-role=call-participants]');
-                if (picker instanceof HTMLSelectElement && selected instanceof HTMLSelectElement) {
-                    const option = [...selected.options].find((entry) => entry.value === picker.value);
-                    if (option) option.selected = true;
-                    this.#syncCallContactButtons();
-                }
-            } else if (action === 'remove-call-participant') {
-                const selected = this.#root.querySelector('[data-role=call-participants]');
-                if (selected instanceof HTMLSelectElement) {
-                    const option = [...selected.options].find((entry) => entry.value === target.dataset.characterId);
-                    if (option) option.selected = false;
-                    this.#syncCallContactButtons();
-                }
-            } else if (action === 'start-call') {
-                this.#actions.startCall?.(this.#callSetup());
-            } else if (action === 'start-incoming-call') {
-                this.#actions.startIncomingCall?.(this.#callSetup());
-            } else if (action === 'accept-call') {
-                this.#actions.acceptCall?.();
-            } else if (action === 'decline-call') {
-                this.#actions.declineCall?.();
-            } else if (action === 'cycle-theme') {
-                this.#actions.cycleTheme?.();
-            } else if (action === 'end-call') {
-                this.#actions.endCall?.();
-            } else if (action === 'clear-cache') {
-                this.#actions.clearCache?.();
-            } else if (action === 'play-phone-audio') {
-                this.#actions.playPhoneAudio?.(target.dataset.messageId);
-            } else if (action === 'set-tts-provider') {
-                this.#actions.setTtsProvider?.(target.dataset.providerId);
-            } else if (action === 'open-tts-provider') {
-                this.#actions.openTtsProvider?.(target.dataset.providerId);
-            } else if (action === 'check-tts-provider') {
-                this.#actions.checkTtsProvider?.(target.dataset.providerId);
-            } else if (action === 'sync-tts-resources') {
-                this.#actions.syncTtsResources?.(target.dataset.providerId);
-            } else if (action === 'preview-tts-provider') {
-                const editor = target.closest('[data-provider-editor-id]');
-                const input = editor?.querySelector('[data-role="provider-preview-text"]');
-                this.#actions.previewTtsProvider?.(target.dataset.providerId, input?.value || '');
-            } else if (action === 'save-tts-secret') {
-                const input = [...this.#root.querySelectorAll('[data-role="tts-secret-input"]')].find((candidate) => (
-                    candidate.dataset.providerId === (target.dataset.providerId || '')
-                    && candidate.dataset.secretKey === (target.dataset.secretKey || '')
-                ));
-                if (input instanceof HTMLInputElement) {
-                    this.#actions.saveTtsSecret?.(target.dataset.providerId, target.dataset.secretKey, input.value).then((saved) => {
-                        if (saved) input.value = '';
-                    });
-                }
-            } else if (action === 'save-character-route') {
-                const providerId = this.#root.querySelector('[data-role="character-provider-select"]')?.value || '';
-                const fallbackProviderId = this.#root.querySelector('[data-role="character-fallback-provider-select"]')?.value || '';
-                const modelId = this.#root.querySelector('[data-role="character-model-select"]')?.value || '';
-                const catalogVoiceId = this.#root.querySelector('[data-role="character-voice-select"]')?.value || '';
-                const customVoiceId = this.#root.querySelector('[data-role="character-voice-id"]')?.value || '';
-                const textLanguage = this.#root.querySelector('[data-role="character-text-language"]')?.value || '';
-                const referenceAudio = this.#root.querySelector('[data-role="character-reference-audio"]')?.value || '';
-                this.#actions.updateCharacterRoute?.({
-                    providerId,
-                    fallbackProviderId,
-                    modelId,
-                    voiceId: customVoiceId || catalogVoiceId,
-                    textLanguage,
-                    referenceAudio,
-                });
-            } else if (action === 'add-manual-character') {
-                const input = this.#root.querySelector('[data-role="manual-character-name"]');
-                if (input instanceof HTMLInputElement && input.value.trim()) {
-                    this.#actions.addManualCharacter?.(input.value.trim());
-                    input.value = '';
-                }
-            } else if (action === 'delete-character-route') {
-                if (window.confirm?.('删除当前角色的专属声线路由吗？') !== false) this.#actions.deleteCharacterRoute?.();
-            } else if (action === 'select-character-route') {
-                this.#characterProviderDraft = null;
-                this.#actions.selectCharacterRoute?.(target.dataset.characterId);
-                if (target.dataset.targetScreen) this.#actions.navigate?.(target.dataset.targetScreen);
-            } else if (action === 'save-custom-key') {
-                this.#saveCustomKey();
-            } else if (action === 'refresh-custom-models') {
-                const endpoint = this.#root.querySelector('[data-setting="customOpenAIEndpoint"]')?.value || '';
-                this.#actions.refreshCustomModels?.(endpoint);
-            } else if (action === 'save-novelai-token') {
-                const input = this.#root.querySelector('[data-role="novelai-token"]');
-                this.#actions.saveNovelAiToken?.(input?.value || '').then((saved) => { if (saved && input) input.value = ''; });
-            } else if (action === 'generate-novelai-image') {
-                const size = String(this.#root.querySelector('[data-role="novelai-size"]')?.value || '832x1216').split('x').map(Number);
-                this.#actions.generateNovelAiImage?.({
-                    prompt: this.#root.querySelector('[data-role="novelai-prompt"]')?.value || '',
-                    artistTags: this.#root.querySelector('[data-role="novelai-artist-tags"]')?.value || '',
-                    negativePrompt: this.#store.getState().settings.novelAiNegativePrompt,
-                    model: this.#store.getState().settings.novelAiModel,
-                    steps: this.#store.getState().settings.novelAiSteps,
-                    scale: this.#store.getState().settings.novelAiScale,
-                    width: size[0],
-                    height: size[1],
-                });
-            } else if (action === 'generate-novelai-tags') {
-                const idea = this.#root.querySelector('[data-role="novelai-idea"]')?.value || '';
-                const instruction = this.#store.getState().settings.novelAiTagInstruction;
-                this.#actions.generateNovelAiTags?.({ idea, instruction }).then((result) => {
-                    if (result) this.#writeNovelAiFields(result);
-                });
-            } else if (action === 'save-novelai-preset') {
-                const state = this.#store.getState();
-                const select = this.#root.querySelector('[data-role="novelai-preset-select"]');
-                const activeId = select instanceof HTMLSelectElement ? select.value : '';
-                const existing = state.settings.novelAiPromptPresets?.find((entry) => entry.id === activeId);
-                const name = existing?.name || window.prompt?.('预设名称', '新绘图预设')?.trim();
-                if (name) {
-                    const preset = {
-                        id: existing?.id || `nai-${Date.now().toString(36)}`,
-                        name,
-                        prompt: this.#root.querySelector('[data-role="novelai-prompt"]')?.value || '',
-                        artistTags: this.#root.querySelector('[data-role="novelai-artist-tags"]')?.value || '',
-                        negativePrompt: this.#store.getState().settings.novelAiNegativePrompt,
-                    };
-                    const next = existing
-                        ? state.settings.novelAiPromptPresets.map((entry) => entry.id === existing.id ? preset : entry)
-                        : [...(state.settings.novelAiPromptPresets || []), preset];
-                    this.#actions.updateSetting?.('novelAiPromptPresets', next);
-                    this.#actions.updateSetting?.('novelAiActivePresetId', preset.id);
-                }
-            } else if (action === 'delete-novelai-preset') {
-                const state = this.#store.getState();
-                const select = this.#root.querySelector('[data-role="novelai-preset-select"]');
-                const activeId = select instanceof HTMLSelectElement ? select.value : '';
-                if (activeId && window.confirm?.('删除当前绘图提示词预设吗？') !== false) {
-                    this.#actions.updateSetting?.('novelAiPromptPresets', (state.settings.novelAiPromptPresets || []).filter((entry) => entry.id !== activeId));
-                    this.#actions.updateSetting?.('novelAiActivePresetId', '');
-                }
-            } else if (action === 'send-novelai-image') {
-                this.#actions.sendNovelAiImage?.();
-            } else if (action === 'download-novelai-image') {
-                this.#actions.downloadNovelAiImage?.();
-            } else if (action === 'reset-prompt-preset') {
-                const kind = this.#store.getState().settings.promptWorkflowKind || 'body';
-                const defaults = kind === 'body'
-                    ? DEFAULT_BODY_PROMPT_PRESET
-                    : kind === 'call' || kind === 'call_single'
-                        ? DEFAULT_CALL_PROMPT_PRESET
-                        : kind === 'call_group' ? DEFAULT_GROUP_CALL_PROMPT_PRESET : DEFAULT_CHAT_PROMPT_PRESET;
-                this.#actions.updatePromptPreset?.(kind, normalizePhonePromptPreset(defaults));
-            } else if (action === 'add-prompt-entry') {
-                const { kind, preset } = this.#currentPromptPreset();
-                this.#actions.updatePromptPreset?.(kind, addPhonePromptEntry(preset));
-            } else if (action === 'move-prompt-entry') {
-                const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
-                const { kind, preset } = this.#currentPromptPreset();
-                if (entryId) this.#actions.updatePromptPreset?.(kind, movePhonePromptEntry(preset, entryId, target.dataset.direction));
-            } else if (action === 'delete-prompt-entry') {
-                const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
-                const { kind, preset } = this.#currentPromptPreset();
-                if (entryId) this.#actions.updatePromptPreset?.(kind, removePhonePromptEntry(preset, entryId));
-            } else if (action === 'save-prompt-preset') {
-                const { kind, preset } = this.#currentPromptPreset();
-                this.#actions.savePromptPreset?.(kind, preset, false);
-            } else if (action === 'save-as-prompt-preset') {
-                const { kind, preset } = this.#currentPromptPreset();
-                this.#actions.savePromptPreset?.(kind, preset, true);
-            } else if (action === 'delete-prompt-preset') {
-                const { kind, preset } = this.#currentPromptPreset();
-                if (window.confirm?.('确认删除当前提示词预设吗？') !== false) {
-                    this.#actions.deletePromptPreset?.(kind, preset.id);
-                }
-            } else if (action === 'export-prompt-preset') {
-                const { kind, preset } = this.#currentPromptPreset();
-                this.#downloadJson('phonie-' + kind + '-' + preset.id + '.json', { kind, presets: [preset] });
-            } else if (action === 'export-prompt-library') {
-                this.#downloadJson('phonie-prompt-presets.json', {
-                    schemaVersion: 1,
-                    promptPresetLibraries: this.#store.getState().settings.promptPresetLibraries,
-                });
-            } else if (action === 'import-prompt-presets') {
-                this.#root.querySelector('[data-role="prompt-preset-import"]')?.click();
-            }
+            if (action === 'navigate') return this.#actions.navigate?.(target.dataset.targetScreen);
+            if (action === 'close') return this.#actions.close?.();
+            if (action === 'open') return this.#actions.open?.();
+            if (action === 'set-theme') return this.#actions.setTheme?.(target.dataset.theme);
+            if (action === 'dial-digit') return this.#appendDialDigit(target.dataset.digit);
+            if (action === 'dial-backspace') return this.#actions.dialBackspace?.();
+            if (action === 'resume-active') return this.#actions.resumeActive?.();
+            if (action === 'send-kind') return this.#actions.setComposerKind?.(target.dataset.kind);
+            if (action === 'toggle-chat-tools') return this.#actions.toggleChatTools?.();
+            if (action === 'toggle-chat-settings') return this.#actions.toggleChatSettings?.();
+            if (action === 'clear-chat') return this.#actions.clearChat?.();
+            if (action === 'remove-current-friend') return this.#actions.removeCurrentFriend?.();
+            if (action === 'recall-message') return this.#actions.recallMessage?.(target.dataset.id);
+            if (action === 'send-sticker') return this.#actions.sendSticker?.(target.dataset.name);
+            if (action === 'toggle-add-friend') return this.#actions.toggleAddFriend?.();
+            if (action === 'toggle-create-group') return this.#actions.toggleCreateGroup?.();
+            if (action === 'confirm-add-friend') return this.#actions.confirmAddFriend?.();
+            if (action === 'confirm-create-group') return this.#actions.confirmCreateGroup?.();
+            if (action === 'start-call') return this.#actions.startCall?.();
+            if (action === 'accept-call') return this.#actions.acceptCall?.();
+            if (action === 'decline-call') return this.#actions.declineCall?.();
+            if (action === 'end-call') return this.#actions.endCall?.();
+            if (action === 'minimize-call') return this.#actions.minimizeCall?.();
+            if (action === 'add-manual-contact') return this.#actions.addManualContact?.();
+            if (action === 'save-contact-route') return this.#actions.saveContactRoute?.();
+            if (action === 'generate-novelai-tags') return this.#actions.generateNovelAiTags?.();
+            if (action === 'generate-novelai-image') return this.#actions.generateNovelAiImage?.();
+            if (action === 'import-stickers') return this.#actions.importStickers?.();
+            if (action === 'clear-cache') return this.#actions.clearCache?.();
+            if (action === 'open-chat') return this.#actions.openChat?.(target.dataset.id);
+            if (action === 'open-group') return this.#actions.openGroup?.(target.dataset.id);
+            if (action === 'play-message-audio') return this.#actions.playMessageAudio?.(target.dataset.id);
+            if (action === 'replay-call') return this.#actions.replayCall?.(target.dataset.id);
+            if (action === 'rerender-call') return this.#actions.rerenderCall?.(target.dataset.id);
+            if (action === 'favorite-call') return this.#actions.favoriteCall?.(target.dataset.id);
+            if (action === 'delete-call') return this.#actions.deleteCall?.(target.dataset.id);
+            if (action === 'delete-contact') return this.#actions.deleteContact?.(target.dataset.id);
+            if (action === 'open-contact-route') return this.#actions.openContactRoute?.(target.dataset.id);
+            if (action === 'open-engine') return this.#actions.openEngine?.(target.dataset.id);
+            if (action === 'set-provider') return this.#actions.setProvider?.(target.dataset.id);
+            if (action === 'check-provider') return this.#actions.checkProvider?.(target.dataset.id);
+            if (action === 'sync-resources') return this.#actions.syncResources?.(target.dataset.id);
+            if (action === 'add-openai-profile') return this.#actions.addOpenAIProfile?.();
+            if (action === 'activate-openai-profile') return this.#actions.activateOpenAIProfile?.(target.dataset.id);
+            if (action === 'delete-openai-profile') return this.#actions.deleteOpenAIProfile?.(target.dataset.id);
+            if (action === 'toggle-secret') return this.#actions.toggleSecret?.(target.dataset.id);
+            if (action === 'add-prompt-preset') return this.#actions.addPromptPreset?.();
+            if (action === 'delete-prompt-preset') return this.#actions.deletePromptPreset?.();
+            if (action === 'add-prompt-entry') return this.#actions.addPromptEntry?.();
+            if (action === 'move-prompt-entry') return this.#actions.movePromptEntry?.(target.dataset.entry, target.dataset.dir);
+            if (action === 'remove-prompt-entry') return this.#actions.removePromptEntry?.(target.dataset.entry);
+            if (action === 'remove-sticker') return this.#actions.removeSticker?.(target.dataset.name);
+            if (action === 'clear-stickers') return this.#actions.clearStickers?.();
         });
 
         this.#root.addEventListener('submit', (event) => {
+            const form = event.target instanceof HTMLFormElement ? event.target : null;
+            if (!form || form.dataset.form !== 'chat') return;
             event.preventDefault();
-            const form = event.target;
-            if (!(form instanceof HTMLFormElement)) return;
-            if (form.dataset.form === 'chat') this.#submitChat(MESSAGE_KINDS.TEXT);
-            if (form.dataset.form === 'call') this.#submitCall();
-        });
-
-        this.#root.addEventListener('keydown', (event) => {
-            const target = event.target;
-            if (target instanceof HTMLTextAreaElement && target.dataset.role === 'chat-input' && event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                this.#submitChat(MESSAGE_KINDS.TEXT);
-            }
-        });
-
-        this.#root.addEventListener('input', (event) => {
-            const target = event.target;
-            if (target instanceof HTMLInputElement && target.dataset.role === 'character-search') {
-                const query = target.value.trim().toLocaleLowerCase('zh-CN');
-                for (const item of this.#root.querySelectorAll('[data-character-search]')) {
-                    item.hidden = Boolean(query) && !String(item.dataset.characterSearch || '').includes(query);
-                }
-                return;
-            }
-            if (target instanceof HTMLTextAreaElement && target.dataset.role === 'chat-input') {
-                const send = this.#root.querySelector('[data-role="chat-send"]');
-                if (send) send.dataset.hasText = String(Boolean(target.value.trim()));
-            }
+            this.#actions.sendChat?.();
         });
 
         this.#root.addEventListener('change', (event) => {
             const target = event.target;
-            if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
-            const value = target instanceof HTMLInputElement && target.type === 'checkbox' ? target.checked : target.value;
-            if (target.dataset.role === 'chat-image-input' && target instanceof HTMLInputElement) {
-                const file = target.files?.[0];
-                if (file) {
-                    this.#actions.sendMessage?.(file.name || '图片', MESSAGE_KINDS.IMAGE, false, {
-                        attachmentName: file.name || '图片',
-                        description: '用户发送了一张模拟图片',
-                        replyToId: this.#quotedMessageId,
-                    });
-                    this.#quotedMessageId = null;
-                    this.#renderReplyComposer(this.#store.getState());
-                    target.value = '';
-                }
-                return;
-            }
-            if (target.dataset.role === 'prompt-preset-import' && target instanceof HTMLInputElement) {
-                const file = target.files?.[0];
-                if (file) this.#importPromptPresets(file);
-                target.value = '';
-                return;
-            }
-            if (target.dataset.role === 'prompt-preset-library') {
-                const kind = ['body', 'chat', 'call_single', 'call_group'].includes(this.#store.getState().settings.promptWorkflowKind)
-                    ? this.#store.getState().settings.promptWorkflowKind : 'body';
-                this.#actions.applyPromptPreset?.(kind, String(value || ''));
-                return;
-            }
-            if (target.dataset.role === 'call-contact-picker' && target instanceof HTMLSelectElement) {
-                const character = this.#store.getState().characters.find((entry) => entry.id === target.value);
-                const number = this.#root.querySelector('[data-role=call-number]');
-                if (number instanceof HTMLInputElement && character) number.value = contactNumber(character.id || character.name);
-                this.#syncCallContactButtons({ preserveNumber: true });
-                return;
-            }
-            if (target.dataset.role === 'novelai-preset-select' && target instanceof HTMLSelectElement) {
-                const preset = this.#store.getState().settings.novelAiPromptPresets?.find((entry) => entry.id === target.value);
-                this.#actions.updateSetting?.('novelAiActivePresetId', target.value);
-                if (preset) this.#writeNovelAiFields(preset);
-                return;
-            }
-            if (target.dataset.role === 'character-provider-select') {
-                this.#characterProviderDraft = String(value || '');
-                this.#renderCharacter(this.#store.getState());
-                return;
-            }
-            const languageKey = target.dataset.languageSelect;
-            if (languageKey) {
-                const custom = this.#root.querySelector(`[data-language-custom="${languageKey}"]`);
-                if (custom instanceof HTMLInputElement) {
-                    custom.hidden = value !== 'custom';
-                    if (value === 'custom') {
-                        custom.focus();
-                    } else {
-                        this.#actions.updateSetting?.(languageKey, value);
-                    }
-                }
-                return;
-            }
-            const customLanguageKey = target.dataset.languageCustom;
-            if (customLanguageKey) {
-                const nextLanguage = String(value || '').trim();
-                if (nextLanguage) this.#actions.updateSetting?.(customLanguageKey, nextLanguage);
-                return;
-            }
-            const providerField = target.dataset.providerField;
-            if (providerField) {
-                const editor = target.closest('[data-provider-editor-id]');
-                const providerId = editor?.dataset.providerEditorId;
-                const nextValue = target instanceof HTMLInputElement && target.type === 'range' ? Number(value) : value;
-                if (providerId) this.#actions.updateTtsProvider?.(providerId, providerField, nextValue);
-                return;
-            }
-            const presetField = target.dataset.promptPresetField;
-            if (presetField) {
-                const { kind, preset } = this.#currentPromptPreset();
-                this.#actions.updatePromptPreset?.(kind, normalizePhonePromptPreset({ ...preset, [presetField]: value }));
-                return;
-            }
-            const entryField = target.dataset.promptEntryField;
-            if (entryField) {
-                const entryId = target.closest('[data-prompt-entry-id]')?.dataset.promptEntryId;
-                if (entryId) {
-                    const { kind, preset } = this.#currentPromptPreset();
-                    this.#actions.updatePromptPreset?.(kind, updatePhonePromptEntry(preset, entryId, { [entryField]: value }));
-                }
-                return;
-            }
-            const key = target.dataset.setting;
-            if (key) this.#actions.updateSetting?.(key, value);
+            if (!(target instanceof HTMLElement)) return;
+            if (target.dataset.setting) return this.#actions.updateSetting?.(target.dataset.setting, target.type === 'checkbox' ? target.checked : target.value);
+            if (target.dataset.proactive) return this.#actions.updateProactive?.(target.dataset.proactive, target.type === 'checkbox' ? target.checked : Number(target.value));
+            if (target.dataset.role === 'call-strategy') return this.#actions.updateCallStrategy?.(target.value);
+            if (target.dataset.role === 'call-contact-picker') return this.#actions.updateCallContacts?.([...target.selectedOptions].map((option) => option.value));
+            if (target.dataset.customColor) return this.#actions.updateCustomColor?.(target.dataset.customColor, target.value);
+            if (target.dataset.role === 'prompt-workflow') return this.#actions.selectPromptWorkflow?.(target.value);
+            if (target.dataset.role === 'prompt-preset') return this.#actions.selectPromptPreset?.(target.value);
+            if (target.dataset.role === 'prompt-preset-name') return this.#actions.renamePromptPreset?.(target.value);
+            if (target.dataset.engineSecret) return this.#actions.saveEngineSecret?.(target.dataset.engineSecret, target.value);
+            if (target.dataset.openaiSecret) return this.#actions.saveOpenAISecret?.(target.dataset.id, target.value);
+            if (target.dataset.engineField) return this.#actions.updateEngineField?.(target.dataset.engineField, target.value);
+            if (target.dataset.openaiField) return this.#actions.updateOpenAIProfile?.(target.dataset.id, target.dataset.openaiField, target.value);
+            if (target.dataset.promptField) return this.#actions.updatePromptEntryField?.(target.dataset.entry, target.dataset.promptField, target.type === 'checkbox' ? target.checked : target.value);
+            if (target.dataset.groupMember) return this.#actions.toggleGroupMember?.(target.dataset.groupMember, target.checked);
+            if (target.dataset.role === 'wallpaper-url') return this.#actions.updateWallpaperUrl?.(target.value);
+            if (target.dataset.role === 'wallpaper-file') return this.#actions.uploadWallpaper?.(target.files?.[0]);
+            if (target.dataset.role === 'call-length') return this.#actions.updateCallLength?.(target.value);
+            if (target.dataset.role === 'route-engine') return this.#actions.updateRouteEngine?.(target.value);
+            if (target.dataset.role === 'route-voice') return this.#actions.updateRouteVoice?.(target.value);
+            if (target.dataset.novelaiSetting) return this.#actions.updateNovelAiSetting?.(target.dataset.novelaiSetting, target.type === 'checkbox' ? target.checked : target.value);
         });
 
+        this.#root.addEventListener('input', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (target.dataset.role === 'chat-input') return this.#actions.updateComposerText?.(target.value);
+            if (target.dataset.role === 'novelai-tags') return this.#actions.updateNovelAiTags?.(target.value);
+            if (target.dataset.promptField === 'content') return this.#actions.updatePromptEntryField?.(target.dataset.entry, 'content', target.value);
+            if (target.dataset.promptField === 'name') return this.#actions.updatePromptEntryField?.(target.dataset.entry, 'name', target.value);
+            if (target.dataset.openaiField) return this.#actions.updateOpenAIProfile?.(target.dataset.id, target.dataset.openaiField, target.value);
+        });
+
+        this.#root.addEventListener('keydown', (event) => {
+            if (!(event.target instanceof HTMLElement)) return;
+            if (event.target.dataset.role === 'chat-input' && event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                this.#actions.sendChat?.();
+            }
+        });
+    }
+
+    #appendDialDigit(digit) {
+        this.#actions.dialDigit?.(digit);
+    }
+
+    #bindOrbGestures() {
         const orb = this.#orb;
         orb?.addEventListener('click', (event) => {
-            if (this.#suppressOrbClick || event.detail > 0) {
+            if (this.#suppressOrbClick) {
                 event.preventDefault();
-                event.stopPropagation();
                 return;
             }
             this.#actions.open?.();
         });
         orb?.addEventListener('pointerdown', (event) => this.#startOrbDrag(event));
-        orb?.addEventListener('pointerenter', () => this.#wakeOrb());
-        orb?.addEventListener('focus', () => this.#wakeOrb());
-        orb?.addEventListener('pointerleave', () => this.#wakeOrb(460));
-        this.#resizeHandler = () => this.#positionOrb(this.#store.getState().settings);
-        window.addEventListener('resize', this.#resizeHandler, { passive: true });
-    }
-
-    async #saveCustomKey() {
-        const input = this.#root.querySelector('[data-role="custom-openai-key"]');
-        if (!(input instanceof HTMLInputElement)) return;
-        const saved = await this.#actions.saveCustomKey?.(input.value);
-        if (saved) input.value = '';
     }
 
     #startOrbDrag(event) {
-        if (this.#drag || !shouldStartOrbDrag(event)) return;
-        const orb = event.currentTarget;
+        if (!event || (event.pointerType !== 'mouse' && event.pointerType !== 'touch' && event.pointerType !== 'pen')) return;
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        const orb = this.#orb;
         if (!(orb instanceof HTMLElement)) return;
-        event.preventDefault();
-        this.#wakeOrb();
         this.#suppressOrbClick = false;
         const rect = orb.getBoundingClientRect();
-        try {
-            orb.setPointerCapture?.(event.pointerId);
-        } catch (error) {
-            console.debug('[Phonie] Pointer capture unavailable; continuing with click fallback.', error);
-        }
-        this.#drag = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-            offsetX: event.clientX - rect.left,
-            offsetY: event.clientY - rect.top,
-            orb,
-            moved: false,
-        };
-        orb.dataset.dragging = 'false';
+        this.#drag = { startX: event.clientX, startY: event.clientY, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top, orb, moved: false };
+        orb.setPointerCapture?.(event.pointerId);
         this.#orbMoveHandler = (moveEvent) => this.#moveOrb(moveEvent);
         this.#orbEndHandler = (endEvent) => this.#endOrbDrag(endEvent);
         window.addEventListener('pointermove', this.#orbMoveHandler, { capture: true, passive: false });
@@ -1055,56 +595,33 @@ export class PhoneView {
     }
 
     #moveOrb(event) {
-        if (!this.#drag || this.#drag.pointerId !== event.pointerId) return;
-        this.#drag = updateOrbDrag(this.#drag, event.clientX, event.clientY);
-        if (!this.#drag.moved) return;
-        event.preventDefault();
-        const maxX = Math.max(0, window.innerWidth - this.#drag.orb.offsetWidth);
-        const maxY = Math.max(0, window.innerHeight - this.#drag.orb.offsetHeight);
-        const x = clamp(event.clientX - this.#drag.offsetX, 0, maxX);
-        const y = clamp(event.clientY - this.#drag.offsetY, 0, maxY);
-        this.#drag.orb.dataset.dragging = 'true';
-        this.#drag.orb.style.left = x + 'px';
-        this.#drag.orb.style.top = y + 'px';
-        this.#drag.orb.style.right = 'auto';
-        this.#drag.orb.style.bottom = 'auto';
+        const drag = this.#drag;
+        if (!drag) return;
+        if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 6) drag.moved = true;
+        if (!drag.moved) return;
+        const maxX = Math.max(0, window.innerWidth - drag.orb.offsetWidth);
+        const maxY = Math.max(0, window.innerHeight - drag.orb.offsetHeight);
+        drag.orb.dataset.dragging = 'true';
+        drag.orb.style.left = Math.min(maxX, Math.max(0, event.clientX - drag.offsetX)) + 'px';
+        drag.orb.style.top = Math.min(maxY, Math.max(0, event.clientY - drag.offsetY)) + 'px';
+        drag.orb.style.right = 'auto';
+        drag.orb.style.bottom = 'auto';
     }
 
-    #endOrbDrag(event) {
-        if (!this.#drag) return;
-        if (this.#drag.pointerId !== event.pointerId) return;
+    #endOrbDrag() {
         const drag = this.#drag;
+        this.#drag = null;
         this.#removeOrbWindowListeners();
-        const shouldOpen = isOrbTap(drag, event.type);
+        if (!drag) return;
         if (drag.moved) {
-            event.preventDefault();
-            const before = drag.orb.getBoundingClientRect();
-            const target = getOrbDockTargetFromRect(before, window.innerWidth, window.innerHeight);
             this.#suppressOrbClick = true;
-            this.#drag = null;
-            drag.orb.style.removeProperty('left');
-            drag.orb.style.removeProperty('top');
-            drag.orb.style.removeProperty('right');
-            drag.orb.style.removeProperty('bottom');
+            const side = drag.orb.offsetLeft + drag.orb.offsetWidth / 2 < window.innerWidth / 2 ? 'left' : 'right';
+            const dockY = Math.min(1, Math.max(0, drag.orb.offsetTop / Math.max(1, window.innerHeight - drag.orb.offsetHeight)));
+            this.#actions.updateDock?.({ dockSide: side, dockY });
             drag.orb.dataset.dragging = 'false';
-            this.#actions.updateDock?.(target);
-            const after = drag.orb.getBoundingClientRect();
-            if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches && typeof drag.orb.animate === 'function') {
-                drag.orb.animate([
-                    { transform: `translate3d(${before.left - after.left}px, ${before.top - after.top}px, 0) scale(0.97)` },
-                    { transform: 'translate3d(0, 0, 0) scale(1)' },
-                ], { duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
-            }
-            window.setTimeout(() => { this.#suppressOrbClick = false; }, 650);
-        } else {
-            drag.orb.dataset.dragging = 'false';
-            this.#drag = null;
-            this.#positionOrb(this.#store.getState().settings);
-        }
-        if (shouldOpen) {
-            this.#suppressOrbClick = true;
-            this.#actions.open?.();
-            window.setTimeout(() => { this.#suppressOrbClick = false; }, 450);
+            drag.orb.style.left = '';
+            drag.orb.style.top = '';
+            window.setTimeout(() => { this.#suppressOrbClick = false; }, 420);
         }
     }
 
@@ -1118,883 +635,564 @@ export class PhoneView {
         this.#orbEndHandler = null;
     }
 
-    #currentPromptPreset() {
-        const settings = this.#store.getState().settings;
-        const kind = ['body', 'chat', 'call_single', 'call_group'].includes(settings.promptWorkflowKind) ? settings.promptWorkflowKind : 'body';
-        return {
-            kind,
-            preset: normalizePhonePromptPreset(kind === 'body'
-                ? settings.bodyPromptPreset
-                : kind === 'call_single'
-                    ? settings.callPromptPreset
-                    : kind === 'call_group' ? settings.groupCallPromptPreset : settings.chatPromptPreset),
-        };
+    #fitPhone() {
+        if (!this.#root) return;
+        const fit = Math.min((window.innerWidth - 16) / 390, (window.innerHeight - 16) / 844);
+        const scale = Math.min(1.12, Math.max(0.55, fit));
+        this.#root.style.setProperty('--phonie-scale', scale.toFixed(4));
     }
 
-    #downloadJson(filename, value) {
-        const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = filename;
-        anchor.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    // ---- 启动器 -----------------------------------------------------------
+    #mountSettingsLauncher() {
+        const container = document.getElementById('extensions_settings') || document.getElementById('extensions_settings2');
+        if (!container) return window.setTimeout(() => { if (this.#root?.isConnected && !this.#launcher) this.#mountSettingsLauncher(); }, 700);
+        if (document.getElementById('phonie-settings-launcher')) return;
+        const launcher = document.createElement('div');
+        launcher.id = 'phonie-settings-launcher';
+        launcher.className = 'extension_container phonie-settings-launcher';
+        launcher.innerHTML = `<div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Phonie 声纹手机</b><div class="inline-drawer-icon down">${icon('chevron', 'phonie-icon phonie-launcher-chevron')}</div></div><div class="inline-drawer-content"><label for="phonie-launcher-mode">打开入口</label><select id="phonie-launcher-mode" class="text_pole" data-launcher-setting="launcherMode"><option value="orb">悬浮球</option><option value="wand">酒馆魔棒菜单</option><option value="both">两者都显示</option></select><button class="menu_button" type="button" data-launcher-action="open"><span>打开手机</span></button></div></div>`;
+        launcher.querySelector('[data-launcher-action="open"]')?.addEventListener('click', () => this.#actions.open?.());
+        launcher.querySelector('[data-launcher-setting="launcherMode"]')?.addEventListener('change', (event) => this.#actions.updateSetting?.('launcherMode', event.currentTarget.value));
+        container.append(launcher);
+        this.#launcher = launcher;
     }
 
-    async #importPromptPresets(file) {
-        try {
-            const payload = JSON.parse(await file.text());
-            this.#actions.importPromptPresets?.(payload);
-        } catch {
-            this.#actions.importPromptPresets?.(null);
-        }
+    #mountWandLauncher() {
+        if (this.#wandLauncher?.isConnected) return;
+        const container = document.getElementById('extensionsMenu');
+        if (!container) return window.setTimeout(() => { if (this.#root?.isConnected && !this.#wandLauncher?.isConnected) this.#mountWandLauncher(); }, 700);
+        document.getElementById('phonie-wand-menu-item')?.remove();
+        const item = document.createElement('div');
+        item.id = 'phonie-wand-menu-item';
+        item.className = 'list-group-item flex-container flexGap5';
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
+        item.innerHTML = `<div class="extensionsMenuExtensionButton">${icon('phone', 'phonie-icon phonie-menu-icon')}</div><span>Phonie 手机</span>`;
+        const open = () => this.#actions.open?.();
+        item.addEventListener('click', open);
+        item.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+        container.append(item);
+        this.#wandLauncher = item;
     }
 
-    #renderReplyComposer(state) {
-        const preview = this.#root.querySelector('[data-role="reply-composer"]');
-        if (!preview) return;
-        const message = state.messages.find((entry) => entry.id === this.#quotedMessageId);
-        preview.hidden = !message;
-        this.#setText('[data-role="reply-composer-text"]', message
-            ? (message.kind === MESSAGE_KINDS.RECALLED ? '原消息已撤回' : message.originalText.slice(0, 80))
-            : '');
-    }
-
-    #closeChatAction() {
-        this.#chatToolMode = null;
-        const sheet = this.#root.querySelector('[data-role="chat-action-sheet"]');
-        if (sheet) sheet.hidden = true;
-    }
-
-    #submitStructuredChat() {
-        const kind = this.#chatToolMode === MESSAGE_KINDS.RED_PACKET ? MESSAGE_KINDS.RED_PACKET : MESSAGE_KINDS.TRANSFER;
-        const amount = Number(this.#root.querySelector('[data-role="chat-action-amount"]')?.value || 0);
-        const note = this.#root.querySelector('[data-role="chat-action-note"]')?.value?.trim() || '';
-        if (!(amount > 0)) return;
-        const title = kind === MESSAGE_KINDS.RED_PACKET ? '红包' : '转账';
-        this.#actions.sendMessage?.(title + ' ¥' + amount.toFixed(2), kind, false, {
-            amount,
-            note,
-            replyToId: this.#quotedMessageId,
-        });
-        this.#quotedMessageId = null;
-        const amountInput = this.#root.querySelector('[data-role="chat-action-amount"]');
-        const noteInput = this.#root.querySelector('[data-role="chat-action-note"]');
-        if (amountInput) amountInput.value = '';
-        if (noteInput) noteInput.value = '';
-        this.#closeChatAction();
-        this.#renderReplyComposer(this.#store.getState());
-    }
-
-    #submitChat(kind) {
-        const input = this.#root.querySelector('[data-role="chat-input"]');
-        if (!(input instanceof HTMLTextAreaElement)) return;
-        const text = input.value.trim();
-        if (!text && kind === MESSAGE_KINDS.VOICE) return;
-        if (text) input.value = '';
-        const send = this.#root.querySelector('[data-role="chat-send"]');
-        if (send) send.dataset.hasText = 'false';
-        this.#actions.sendMessage?.(text, kind, false, { replyToId: this.#quotedMessageId });
-        this.#quotedMessageId = null;
-        this.#renderReplyComposer(this.#store.getState());
-    }
-
-    #submitCall() {
-        const input = this.#root.querySelector('[data-role="call-input"]');
-        if (!(input instanceof HTMLInputElement)) return;
-        const text = input.value.trim();
-        if (!text) return;
-        input.value = '';
-        this.#actions.sendMessage?.(text, MESSAGE_KINDS.TEXT, true);
-    }
-
-    #callSetup() {
-        const select = this.#root.querySelector('[data-role=call-participants]');
-        return {
-            participantIds: select instanceof HTMLSelectElement ? [...select.selectedOptions].map((option) => option.value) : [],
-            topic: this.#root.querySelector('[data-role=call-topic]')?.value?.trim() || '',
-            strategy: this.#root.querySelector('[data-role=call-strategy]')?.value || 'context',
-            callLength: this.#root.querySelector('[data-role=call-length]')?.value || 'normal',
-            number: this.#root.querySelector('[data-role=call-number]')?.value || '',
-        };
-    }
-
-    #syncDialSelection(number) {
-        const select = this.#root.querySelector('[data-role=call-participants]');
-        if (!(select instanceof HTMLSelectElement)) return;
-        const normalized = String(number || '').replace(/\D/g, '');
-        for (const option of select.options) option.selected = false;
-        const picker = this.#root.querySelector('[data-role=call-contact-picker]');
-        const option = [...select.options].find((entry) => String(entry.dataset.number || '').replace(/\D/g, '') === normalized);
-        if (option) option.selected = true;
-        if (picker instanceof HTMLSelectElement && option) picker.value = option.value;
-        this.#syncCallContactButtons();
-    }
-
-    #syncCallContactButtons({ preserveNumber = false } = {}) {
-        const select = this.#root.querySelector('[data-role=call-participants]');
-        const selectedOptions = select instanceof HTMLSelectElement ? [...select.selectedOptions] : [];
-        const selected = new Set(selectedOptions.map((option) => option.value));
-        this.#setText('[data-role="call-selected-summary"]', `${selected.size} 人`);
-        const button = this.#root.querySelector('[data-action=add-call-participant]');
-        const picker = this.#root.querySelector('[data-role=call-contact-picker]');
-        if (button && picker instanceof HTMLSelectElement) {
-            const active = selected.has(picker.value);
-            button.dataset.selected = String(active);
-            button.disabled = active || !picker.value;
-            button.innerHTML = `${icon(active ? 'check' : 'plus')}<span>${active ? '已在通话' : '加入通话'}</span>`;
-        }
-        const selection = this.#root.querySelector('[data-role="call-selection"]');
-        if (selection) selection.innerHTML = selectedOptions.map((option) => `
-            <span class="phonie-call-selection__chip"><b>${escapeHtml(initials(option.textContent))}</b><span>${escapeHtml(String(option.textContent || '').split(' · ')[0])}</span><button type="button" data-action="remove-call-participant" data-character-id="${escapeHtml(option.value)}" aria-label="移除 ${escapeHtml(option.textContent)}">${icon('close')}</button></span>
-        `).join('');
-        if (!preserveNumber) {
-            const number = this.#root.querySelector('[data-role=call-number]');
-            if (number instanceof HTMLInputElement) {
-                number.value = selectedOptions.length > 1
-                    ? `多人通话 · ${selectedOptions.length} 人`
-                    : selectedOptions[0]?.dataset.number || '';
-            }
-        }
-    }
-
+    // ---- 渲染 -------------------------------------------------------------
     render(state) {
         if (!this.#root) return;
-        this.#root.dataset.theme = state.settings.theme;
         this.#root.dataset.open = String(Boolean(state.open));
-        this.#root.dataset.dock = state.settings.dockSide;
-        this.#root.dataset.screen = state.screen;
-        this.#root.dataset.callState = state.callState || 'idle';
-        this.#root.dataset.audioState = state.audioState || 'idle';
-        this.#root.dataset.launcher = state.settings.launcherMode || 'orb';
-        this.#root.hidden = !state.open;
-        this.#root.style.display = state.open ? 'block' : 'none';
-        this.#root.inert = !state.open;
-        this.#motionRuntime?.sync({
-            open: Boolean(state.open),
-            route: state.screen,
-            activity: ACTIVE_CALL_STATES.has(state.callState)
-                ? 'call'
-                : state.generating
-                    ? 'generating'
-                    : ['speaking', 'playing'].includes(state.audioState)
-                        ? 'playing'
-                        : 'idle',
-        });
+        this.#root.dataset.theme = state.settings?.theme || THEMES.DAY;
+        this.#applyTheme(state);
+        this.#applyStatusBar(state.deviceStatus);
+        this.#applyIsland(state);
+        this.#applyScreen(state);
+        this.#applyContact(state);
+        this.#applyToast(state);
+        this.#applyCall(state);
+        this.#syncComposer(state);
+        this.#renderDynamic(state);
         if (this.#orb) {
-            this.#orb.dataset.theme = state.settings.theme;
-            this.#orb.dataset.dock = state.settings.dockSide;
-            this.#orb.dataset.audioState = state.audioState || 'idle';
-            this.#orb.hidden = state.open || state.settings.launcherMode === 'wand';
-            this.#positionOrb(state.settings);
+            this.#orb.hidden = state.open || state.settings?.launcherMode === 'wand';
+            if (!this.#drag?.moved) this.#positionOrb(state.settings);
         }
-
-        const phone = this.#root.querySelector('.phonie-phone');
-        phone?.setAttribute('aria-hidden', String(!state.open));
-        const orb = this.#orb;
-        orb?.setAttribute('aria-expanded', String(Boolean(state.open)));
-        const wandVisible = ['wand', 'both'].includes(state.settings.launcherMode);
+        const wandVisible = ['wand', 'both'].includes(state.settings?.launcherMode);
         if (this.#wandLauncher) this.#wandLauncher.hidden = !wandVisible;
-        const launcherSelect = this.#launcher?.querySelector('[data-launcher-setting="launcherMode"]');
-        if (launcherSelect instanceof HTMLSelectElement) launcherSelect.value = state.settings.launcherMode || 'orb';
-        this.#setText('[data-role="provider"]', state.providerLabel);
-        this.#setText('[data-role="provider-chip"]', state.providerLabel);
-        const themeButton = this.#root.querySelector('.phonie-theme-button');
-        if (themeButton) {
-            const nextLabels = { day: '夜间', night: '跟随酒馆', tavern: '日间' };
-            themeButton.setAttribute('aria-label', `切换到${nextLabels[state.settings.theme] || '下一个'}主题`);
-            themeButton.title = `当前：${state.settings.theme === 'day' ? '日间' : state.settings.theme === 'night' ? '夜间' : '跟随酒馆'}`;
-            if (themeButton.dataset.currentTheme !== state.settings.theme) {
-                themeButton.dataset.currentTheme = state.settings.theme;
-                themeButton.innerHTML = icon(state.settings.theme === 'day' ? 'sun' : state.settings.theme === 'night' ? 'moon' : 'stars');
-                themeButton.dataset.changing = 'true';
-                window.setTimeout(() => { if (themeButton.isConnected) themeButton.dataset.changing = 'false'; }, 180);
-            }
-        }
-        const screenCopy = SCREEN_COPY[state.screen] || SCREEN_COPY[SCREENS.HOME];
-        const selectedProvider = state.providerSnapshot?.providers?.find((provider) => provider.id === state.selectedProviderId);
-        const title = state.screen === SCREENS.CHAT
-            ? state.contact.name
-            : state.screen === SCREENS.PROVIDER
-                ? selectedProvider?.name || screenCopy.title
-                : screenCopy.title;
-        this.#setText('[data-role="title"]', title);
-        this.#setText('[data-role="eyebrow"]', screenCopy.eyebrow);
-
-        for (const screen of this.#root.querySelectorAll('[data-screen]')) {
-            screen.dataset.active = String(screen.dataset.screen === state.screen);
-        }
-        for (const tab of this.#root.querySelectorAll('.phonie-dock-button[data-target-screen]')) {
-            tab.setAttribute('aria-selected', String(tab.dataset.targetScreen === state.screen));
-        }
-
-        const unread = this.#orb?.querySelector('[data-role="unread"]');
-        if (unread) {
-            unread.hidden = !state.unread;
-            unread.textContent = state.unread > 99 ? '99' : String(state.unread || '');
-        }
-
-        this.#renderMessages(state);
-        this.#renderCall(state);
-        this.#renderHome(state);
-        this.#renderVoiceLibrary(state);
-        this.#renderProviderDetail(state);
-        this.#renderTrace(state);
-        this.#renderCharacter(state);
-        this.#renderModelSettings(state);
-        this.#renderPromptPreset(state);
-        this.#renderNovelAi(state);
-        this.#renderSettings(state);
-        this.#renderDeviceStatus(state);
-        this.#renderDynamicIsland(state);
-        this.#renderClocks();
-        this.#renderToast(state.toast);
     }
 
-    #renderNovelAi(state) {
-        this.#setText('[data-role="novelai-status"]', state.novelStatus || '待命');
-        const generate = this.#root.querySelector('[data-action="generate-novelai-image"]');
-        if (generate instanceof HTMLButtonElement) {
-            generate.disabled = Boolean(state.novelBusy);
-            generate.setAttribute('aria-busy', String(Boolean(state.novelBusy)));
-            const label = generate.querySelector('span');
-            if (label) label.textContent = state.novelBusy ? '生成中…' : '生成图片';
+    #applyTheme(state) {
+        const phone = this.#root.querySelector('.phonie-phone');
+        if (!(phone instanceof HTMLElement)) return;
+        const settings = state.settings || {};
+        const theme = settings.theme || THEMES.DAY;
+        let palette;
+        if (theme === THEMES.CUSTOM) palette = { ...THEME_PALETTES[THEMES.DAY], ...(settings.customTheme?.colors || {}) };
+        else if (theme === THEMES.TAVERN) palette = state.tavernScheme === 'light' ? THEME_PALETTES[THEMES.DAY] : THEME_PALETTES[THEMES.NIGHT];
+        else palette = THEME_PALETTES[theme] || THEME_PALETTES[THEMES.DAY];
+        for (const [key, value] of Object.entries(palette)) phone.style.setProperty(key, value);
+        const wallpaper = this.#root.querySelector('[data-role="wallpaper"]');
+        if (wallpaper instanceof HTMLElement) {
+            const customUrl = theme === THEMES.CUSTOM && (settings.customTheme?.wallpaperUrl || state.themeAssetUrls?.wallpaper);
+            wallpaper.style.backgroundImage = customUrl ? `url(${JSON.stringify(String(customUrl))})` : '';
+            wallpaper.dataset.hasImage = customUrl ? 'true' : 'false';
         }
-        const result = this.#root.querySelector('[data-role="novelai-result"]');
-        const image = result?.querySelector('img');
-        if (result) result.hidden = !state.novelImage;
-        if (image instanceof HTMLImageElement && image.src !== state.novelImage) image.src = state.novelImage || '';
-        const tagButton = this.#root.querySelector('[data-action="generate-novelai-tags"]');
-        if (tagButton instanceof HTMLButtonElement) {
-            tagButton.disabled = Boolean(state.novelTagBusy);
-            tagButton.setAttribute('aria-busy', String(Boolean(state.novelTagBusy)));
-            const label = tagButton.querySelector('span');
-            if (label) label.textContent = state.novelTagBusy ? '正在整理提示词…' : '让当前模型整理画面提示词';
-        }
-        const presetSelect = this.#root.querySelector('[data-role="novelai-preset-select"]');
-        if (presetSelect instanceof HTMLSelectElement) {
-            const presets = state.settings.novelAiPromptPresets || [];
-            const signature = JSON.stringify(presets.map((entry) => [entry.id, entry.name]));
-            if (presetSelect.dataset.signature !== signature) {
-                presetSelect.dataset.signature = signature;
-                presetSelect.innerHTML = '<option value="">未选择预设</option>' + presets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`).join('');
-            }
-            presetSelect.value = presets.some((entry) => entry.id === state.settings.novelAiActivePresetId)
-                ? state.settings.novelAiActivePresetId : '';
-        }
+        phone.dataset.scheme = palette['--phonie-scheme'] || 'light';
     }
 
-    #writeNovelAiFields(value = {}) {
-        const prompt = this.#root.querySelector('[data-role="novelai-prompt"]');
-        const artists = this.#root.querySelector('[data-role="novelai-artist-tags"]');
-        const negative = this.#root.querySelector('[data-setting="novelAiNegativePrompt"]');
-        if (prompt instanceof HTMLTextAreaElement) prompt.value = String(value.prompt || '');
-        if (artists instanceof HTMLTextAreaElement) artists.value = String(value.artistTags || '');
-        if (negative instanceof HTMLTextAreaElement) negative.value = String(value.negativePrompt || '');
-        if (value.artistTags != null) this.#actions.updateSetting?.('novelAiArtistTags', String(value.artistTags || ''));
-        if (value.negativePrompt != null) this.#actions.updateSetting?.('novelAiNegativePrompt', String(value.negativePrompt || ''));
+    #applyStatusBar(deviceStatus) {
+        const clock = this.#root.querySelector('[data-role="clock"]');
+        if (clock) clock.textContent = deviceStatus?.time || '--:--';
+        const network = deviceStatus?.network;
+        const networkEl = this.#root.querySelector('[data-role="network"]');
+        const wifiEl = this.#root.querySelector('[data-role="wifi"]');
+        if (networkEl) networkEl.textContent = network?.kind === 'wifi' ? '' : (network?.label || '未知');
+        if (wifiEl) wifiEl.hidden = network?.kind !== 'wifi';
+        const battery = deviceStatus?.battery;
+        const fill = this.#root.querySelector('[data-role="battery-fill"]');
+        const label = this.#root.querySelector('[data-role="battery-label"]');
+        const charging = this.#root.querySelector('[data-role="charging"]');
+        if (fill instanceof HTMLElement) {
+            fill.style.width = battery?.available ? `${battery.percent}%` : '0%';
+            fill.dataset.unknown = battery?.available ? 'false' : 'true';
+        }
+        if (label) label.textContent = battery?.available ? `${battery.percent}%` : '';
+        if (charging instanceof HTMLElement) charging.hidden = !battery?.charging;
     }
 
-    #renderDynamicIsland(state) {
-        const island = this.#root.querySelector('[data-role="dynamic-island"]');
-        if (!island) return;
-        const inCall = ACTIVE_CALL_STATES.has(state.callState);
-        const islandState = state.generating || state.audioState === 'generating' || state.callState === CALL_STATES.GENERATING
-                ? 'generating'
-                : state.audioState === 'speaking'
-                    ? inCall ? 'call' : 'playing'
-                    : 'idle';
-        const labels = { idle: '', generating: '生成中', playing: '播放中', call: '通话中' };
+    #applyIsland(state) {
+        const island = this.#root.querySelector('[data-role="island"]');
+        const label = this.#root.querySelector('[data-role="island-label"]');
+        if (!(island instanceof HTMLElement)) return;
+        const islandState = state.islandState || ISLAND_STATES.IDLE;
         island.dataset.state = islandState;
-        this.#setText('[data-role="dynamic-island-label"]', labels[islandState]);
-        this.#root.dataset.islandState = islandState;
+        if (label) label.textContent = ISLAND_COPY[islandState] || '';
     }
 
-    #renderMessages(state) {
-        const list = this.#root.querySelector('[data-role="message-list"]');
-        if (!list) return;
-        const callMessageIds = new Set((state.calls || []).flatMap((record) => record.messageIds || []));
-        const chatMessages = state.messages.filter((message) => message.channel !== 'call' && !callMessageIds.has(message.id));
-        const chatParticipants = state.chatParticipants?.length ? state.chatParticipants : [state.contact];
-        const primary = chatParticipants[0];
-        const chatName = chatParticipants.length > 1 ? `群聊 · ${chatParticipants.length} 人` : primary.name;
-        this.#setText('[data-role="chat-contact-name"]', chatName);
-        this.#setText('[data-role="chat-contact-initials"]', chatParticipants.length > 1 ? String(chatParticipants.length) : initials(primary.name));
-        setBackgroundImage(this.#root.querySelector('[data-role="chat-contact-avatar"]'), chatParticipants.length > 1 ? '' : primary.avatarUrl);
-        const pendingCount = Array.isArray(state.pendingUserMessageIds) ? state.pendingUserMessageIds.length : 0;
+    #applyScreen(state) {
+        const screen = state.screen || SCREENS.HOME;
+        this.#root.dataset.screen = screen;
+        for (const section of this.#root.querySelectorAll('.phonie-screen')) {
+            section.classList.toggle('is-active', section.dataset.screen === screen);
+        }
+        const dock = this.#root.querySelector('[data-role="dock"]');
+        if (dock) dock.hidden = screen !== SCREENS.HOME || state.callActive;
+    }
+
+    #applyContact(state) {
+        const contact = state.contact || { name: 'Character' };
+        for (const role of ['qq', 'contacts']) {
+            const nameEl = this.#root.querySelector(`[data-role="${role}-name"]`);
+            const initialsEl = this.#root.querySelector(`[data-role="${role}-initials"]`);
+            const avatarEl = this.#root.querySelector(`[data-role="${role}-avatar"]`);
+            if (nameEl) nameEl.textContent = contact.name;
+            if (initialsEl) initialsEl.textContent = initials(contact.name);
+            if (avatarEl instanceof HTMLElement) avatarEl.style.backgroundImage = contact.avatarUrl ? `url('${escapeHtml(contact.avatarUrl)}')` : '';
+        }
+        const chatTitle = this.#root.querySelector('[data-role="chat-title"]');
+        if (chatTitle) chatTitle.textContent = (state.chatParticipants && state.chatParticipants.length > 1)
+            ? state.chatParticipants.map((entry) => entry.name).join('、')
+            : (state.chatParticipants?.[0]?.name || contact.name);
+        const chatSettings = this.#root.querySelector('[data-role="chat-settings"]');
+        if (chatSettings instanceof HTMLElement) chatSettings.hidden = !state.chatSettingsOpen;
+    }
+
+    #applyToast(state) {
+        const toast = this.#root.querySelector('[data-role="toast"]');
+        if (!(toast instanceof HTMLElement)) return;
+        toast.dataset.visible = state.toast?.text ? 'true' : 'false';
+        if (state.toast?.text) toast.textContent = state.toast.text;
+    }
+
+    #syncComposer(state) {
         const send = this.#root.querySelector('[data-role="chat-send"]');
-        if (send) {
-            send.dataset.mode = pendingCount ? 'request-reply' : 'send';
-            send.title = pendingCount ? `已发送 ${pendingCount} 条，输入框留空可请求回复` : '发送消息';
-            send.setAttribute('aria-label', pendingCount ? `请求角色回复已发送的 ${pendingCount} 条消息` : '发送消息');
+        if (send instanceof HTMLElement) {
+            send.dataset.pending = String(state.pendingUserMessageIds?.length > 0 && !String(state.composerText || '').trim());
+            send.disabled = Boolean(state.generating);
         }
-        const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
-        const previousTop = list.scrollTop;
-        const signature = JSON.stringify(chatMessages.map((message) => [
-            message.id, message.kind, message.originalText, message.translationText, message.isPlaying, message.audioStatus,
-            message.durationLabel, message.amount, message.note, message.recalledAt,
-            message.replySnapshot?.content, message.imageUrl,
-        ]));
-        if (signature !== this.#messageSignature) {
-            this.#messageSignature = signature;
-            if (chatMessages.length === 0) {
-                list.innerHTML = `
-                <div class="phonie-chat-empty">
-                    <div class="phonie-chat-empty__mark">${icon('message')}</div>
-                    <h2 class="phonie-chat-empty__title">暂无消息</h2>
-                </div>`;
-            } else {
-                list.innerHTML = chatMessages.map((message) => renderMessage(message, state.settings.showTranslation, state)).join('');
-            }
+        const input = this.#root.querySelector('[data-role="chat-input"]');
+        if (input instanceof HTMLTextAreaElement && input !== document.activeElement && input.value !== String(state.composerText || '')) {
+            input.value = String(state.composerText || '');
         }
-        const generating = this.#root.querySelector('[data-role="generating"]');
-        if (generating) generating.hidden = !state.generating;
-        for (const message of chatMessages) {
-            const action = [...list.querySelectorAll('[data-action=play-phone-audio]')].find((button) => button.dataset.messageId === String(message.id));
-            const voice = action?.closest('.phonie-message__voice');
-            if (voice) voice.dataset.audioState = message.audioStatus || (message.isPlaying ? 'playing' : 'idle');
-            this.#audioMenu.bind(action, {
-                download: () => this.#actions.downloadPhoneAudio?.(message.id),
-                regenerate: () => this.#actions.regeneratePhoneAudio?.(message.id),
-            });
-        }
-        this.#renderReplyComposer(state);
-        requestAnimationFrame(() => {
-            list.scrollTop = nearBottom || chatMessages.length <= 1 ? list.scrollHeight : previousTop;
-        });
     }
 
-    #renderCall(state) {
-        const primary = state.callParticipants?.[0] || state.contact;
-        const primaryAvatarUrl = primary.avatarUrl || state.contact.avatarUrl || '';
-        this.#setText('[data-role="call-initials"]', initials(primary.name));
-        this.#setText('[data-role="call-contact"]', primary.name);
-        this.#setText('[data-role="call-status"]', state.callPreparationLabel || callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
-        this.#setText('[data-role="call-direction-label"]', state.callDirection === 'incoming' ? '来电' : state.callDirection === 'outgoing' ? '去电' : '拨号');
-        setBackgroundImage(this.#root.querySelector('[data-role="call-backdrop"]'), primaryAvatarUrl);
-        setBackgroundImage(this.#root.querySelector('[data-role="call-mark"]'), primaryAvatarUrl);
-        const callScreen = this.#root.querySelector('.phonie-call-screen');
-        if (callScreen) {
-            callScreen.dataset.callState = state.callState;
-            callScreen.dataset.audioState = state.audioState || 'idle';
-        }
-
-        const captions = this.#root.querySelector('[data-role="call-captions"]');
-        const content = this.#root.querySelector('[data-role="call-caption-content"]');
-        const hasCaption = Boolean(state.callCaption?.source);
-        if (captions) captions.dataset.empty = String(!hasCaption);
-        if (content) content.hidden = !hasCaption;
-        this.#setText('[data-role="call-caption-source"]', state.callCaption?.source || '');
-        this.#setText('[data-role="call-caption-translation"]', state.settings.showTranslation ? state.callCaption?.translation || '' : '');
-
-        const active = ACTIVE_CALL_STATES.has(state.callState);
-        const connected = [CALL_STATES.CONNECTED, CALL_STATES.GENERATING, CALL_STATES.SPEAKING].includes(state.callState);
-        const incoming = state.callState === CALL_STATES.RINGING && state.callDirection === 'incoming';
-        const callForm = this.#root.querySelector('[data-form="call"]');
-        const idleAction = this.#root.querySelector('[data-role="call-idle-action"]');
-        const endButton = this.#root.querySelector('[data-action="end-call"]');
-        const incomingActions = this.#root.querySelector('[data-role="call-incoming-actions"]');
+    #applyCall(state) {
+        const overlay = this.#root.querySelector('[data-role="call-overlay"]');
+        if (!(overlay instanceof HTMLElement)) return;
+        const active = Boolean(state.callActive);
+        overlay.hidden = !active;
+        if (!active) return;
+        const status = this.#root.querySelector('[data-role="call-status"]');
+        const contact = this.#root.querySelector('[data-role="call-contact"]');
         const mark = this.#root.querySelector('[data-role="call-mark"]');
+        const initialsEl = this.#root.querySelector('[data-role="call-initials"]');
+        const incoming = this.#root.querySelector('[data-role="call-incoming-actions"]');
+        const end = this.#root.querySelector('[data-role="call-end"]');
+        const captions = this.#root.querySelector('[data-role="call-captions"]');
+        const source = this.#root.querySelector('[data-role="call-caption-source"]');
+        const translation = this.#root.querySelector('[data-role="call-caption-translation"]');
+        const directionLabel = this.#root.querySelector('[data-role="call-direction-label"]');
         const participantOrbit = this.#root.querySelector('[data-role="call-participant-orbit"]');
-        if (callForm) callForm.hidden = !connected;
-        if (idleAction) idleAction.hidden = active;
-        if (endButton) endButton.hidden = !active || incoming;
-        if (incomingActions) incomingActions.hidden = !incoming;
-        if (mark) mark.dataset.ringing = String(incoming || state.callState === CALL_STATES.DIALING);
-        const callParticipants = state.callParticipants?.length ? state.callParticipants : [primary];
-        if (participantOrbit) {
-            participantOrbit.hidden = callParticipants.length < 2 || !active;
-            const signature = JSON.stringify(callParticipants.map((entry) => [entry.id, entry.name, entry.avatarUrl, entry.name === state.callSpeaker]));
+
+        const participants = state.callParticipants || [];
+        const primary = participants[0] || state.contact;
+        if (contact) contact.textContent = participants.length > 1 ? participants.map((entry) => entry.name).join('、') : primary.name;
+        if (initialsEl) initialsEl.textContent = initials(primary.name);
+        if (mark instanceof HTMLElement) mark.style.backgroundImage = primary.avatarUrl ? `url('${escapeHtml(primary.avatarUrl)}')` : '';
+        if (directionLabel) directionLabel.textContent = state.callDirection === 'incoming' ? '来电' : '拨出';
+        if (incoming instanceof HTMLElement) incoming.hidden = !(state.callState === CALL_STATES.RINGING && state.callDirection === 'incoming');
+        if (end instanceof HTMLElement) end.hidden = !(state.callState === CALL_STATES.CONNECTED || state.callState === CALL_STATES.SPEAKING || (state.callDirection === 'outgoing' && [CALL_STATES.DIALING, CALL_STATES.GENERATING].includes(state.callState)));
+        if (captions instanceof HTMLElement) captions.hidden = !state.callCaption?.source;
+        if (source) source.textContent = state.callCaption?.source || '';
+        if (translation) {
+            translation.hidden = !state.callCaption?.translation || state.settings?.sourceLanguage?.toLowerCase().startsWith('zh');
+            translation.textContent = state.callCaption?.translation || '';
+        }
+        const statusLabels = {
+            [CALL_STATES.DIALING]: '正在拨号…',
+            [CALL_STATES.RINGING]: '对方正在响铃',
+            [CALL_STATES.GENERATING]: '正在编排对话',
+            [CALL_STATES.SPEAKING]: '通话中',
+            [CALL_STATES.CONNECTED]: state.callDuration ? `通话中 ${state.callDuration}` : '通话中',
+            [CALL_STATES.ENDED]: '通话已结束',
+            [CALL_STATES.ERROR]: '通话连接异常',
+        };
+        if (status) status.textContent = statusLabels[state.callState] || '通话中';
+
+        if (participantOrbit instanceof HTMLElement) {
+            participantOrbit.hidden = participants.length < 2;
+            const signature = participants.map((entry) => entry.id).join('|') + '|' + (state.callSpeaker || '');
             if (participantOrbit.dataset.signature !== signature) {
                 participantOrbit.dataset.signature = signature;
-                participantOrbit.innerHTML = callParticipants.map((entry) => {
-                    const speaking = entry.name === state.callSpeaker && state.audioState === 'speaking';
-                    return `<span class="phonie-call-participant" data-speaking="${speaking}" title="${escapeHtml(entry.name)}"><i data-participant-avatar="${escapeHtml(entry.id || entry.name)}"><b>${escapeHtml(initials(entry.name))}</b></i><small>${escapeHtml(entry.name)}</small></span>`;
-                }).join('');
-                for (const entry of callParticipants) {
-                    const avatar = [...participantOrbit.querySelectorAll('[data-participant-avatar]')]
-                        .find((node) => node.dataset.participantAvatar === String(entry.id || entry.name));
-                    const directoryEntry = state.characters?.find((character) => (
-                        String(character.id) === String(entry.id)
-                        || character.name === entry.name
-                    ));
-                    setBackgroundImage(avatar, entry.avatarUrl || directoryEntry?.avatarUrl || primaryAvatarUrl);
+                participantOrbit.innerHTML = participants.map((entry) => `<span class="phonie-participant-avatar" data-active="${entry.name === state.callSpeaker ? 'true' : 'false'}">${initials(entry.name)}</span>`).join('');
+            } else {
+                for (const span of participantOrbit.querySelectorAll('.phonie-participant-avatar')) {
+                    span.dataset.active = span.textContent === initials(state.callSpeaker || '') ? 'true' : 'false';
                 }
             }
         }
-        if (mark) mark.hidden = callParticipants.length > 1 && active;
-        if (captions) captions.hidden = !connected || !hasCaption;
-
-        const input = this.#root.querySelector('[data-role="call-input"]');
-        if (input instanceof HTMLInputElement) {
-            input.disabled = ![CALL_STATES.CONNECTED, CALL_STATES.SPEAKING].includes(state.callState) || state.generating;
-        }
-        const picker = this.#root.querySelector('[data-role=call-participants]');
-        const contactPicker = this.#root.querySelector('[data-role=call-contact-picker]');
-        if (picker instanceof HTMLSelectElement && !active) {
-            const signature = (state.characters || []).map((entry) => entry.id + ':' + entry.name).join('|');
-            if (picker.dataset.signature !== signature) {
-                picker.dataset.signature = signature;
-                const options = (state.characters || []).map((entry, index) => {
-                    const number = contactNumber(entry.id || entry.name);
-                    return `<option value='${escapeHtml(entry.id)}' data-number='${number}'${index === 0 ? ' selected' : ''}>${escapeHtml(entry.name)} · ${number}</option>`;
-                }).join('');
-                picker.innerHTML = options;
-                if (contactPicker instanceof HTMLSelectElement) contactPicker.innerHTML = options || '<option value="">暂无联系人</option>';
-                const number = this.#root.querySelector('[data-role=call-number]');
-                if (number instanceof HTMLInputElement && state.characters?.[0]) number.value = contactNumber(state.characters[0].id || state.characters[0].name);
-                this.#syncCallContactButtons();
-            }
-        }
-        if (active && state.callParticipants?.length) {
-            const names = state.callParticipants.map((entry) => entry.name).join('、');
-            this.#setText('[data-role=call-contact]', names);
-            this.#setText('[data-role=call-initials]', initials(names));
-        }
-        const track = this.#root.querySelector('[data-role=call-track]');
-        if (track) {
-            const count = state.callScriptQueue?.length || 0;
-            track.hidden = !connected || count < 2;
-            track.innerHTML = Array.from({ length: count }, (_, index) => `<i data-active='${index === state.callScriptIndex}'></i>`).join('');
-        }
     }
 
-    #renderHome(state) {
-        const voiceCount = (state.characters || []).filter((character) => character.route?.voiceId || character.route?.referenceAudio).length;
-        const callMessageIds = new Set((state.calls || []).flatMap((record) => record.messageIds || []));
-        const chatMessageCount = state.messages.filter((message) => message.channel !== 'call' && !callMessageIds.has(message.id)).length;
-        const chatParticipants = state.chatParticipants?.length ? state.chatParticipants : [state.contact];
-        this.#setText('[data-role="home-contact"]', chatParticipants.length > 1 ? `群聊 · ${chatParticipants.length} 人` : chatParticipants[0].name);
-        this.#setText('[data-role="home-contact-service"]', state.contact.name);
-        this.#setText('[data-role="home-provider"]', state.providerLabel);
-        this.#setText('[data-role="home-message-summary"]', `${chatMessageCount} 条手机消息`);
-        this.#setText('[data-role="home-chat-count"]', `${chatMessageCount} 条`);
-        this.#setText('[data-role="home-call-count"]', `${state.calls.length} 通`);
-        this.#setText('[data-role="home-voice-count"]', `${voiceCount} 个`);
-        this.#setText('[data-role="home-group-count"]', chatParticipants.length > 1 ? `${chatParticipants.length} 人` : '选人开聊');
-        setImageSource(this.#root.querySelector('[data-role="wallpaper-image"]'), state.contact.avatarUrl);
-        this.#root.dataset.hasWallpaper = String(Boolean(state.contact.avatarUrl));
+    #renderDynamic(state) {
+        this.#renderFriendList(state);
+        this.#renderGroupList(state);
+        this.#renderMessageList(state);
+        this.#renderChatStickers(state);
+        this.#renderContactDirectory(state);
+        this.#renderTraceList(state);
+        this.#renderEngineList(state);
+        this.#renderEngineDetail(state);
+        this.#renderStickerList(state);
+        this.#renderOpenAIPresets(state);
+        this.#renderPromptEditor(state);
+        this.#renderCallPicker(state);
+        this.#renderGroupPicker(state);
+        this.#renderAddFriendSelect(state);
+        this.#renderRouteEditor(state);
+        this.#renderNovelAiStatus(state);
+        this.#renderCacheStats(state);
+        this.#syncFormValues(state);
     }
 
-    #renderVoiceLibrary(state) {
-        this.#setText('[data-role="voice-provider"]', '角色声线路由');
-        this.#setText('[data-role="voice-language"]', state.settings.sourceLanguage);
-        const providers = this.#root.querySelector('[data-role="tts-provider-list"]');
-        if (providers) {
-            const list = Array.isArray(state.providerSnapshot?.providers) ? state.providerSnapshot.providers : [];
-            const signature = JSON.stringify(list.map((provider) => [
-                provider.id, provider.selected, provider.tone, provider.runtime?.status, provider.runtime?.message,
-            ]));
-            if (providers.dataset.signature !== signature) {
-                providers.dataset.signature = signature;
-                providers.innerHTML = list.length ? list.map((provider) => `
-                <button class="phonie-profile-card phonie-provider-card${provider.selected ? ' is-current' : ''}" type="button" data-action="open-tts-provider" data-provider-id="${escapeHtml(provider.id)}" data-provider-tone="${escapeHtml(provider.tone || 'silver')}" aria-label="打开 ${escapeHtml(provider.name)} 专属设置">
-                    <span class="phonie-profile-card__mark">${icon(provider.icon || 'signal')}</span>
-                    <span><strong>${escapeHtml(provider.name)}</strong><small>${escapeHtml(provider.summary || provider.runtime?.message || provider.mode)}</small></span>
-                    <b data-status="${escapeHtml(provider.runtime?.status || 'idle')}">${provider.selected ? '当前' : '进入'}</b>
-                </button>`).join('') : '<div class="phonie-record-empty">Phonie 语音引擎目录未载入。</div>';
+    #renderFriendList(state) {
+        const container = this.#root.querySelector('[data-role="friend-list"]');
+        if (!container) return;
+        const hidden = new Set(state.temporarilyDeletedCharacterIds || []);
+        const friends = (state.characters || []).filter((character) => !hidden.has(character.id) && ((state.settings?.qqFriends || []).includes(character.id) || character.current || character.id === state.contact?.id));
+        const signature = friends.map((character) => character.id).join('|');
+        if (this.#signatures.friends === signature) return;
+        this.#signatures.friends = signature;
+        container.innerHTML = friends.length
+            ? friends.map((character) => `<button class="phonie-contact-row" type="button" data-action="open-chat" data-id="${escapeHtml(character.id)}"><span class="phonie-contact-avatar" style="${character.avatarUrl ? `background-image:url('${escapeHtml(character.avatarUrl)}')` : ''}">${initials(character.name)}</span><span class="phonie-contact-meta"><strong>${escapeHtml(character.name)}</strong><small>${character.current ? '当前角色' : '好友'}</small></span></button>`).join('')
+            : `<p class="phonie-empty-hint">暂无好友</p>`;
+    }
+
+    #renderGroupList(state) {
+        const container = this.#root.querySelector('[data-role="group-list"]');
+        if (!container) return;
+        const groups = state.settings?.qqGroups || [];
+        const signature = groups.map((group) => group.id).join('|');
+        if (this.#signatures.groups === signature) return;
+        this.#signatures.groups = signature;
+        container.innerHTML = groups.length
+            ? groups.map((group) => `<button class="phonie-contact-row" type="button" data-action="open-group" data-id="${escapeHtml(group.id)}"><span class="phonie-contact-avatar phonie-group-avatar">${icon('contacts')}</span><span class="phonie-contact-meta"><strong>${escapeHtml(group.name)}</strong><small>${group.memberIds.length} 人</small></span></button>`).join('')
+            : `<p class="phonie-empty-hint">还没有群聊</p>`;
+    }
+
+    #renderChatStickers(state) {
+        const container = this.#root.querySelector('[data-role="chat-stickers"]');
+        if (!container) return;
+        const stickers = state.settings?.stickers || [];
+        const signature = stickers.map((sticker) => `${sticker.name}:${sticker.url}`).join('|');
+        if (this.#signatures.chatStickers === signature) return;
+        this.#signatures.chatStickers = signature;
+        container.innerHTML = stickers.slice(0, 16).map((sticker) => `<button type="button" data-action="send-sticker" data-name="${escapeHtml(sticker.name)}" title="${escapeHtml(sticker.name)}"><img src="${escapeHtml(sticker.url)}" alt="${escapeHtml(sticker.name)}" loading="lazy"></button>`).join('');
+    }
+
+    #renderMessageList(state) {
+        const container = this.#root.querySelector('[data-role="message-list"]');
+        if (!container) return;
+        const signature = (state.messages || []).map((message) => `${message.id}:${message.kind}:${message.audioStatus}`).join('|');
+        if (this.#signatures.messages === signature) return;
+        this.#signatures.messages = signature;
+        const html = (state.messages || []).map((message) => this.#messageMarkup(message, state)).join('');
+        container.innerHTML = html;
+        container.scrollTop = container.scrollHeight;
+    }
+
+    #messageMarkup(message, state) {
+        const outgoing = message.direction === 'outgoing';
+        const avatar = outgoing ? '' : state.contact?.avatarUrl;
+        const initialsText = outgoing ? initials(state.userName || 'U') : initials(message.author || 'C');
+        const avatarStyle = avatar ? `background-image:url('${escapeHtml(avatar)}')` : '';
+        const recalled = message.kind === MESSAGE_KINDS.RECALLED;
+        let body = '';
+        if (recalled) {
+            body = `<p class="phonie-message__recalled">消息已撤回</p>`;
+        } else if (message.kind === MESSAGE_KINDS.TRANSFER) {
+            body = `<div class="phonie-money-card">${icon('wallet')}<span><small>转账</small><strong>¥ ${Number(message.amount || 0).toFixed(2)}</strong><i>${escapeHtml(message.note || '')}</i></span></div>`;
+        } else if (message.kind === MESSAGE_KINDS.IMAGE) {
+            body = message.imageUrl
+                ? `<img class="phonie-message__image" src="${escapeHtml(message.imageUrl)}" alt="图片">`
+                : `<div class="phonie-message__image-ph"><span>${message.imageStatus === 'error' ? '生成失败' : '图片生成中…'}</span><small>${escapeHtml(message.imageDescription || '')}</small></div>`;
+        } else if (message.kind === MESSAGE_KINDS.STICKER) {
+            body = message.imageUrl
+                ? `<img class="phonie-message__sticker-image" src="${escapeHtml(message.imageUrl)}" alt="${escapeHtml(message.stickerName || '表情包')}">`
+                : `<div class="phonie-message__sticker">${escapeHtml(message.stickerName || '表情包')}</div>`;
+        } else if (message.kind === MESSAGE_KINDS.VOICE) {
+            body = `<button class="phonie-voice-bubble" type="button" data-action="play-message-audio" data-id="${escapeHtml(message.id)}">${icon(message.isPlaying ? 'pause' : 'play')}<span class="phonie-voice-wave"><i></i><i></i><i></i><i></i><i></i></span></button>`;
+            if (!outgoing) body += `<p class="phonie-message__source">${escapeHtml(message.originalText)}</p>`;
+        } else {
+            body = `<p class="phonie-message__source">${escapeHtml(message.originalText)}</p>`;
+            if (state.settings?.showTranslation && message.translatedText && message.translatedText !== message.originalText) {
+                body += `<p class="phonie-message__translation">${escapeHtml(message.translatedText)}</p>`;
             }
         }
-        const list = this.#root.querySelector('[data-role="voice-library"]');
-        if (!list) return;
-        const voices = (state.characters || []).filter((character) => (
-            character.route?.voiceId || character.route?.referenceAudio || character.route?.providerId
-        ));
-        this.#setText('[data-role="voice-route-count"]', `${voices.length} 条`);
-        if (!voices.length) {
-            list.innerHTML = '<div class="phonie-record-empty">暂无已保存声线</div>';
+        const controls = outgoing && !recalled ? `<button class="phonie-message__recall" type="button" data-action="recall-message" data-id="${escapeHtml(message.id)}">撤回</button>` : '';
+        return `<div class="phonie-message phonie-message--${outgoing ? 'out' : 'in'}"><span class="phonie-message__avatar" style="${avatarStyle}">${initialsText}</span><div class="phonie-message__stack"><div class="phonie-message__body">${body}</div>${controls}</div></div>`;
+    }
+
+    #renderContactDirectory(state) {
+        const container = this.#root.querySelector('[data-role="contact-directory"]');
+        if (!container) return;
+        const signature = (state.characters || []).map((character) => character.id).join('|');
+        if (this.#signatures.contacts === signature) return;
+        this.#signatures.contacts = signature;
+        container.innerHTML = (state.characters || []).map((character) => `<div class="phonie-contact-row">
+            <button class="phonie-contact-main" type="button" data-action="open-contact-route" data-id="${escapeHtml(character.id)}">
+                <span class="phonie-contact-avatar" style="${character.avatarUrl ? `background-image:url('${escapeHtml(character.avatarUrl)}')` : ''}">${initials(character.name)}</span>
+                <span class="phonie-contact-meta"><strong>${escapeHtml(character.name)}</strong><small>${character.current ? '当前角色' : '联系人'} · ${virtualPhoneNumber(character.id)}</small></span>
+            </button>
+            <button class="phonie-icon-btn phonie-danger-mini" type="button" data-action="delete-contact" data-id="${escapeHtml(character.id)}" aria-label="删除">${icon('trash')}</button>
+        </div>`).join('') || `<p class="phonie-empty-hint">还没有联系人</p>`;
+    }
+
+    #renderTraceList(state) {
+        const container = this.#root.querySelector('[data-role="trace-list"]');
+        if (!container) return;
+        const favoriteIds = new Set((state.settings?.favoriteCalls || []).map((record) => record.id));
+        const signature = (state.calls || []).map((record) => `${record.id}:${favoriteIds.has(record.id)}`).join('|');
+        if (this.#signatures.trace === signature) return;
+        this.#signatures.trace = signature;
+        container.innerHTML = (state.calls || []).length
+            ? (state.calls || []).slice().reverse().map((record) => `<div class="phonie-record-row">
+                <span class="phonie-record-meta"><strong>${escapeHtml(record.contactName)}</strong><small>${record.direction === 'incoming' ? '来电' : '拨出'} · ${formatDuration(record.startedAt, record.endedAt)} · ${escapeHtml(record.title || record.outcome)}</small></span>
+                <span class="phonie-record-actions"><button type="button" data-action="favorite-call" data-id="${escapeHtml(record.id)}" data-active="${favoriteIds.has(record.id)}" aria-label="收藏">${icon('star')}</button><button type="button" data-action="replay-call" data-id="${escapeHtml(record.id)}" aria-label="重播">${icon('play')}</button><button type="button" data-action="rerender-call" data-id="${escapeHtml(record.id)}" aria-label="按当前引擎重渲染">${icon('trace')}</button><button type="button" data-action="delete-call" data-id="${escapeHtml(record.id)}" aria-label="删除">${icon('trash')}</button></span>
+            </div>`).join('')
+            : `<p class="phonie-empty-hint">还没有通话记录</p>`;
+    }
+
+    #renderEngineList(state) {
+        const container = this.#root.querySelector('[data-role="engine-list"]');
+        if (!container) return;
+        container.innerHTML = ENGINES.map((engine) => `<button class="phonie-engine-card" type="button" data-action="open-engine" data-id="${engine.id}" style="--engine-color:${engine.color}">
+            <span class="phonie-engine-icon">${icon(engine.icon)}</span>
+            <span class="phonie-engine-meta"><strong>${escapeHtml(engine.name)}</strong><small>${state.settings?.ttsActiveProvider === engine.id ? '当前引擎' : '点击配置'}</small></span>
+            ${icon('chevron')}
+        </button>`).join('');
+    }
+
+    #renderEngineDetail(state) {
+        const container = this.#root.querySelector('[data-role="engine-detail"]');
+        if (!container) return;
+        const engine = ENGINES.find((entry) => entry.id === state.selectedEngineId);
+        if (!engine) {
+            container.innerHTML = '';
             return;
         }
-        list.innerHTML = voices.map((character) => {
-            const route = character.route || {};
-            const provider = state.providerSnapshot?.providers?.find((entry) => entry.id === route.providerId);
-            return `
-            <article class="phonie-record-card">
-                <span class="phonie-record-card__play" aria-hidden="true">${icon(provider?.icon || 'wave')}</span>
-                <span class="phonie-record-card__copy"><strong>${escapeHtml(character.name)}</strong><small>${escapeHtml(provider?.name || state.providerLabel)} · ${escapeHtml(route.voiceId || (route.referenceAudio ? '参考音频复刻' : '默认音色'))}</small></span>
-                <button class="phonie-record-card__edit" type="button" data-action="select-character-route" data-character-id="${escapeHtml(character.id)}" data-target-screen="${SCREENS.CHARACTER}" aria-label="编辑 ${escapeHtml(character.name)} 的声线">${icon('settings')}</button>
-            </article>`;
-        }).join('');
+        const healthy = Boolean(state.providerCheckResults?.[engine.id]);
+        const signature = `${engine.id}:${healthy}`;
+        if (this.#signatures.engineDetail === signature) return;
+        this.#signatures.engineDetail = signature;
+        const config = state.settings?.ttsProviderSettings?.[engine.id] || {};
+        let fields = '';
+        if (engine.kind === 'http-json') {
+            fields = `<label class="phonie-field"><span>服务地址</span><input data-engine-field="baseUrl" value="${escapeHtml(config.baseUrl || '')}" placeholder="http://127.0.0.1:8000"></label><label class="phonie-field"><span>默认音色</span><input data-engine-field="voice" value="${escapeHtml(config.voice || '')}" placeholder="voice id"></label>`;
+        } else if (engine.kind === 'rest') {
+            fields = `<label class="phonie-field"><span>API Key</span><input type="password" autocomplete="off" data-engine-secret="elevenlabs" value="" placeholder="${config.secretId ? '已保存 · 输入可替换' : '输入 API Key'}"></label><label class="phonie-field"><span>音色 ID</span><input data-engine-field="voice" value="${escapeHtml(config.voice || '')}"></label>`;
+        } else if (engine.kind === 'server-plugin') {
+            const apiHost = String(config.apiHost || 'https://api.minimax.io');
+            const hostOptions = ['https://api.minimax.io', 'https://api.minimaxi.com']
+                .map((host) => `<option value="${host}" ${host === apiHost ? 'selected' : ''}>${host.includes('minimaxi') ? '大陆站' : '国际站'}</option>`)
+                .join('');
+            fields = `<label class="phonie-field"><span>服务区域</span><select data-engine-field="apiHost">${hostOptions}</select></label><label class="phonie-field"><span>语音模型</span><input data-engine-field="model" value="${escapeHtml(config.model || 'speech-2.8-hd')}" placeholder="speech-2.8-hd"></label><label class="phonie-field"><span>音色 ID</span><input data-engine-field="voice" value="${escapeHtml(config.voice || '')}" placeholder="voice_id"></label>`;
+        } else {
+            fields = `<label class="phonie-field"><span>语言</span><input data-engine-field="lang" value="${escapeHtml(config.lang || '')}" placeholder="zh-CN"></label>`;
+        }
+        const syncButton = engine.kind === 'server-plugin'
+            ? `<button class="phonie-primary-btn phonie-secondary-btn" type="button" data-action="sync-resources" data-id="${engine.id}">${icon('refresh')}<span>同步模型与音色</span></button>`
+            : '';
+        container.innerHTML = `<div class="phonie-engine-hero" style="--engine-color:${engine.color}"><span class="phonie-engine-icon">${icon(engine.icon)}</span><span><small>语音引擎</small><strong>${escapeHtml(engine.name)}</strong></span></div><div class="phonie-settings-card">${fields}<p class="phonie-provider-status" data-healthy="${healthy}">${healthy ? '连接已验证，可以启用' : '启用前需要通过连接检测'}</p><div class="phonie-button-row"><button class="phonie-primary-btn phonie-secondary-btn" type="button" data-action="check-provider" data-id="${engine.id}">${icon('spark')}<span>连接检测</span></button>${syncButton}<button class="phonie-primary-btn" type="button" data-action="set-provider" data-id="${engine.id}">${icon('check')}<span>设为当前引擎</span></button></div></div>`;
     }
 
-    #renderProviderDetail(state) {
-        const editor = this.#root.querySelector('[data-role="tts-provider-editor"]');
-        if (!editor) return;
-        const providers = state.providerSnapshot?.providers || [];
-        const current = providers.find((provider) => provider.id === state.selectedProviderId)
-            || providers.find((provider) => provider.selected)
-            || providers[0];
-        if (!current) {
-            editor.innerHTML = '<div class="phonie-record-empty">没有可用的 Phonie 语音引擎。</div>';
+    #renderStickerList(state) {
+        const container = this.#root.querySelector('[data-role="sticker-list"]');
+        if (!container) return;
+        const stickers = state.settings?.stickers || [];
+        const signature = stickers.map((sticker) => sticker.name).join('|');
+        if (this.#signatures.stickers === signature) return;
+        this.#signatures.stickers = signature;
+        container.innerHTML = stickers.map((sticker) => `<span class="phonie-sticker-item"><img src="${escapeHtml(sticker.url)}" alt="${escapeHtml(sticker.name)}" loading="lazy"><small>${escapeHtml(sticker.name)}</small><button type="button" data-action="remove-sticker" data-name="${escapeHtml(sticker.name)}" aria-label="删除 ${escapeHtml(sticker.name)}">${icon('close')}</button></span>`).join('') || `<p class="phonie-empty-hint">还没有表情包</p>`;
+    }
+
+    #renderOpenAIPresets(state) {
+        const container = this.#root.querySelector('[data-role="openai-profile-list"]');
+        if (!container) return;
+        const presets = state.settings?.customOpenAIPresets || [];
+        const signature = presets.map((preset) => preset.id + preset.name).join('|');
+        if (this.#signatures.openai === signature) return;
+        this.#signatures.openai = signature;
+        container.innerHTML = `<button class="phonie-primary-btn phonie-secondary-btn" type="button" data-action="add-openai-profile">${icon('plus')}<span>新增预设</span></button>` + presets.map((preset) => `<div class="phonie-openai-card">
+            <span class="phonie-openai-head"><strong>${escapeHtml(preset.name)}</strong>${state.settings?.activeCustomOpenAIPresetId === preset.id ? '<b>当前</b>' : ''}</span>
+            <label class="phonie-field"><span>预设名称</span><input data-openai-field="name" data-id="${preset.id}" value="${escapeHtml(preset.name || '')}"></label>
+            <label class="phonie-field"><span>API 地址</span><input data-openai-field="endpoint" data-id="${preset.id}" value="${escapeHtml(preset.endpoint || '')}"></label>
+            <label class="phonie-field"><span>API Key</span><span class="phonie-secret-row"><input type="password" autocomplete="off" data-openai-secret="true" data-id="${preset.id}" value="" placeholder="${preset.secretId ? '已保存 · 输入可替换' : '输入 API Key'}"><button type="button" data-action="toggle-secret" data-id="${preset.id}" aria-label="显示或隐藏当前输入">${icon('eye')}</button></span></label>
+            <label class="phonie-field"><span>模型</span><input data-openai-field="model" data-id="${preset.id}" value="${escapeHtml(preset.model || '')}"></label>
+            <label class="phonie-field"><span>温度</span><input type="number" step="0.1" data-openai-field="temperature" data-id="${preset.id}" value="${preset.temperature ?? 0.7}"></label>
+            <label class="phonie-field"><span>最大 Token（上限 30000）</span><input type="number" min="1" max="30000" data-openai-field="maxTokens" data-id="${preset.id}" value="${preset.maxTokens ?? 8192}"></label>
+            <span class="phonie-inline-actions"><button type="button" data-action="activate-openai-profile" data-id="${preset.id}">启用</button><button type="button" data-action="delete-openai-profile" data-id="${preset.id}">删除</button></span>
+        </div>`).join('');
+    }
+
+    #renderPromptEditor(state) {
+        const container = this.#root.querySelector('[data-role="prompt-editor"]');
+        if (!container) return;
+        const kind = state.promptWorkflow || 'body';
+        const preset = state.settings?.promptPresets?.[kind];
+        if (!preset) return;
+        const libraryPresets = Array.isArray(preset.presets) && preset.presets.length ? preset.presets : [preset];
+        const signature = kind + '|' + preset.activePresetId + '|' + libraryPresets.map((item) => `${item.id}:${item.name}`).join('|') + '|' + preset.entries.map((entry) => entry.id).join('|');
+        if (this.#signatures.prompt === signature) return;
+        this.#signatures.prompt = signature;
+        const presetOptions = libraryPresets.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === preset.activePresetId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
+        const rows = preset.entries.map((entry) => `<div class="phonie-prompt-entry">
+            <span class="phonie-prompt-entry__head"><input data-prompt-field="name" data-entry="${entry.id}" value="${escapeHtml(entry.name || '')}" placeholder="条目名"><span class="phonie-inline-actions"><button type="button" data-action="move-prompt-entry" data-entry="${entry.id}" data-dir="up" aria-label="上移条目">${icon('arrowUp')}</button><button type="button" data-action="move-prompt-entry" data-entry="${entry.id}" data-dir="down" aria-label="下移条目">${icon('arrowDown')}</button><button type="button" data-action="remove-prompt-entry" data-entry="${entry.id}" aria-label="删除条目">${icon('trash')}</button></span></span>
+            <span class="phonie-prompt-entry__meta"><select data-prompt-field="role" data-entry="${entry.id}">${PROMPT_ROLES.map((role) => `<option value="${role}" ${entry.role === role ? 'selected' : ''}>${role}</option>`).join('')}</select><input type="number" min="0" max="20" data-prompt-field="depth" data-entry="${entry.id}" value="${entry.depth}"><label><input type="checkbox" data-prompt-field="enabled" data-entry="${entry.id}" ${entry.enabled ? 'checked' : ''}>启用</label></span>
+            <textarea rows="3" data-prompt-field="content" data-entry="${entry.id}">${escapeHtml(entry.content)}</textarea>
+        </div>`).join('');
+        container.innerHTML = `<div class="phonie-prompt-presets">
+            <label class="phonie-field"><span>当前预设</span><select data-role="prompt-preset">${presetOptions}</select></label>
+            <label class="phonie-field"><span>预设名称</span><input maxlength="80" data-role="prompt-preset-name" value="${escapeHtml(preset.name || '')}"></label>
+            <span class="phonie-button-row"><button class="phonie-primary-btn phonie-secondary-btn" type="button" data-action="add-prompt-preset">${icon('library')}<span>复制为新预设</span></button><button class="phonie-danger-btn phonie-danger-btn--soft" type="button" data-action="delete-prompt-preset" aria-label="删除当前预设">${icon('trash')}<span>删除预设</span></button></span>
+        </div><button class="phonie-primary-btn phonie-secondary-btn" type="button" data-action="add-prompt-entry">${icon('plus')}<span>新增条目</span></button>${rows}`;
+    }
+
+    #renderCallPicker(state) {
+        const select = this.#root.querySelector('[data-role="call-contact-picker"]');
+        if (!(select instanceof HTMLSelectElement)) return;
+        const selectedIds = new Set(state.selectedCallContactIds || []);
+        const signature = (state.characters || []).map((character) => `${character.id}:${selectedIds.has(character.id)}`).join('|');
+        if (this.#signatures.callPicker === signature) return;
+        this.#signatures.callPicker = signature;
+        const options = (state.characters || []).map((character) => `<option value="${escapeHtml(character.id)}" ${selectedIds.has(character.id) ? 'selected' : ''}>${escapeHtml(character.name)} · ${virtualPhoneNumber(character.id)}</option>`).join('');
+        select.innerHTML = options;
+    }
+
+    #renderGroupPicker(state) {
+        const container = this.#root.querySelector('[data-role="group-member-picker"]');
+        if (!container) return;
+        const friends = (state.characters || []).filter((character) => (state.settings?.qqFriends || []).includes(character.id));
+        const signature = friends.map((character) => character.id).join('|');
+        if (this.#signatures.groupPicker === signature) return;
+        this.#signatures.groupPicker = signature;
+        container.innerHTML = friends.length
+            ? friends.map((character) => `<label class="phonie-check-row"><input type="checkbox" data-group-member="${escapeHtml(character.id)}"><span>${escapeHtml(character.name)}</span></label>`).join('')
+            : `<p class="phonie-empty-hint">请先添加好友</p>`;
+    }
+
+    #renderAddFriendSelect(state) {
+        const select = this.#root.querySelector('[data-role="add-friend-select"]');
+        if (!(select instanceof HTMLSelectElement)) return;
+        const candidates = (state.characters || []).filter((character) => !(state.settings?.qqFriends || []).includes(character.id));
+        const signature = candidates.map((character) => character.id).join('|');
+        if (this.#signatures.addFriend === signature) return;
+        this.#signatures.addFriend = signature;
+        select.innerHTML = candidates.length
+            ? candidates.map((character) => `<option value="${escapeHtml(character.id)}">${escapeHtml(character.name)}</option>`).join('')
+            : `<option value="">通讯录里没有可添加的联系人</option>`;
+    }
+
+    #renderRouteEditor(state) {
+        const container = this.#root.querySelector('[data-role="route-editor"]');
+        if (!container) return;
+        const contact = (state.characters || []).find((character) => character.id === state.selectedCharacterId) || state.contact;
+        if (!contact) {
+            container.innerHTML = '';
             return;
         }
-        const signature = JSON.stringify([
-            current.id, current.settings, current.catalog, current.runtime,
-            state.providerSnapshot?.fallbackProvider, current.selected,
-        ]);
-        if (editor.dataset.signature === signature) return;
-        editor.dataset.signature = signature;
-        editor.dataset.providerEditorId = current.id;
-        editor.dataset.providerTone = current.tone || 'silver';
-        const modelCount = current.catalog?.models?.length || 0;
-        const voiceCount = current.catalog?.voices?.length || 0;
-        const busy = current.runtime?.status === 'checking';
-        const syncing = busy && /同步/.test(current.runtime?.message || '');
-        editor.innerHTML = `
-            <section class="phonie-provider-editor" data-provider-editor-id="${escapeHtml(current.id)}" data-provider-tone="${escapeHtml(current.tone || 'silver')}">
-                <header class="phonie-provider-hero">
-                    <span class="phonie-provider-hero__mark">${icon(current.icon || 'signal')}</span>
-                    <span class="phonie-provider-hero__copy">
-                        <small>${escapeHtml(current.category)} · ${escapeHtml(current.mode)}</small>
-                        <strong>${escapeHtml(current.name)}</strong>
-                        <p>${escapeHtml(current.summary || '')}</p>
-                    </span>
-                    <i data-status="${escapeHtml(current.runtime?.status || 'idle')}">${escapeHtml(current.runtime?.message || '等待检测')}</i>
-                </header>
-                <dl class="phonie-provider-stats">
-                    <div><dt>模型目录</dt><dd>${modelCount}</dd></div>
-                    <div><dt>账号音色</dt><dd>${voiceCount}</dd></div>
-                    <div><dt>当前状态</dt><dd>${current.selected ? '正在使用' : '未启用'}</dd></div>
-                </dl>
-                <div class="phonie-provider-editor__actions">
-                    <button type="button" data-action="set-tts-provider" data-provider-id="${escapeHtml(current.id)}">${icon('check')}<span>${current.selected ? '当前引擎' : '设为当前'}</span></button>
-                    <button type="button" data-action="check-tts-provider" data-provider-id="${escapeHtml(current.id)}" data-busy="${busy}"${busy ? ' disabled aria-busy="true"' : ''}>${icon('signal')}<span>${busy && !syncing ? '检测中' : '检测连接'}</span></button>
-                    ${['elevenlabs', 'minimax'].includes(current.id) ? `<button type="button" data-action="sync-tts-resources" data-provider-id="${escapeHtml(current.id)}" data-busy="${busy}"${busy ? ' disabled aria-busy="true"' : ''}>${icon('reset')}<span>${syncing ? '同步中' : '同步目录'}</span></button>` : ''}
-                </div>
-                <label class="phonie-provider-field">
-                    <span><strong>全局备用引擎</strong><small>仅在这个引擎失败时接管</small></span>
-                    <select data-setting="ttsFallbackProvider">
-                        <option value="">不使用备用引擎</option>
-                        ${providers.filter((provider) => provider.id !== current.id).map((provider) => '<option value="' + escapeHtml(provider.id) + '"' + (provider.id === state.providerSnapshot.fallbackProvider ? ' selected' : '') + '>' + escapeHtml(provider.name) + '</option>').join('')}
-                    </select>
-                </label>
-                <div class="phonie-provider-fields">${current.fields.map((field) => providerFieldMarkup(field, current)).join('')}</div>
-                <section class="phonie-provider-preview">
-                    <label for="phonie-provider-preview-${escapeHtml(current.id)}">试听文本</label>
-                    <textarea id="phonie-provider-preview-${escapeHtml(current.id)}" data-role="provider-preview-text" rows="3">おはよう。今日はどんな話をしようか。</textarea>
-                    <button type="button" data-action="preview-tts-provider" data-provider-id="${escapeHtml(current.id)}">${icon('play')}<span>用 ${escapeHtml(current.name)} 试听</span></button>
-                </section>
-            </section>`;
+        const route = state.settings?.ttsCharacterRoutes?.[contact.id] || {};
+        const engineOptions = ENGINES.map((engine) => `<option value="${engine.id}" ${(route.providerId || state.settings?.ttsActiveProvider) === engine.id ? 'selected' : ''}>${escapeHtml(engine.name)}</option>`).join('');
+        container.innerHTML = `
+            <p class="phonie-sheet-sub">${escapeHtml(contact.name)} 的声线</p>
+            <label class="phonie-field"><span>引擎</span><select data-role="route-engine">${engineOptions}</select></label>
+            <label class="phonie-field"><span>音色</span><input data-role="route-voice" value="${escapeHtml(route.voice || '')}" placeholder="音色 ID / 名字"></label>
+            <label class="phonie-field"><span>原文语言</span><input data-role="route-lang" value="${escapeHtml(route.lang || '')}" placeholder="zh-CN"></label>`;
     }
 
-    #renderTrace(state) {
-        const list = this.#root.querySelector('[data-role="trace-list"]');
-        if (!list) return;
-        const records = state.calls.slice().reverse();
-        if (!records.length) {
-            list.innerHTML = '<div class="phonie-record-empty">暂无通话记录</div>';
-            return;
-        }
-        list.innerHTML = records.map((record) => `
-            <article class="phonie-record-card phonie-record-card--call">
-                ${record.messageIds?.length || record.messages?.length
-                    ? `<button class="phonie-record-card__play" type="button" data-action="replay-call-record" data-call-id="${escapeHtml(record.id)}" aria-label="重播这次通话">${icon('play')}</button>`
-                    : `<span class="phonie-record-card__play" aria-hidden="true">${icon('phone')}</span>`}
-                <span class="phonie-record-card__copy"><strong>${escapeHtml(record.title || record.contactName || state.contact.name)}</strong><small>${escapeHtml(record.contactName || state.contact.name)} · ${record.direction === 'incoming' ? '来电' : '外呼'} · ${record.outcome === 'declined' ? '未接通' : '已结束'}</small><em>${escapeHtml(record.summary || '通话已结束')}</em></span>
-                <time>${escapeHtml(formatDuration(record.startedAt, record.endedAt))}<br>${escapeHtml(formatRecordDate(record.startedAt))}</time>
-                <button class="phonie-record-card__delete" type="button" data-action="delete-call-record" data-call-id="${escapeHtml(record.id)}" aria-label="删除这条通话记录">${icon('trash')}</button>
-            </article>`).join('');
-    }
-
-    #renderCharacter(state) {
-        const characters = Array.isArray(state.characters) ? state.characters : [];
-        const characterSections = [
-            this.#root.querySelector('.phonie-character-card'),
-            this.#root.querySelector('.phonie-character-specs'),
-            this.#root.querySelector('.phonie-route-editor'),
-        ];
-        if (!characters.length) {
-            this.#setText('[data-role="character-directory-count"]', '0 位联系人');
-            const directory = this.#root.querySelector('[data-role="character-directory"]');
-            if (directory) directory.innerHTML = '<div class="phonie-record-empty">暂无声线路由</div>';
-            characterSections.forEach((section) => { if (section) section.hidden = true; });
-            return;
-        }
-        characterSections.forEach((section) => { if (section) section.hidden = false; });
-        const selected = characters.find((character) => character.id === state.selectedCharacterId)
-            || characters[0];
-        const route = selected.route || {};
-        const providers = state.providerSnapshot?.providers || [];
-        const providerId = this.#characterProviderDraft || route.providerId || state.settings.ttsActiveProvider || providers[0]?.id || '';
-        const provider = providers.find((entry) => entry.id === providerId) || providers[0];
-        const selectedChatIds = (state.chatParticipants || []).map((entry) => entry.id).sort();
-
-        this.#setText('[data-role="character-directory-count"]', `${characters.length} 位联系人`);
-        const directory = this.#root.querySelector('[data-role="character-directory"]');
-        if (directory) {
-            const signature = JSON.stringify([characters.map((character) => [
-                character.id, character.name, character.avatarUrl, character.current, character.spoken,
-                character.route?.providerId, character.route?.voiceId,
-            ]), selectedChatIds]);
-            if (directory.dataset.signature !== signature || directory.dataset.selected !== selected.id) {
-                directory.dataset.signature = signature;
-                directory.dataset.selected = selected.id;
-                directory.innerHTML = characters.map((character) => {
-                    const configured = Boolean(character.route && Object.keys(character.route).length);
-                    const sourceLabel = '正文说话人';
-                    const avatarStyle = character.avatarUrl ? ` style="background-image:url('${escapeHtml(character.avatarUrl)}')"` : '';
-                    const chatSelected = (state.chatParticipants || []).some((entry) => entry.id === character.id);
-                    return `
-                        <article class="phonie-character-route${character.id === selected.id ? ' is-selected' : ''}" data-character-search="${escapeHtml(character.name.toLocaleLowerCase('zh-CN'))}">
-                            <button class="phonie-character-route__main" type="button" data-action="select-character-route" data-character-id="${escapeHtml(character.id)}">
-                                <span class="phonie-character-route__avatar"${avatarStyle}><b>${escapeHtml(initials(character.name))}</b></span>
-                                <span><strong>${escapeHtml(character.name)}</strong><small>${escapeHtml(sourceLabel)}${configured ? ' · 已设专属声线' : ''}</small></span>
-                            </button>
-                            <span class="phonie-character-route__actions">
-                                <button class="phonie-character-route__group" type="button" data-action="toggle-chat-contact" data-character-id="${escapeHtml(character.id)}" aria-pressed="${chatSelected}" aria-label="${chatSelected ? '从群聊移除' : '加入群聊'} ${escapeHtml(character.name)}">${chatSelected ? icon('check') : icon('plus')}<span>${chatSelected ? '已选' : '加入'}</span></button>
-                                <button class="phonie-character-route__chat" type="button" data-action="open-contact-chat" data-character-id="${escapeHtml(character.id)}" aria-label="与 ${escapeHtml(character.name)} 私信">${icon('message')}</button>
-                            </span>
-                        </article>`;
-                }).join('');
-            }
-            const query = this.#root.querySelector('[data-role="character-search"]')?.value?.trim().toLocaleLowerCase('zh-CN') || '';
-            for (const item of directory.querySelectorAll('[data-character-search]')) {
-                item.hidden = Boolean(query) && !String(item.dataset.characterSearch || '').includes(query);
-            }
-        }
-
-        const groupCount = selectedChatIds.length;
-        this.#setText('[data-role="group-selection-summary"]', groupCount ? `已选 ${groupCount} 位` : '尚未选择');
-        this.#setText('[data-role="group-launch-label"]', groupCount >= 2 ? `进入 ${groupCount} 人群聊` : `还需选择 ${2 - groupCount} 位`);
-        const groupLaunch = this.#root.querySelector('[data-action="open-group-chat"]');
-        if (groupLaunch instanceof HTMLButtonElement) groupLaunch.disabled = groupCount < 2;
-        const clearGroup = this.#root.querySelector('[data-action="clear-group-selection"]');
-        if (clearGroup instanceof HTMLButtonElement) clearGroup.hidden = groupCount === 0;
-
-        this.#setText('[data-role="character-initials"]', initials(selected.name));
-        this.#setText('[data-role="character-name"]', selected.name);
-        this.#setText('[data-role="character-provider"]', provider?.name || state.providerLabel);
-        this.#setText('[data-role="character-source-language"]', route.textLanguage || state.settings.sourceLanguage);
-        this.#setText('[data-role="character-target-language"]', state.settings.targetLanguage);
-        this.#setText('[data-role="character-continuity"]', state.settings.injectContinuity ? '开启' : '关闭');
-        setBackgroundImage(this.#root.querySelector('[data-role="character-portrait"]'), selected.avatarUrl);
-        const providerSelect = this.#root.querySelector('[data-role="character-provider-select"]');
-        const fallbackSelect = this.#root.querySelector('[data-role="character-fallback-provider-select"]');
-        if (providerSelect instanceof HTMLSelectElement) {
-            providerSelect.innerHTML = providers.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`).join('');
-            providerSelect.value = providerId;
-        }
-        if (fallbackSelect instanceof HTMLSelectElement) {
-            fallbackSelect.innerHTML = [
-                '<option value="">沿用全局备用引擎</option>',
-                ...providers.filter((entry) => entry.id !== providerId).map((entry) => '<option value="' + escapeHtml(entry.id) + '">' + escapeHtml(entry.name) + '</option>'),
-            ].join('');
-            fallbackSelect.value = route.fallbackProviderId || '';
-        }
-        const modelSelect = this.#root.querySelector('[data-role="character-model-select"]');
-        const voiceSelect = this.#root.querySelector('[data-role="character-voice-select"]');
-        const models = provider?.catalog?.models || [];
-        const voices = provider?.catalog?.voices || [];
-        if (modelSelect instanceof HTMLSelectElement) {
-            const choices = route.modelId && !models.some((item) => item.id === route.modelId)
-                ? [{ id: route.modelId, name: route.modelId }, ...models]
-                : models;
-            modelSelect.innerHTML = ['<option value="">沿用引擎默认模型</option>', ...choices.map((item) => '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.name || item.id) + '</option>')].join('');
-            modelSelect.value = route.modelId || '';
-        }
-        if (voiceSelect instanceof HTMLSelectElement) {
-            const choices = route.voiceId && !voices.some((item) => item.id === route.voiceId)
-                ? [{ id: route.voiceId, name: route.voiceId }, ...voices]
-                : voices;
-            voiceSelect.innerHTML = ['<option value="">沿用引擎默认音色</option>', ...choices.map((item) => '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.name || item.id) + '</option>')].join('');
-            voiceSelect.value = route.voiceId || '';
-        }
-        const voice = this.#root.querySelector('[data-role="character-voice-id"]');
-        const language = this.#root.querySelector('[data-role="character-text-language"]');
-        const reference = this.#root.querySelector('[data-role="character-reference-audio"]');
-        if (voice instanceof HTMLInputElement && document.activeElement !== voice) {
-            voice.value = voices.some((item) => item.id === route.voiceId) ? '' : route.voiceId || '';
-        }
-        if (language instanceof HTMLInputElement && document.activeElement !== language) language.value = route.textLanguage || state.settings.sourceLanguage;
-        if (reference instanceof HTMLInputElement && document.activeElement !== reference) reference.value = route.referenceAudio || '';
-    }
-
-    #renderModelSettings(state) {
-        const target = state.generationTarget || { name: '跟随酒馆', model: '当前模型', api: 'current' };
-        this.#setText('[data-role="generation-target"]', target.name);
-        this.#setText('[data-role="generation-model"]', `${target.model || '当前模型'} · ${target.api || 'current'}`);
-        this.#setText('[data-role="model-tts-provider"]', state.providerLabel);
-        this.#setText('[data-role="custom-openai-status"]', state.customModelStatus || '密钥由酒馆安全保存，不会进入插件备份');
-
-        const mode = state.settings.generationMode || 'tavern';
-        for (const section of this.#root.querySelectorAll('[data-generation-source]')) {
-            section.hidden = section.dataset.generationSource !== mode;
-        }
-
-        const customSelect = this.#root.querySelector('[data-role="custom-model-select"]');
-        if (customSelect instanceof HTMLSelectElement) {
-            const models = Array.isArray(state.settings.customOpenAIModels) ? state.settings.customOpenAIModels : [];
-            const current = state.settings.customOpenAIModel || '';
-            const choices = current && !models.includes(current) ? [current, ...models] : models;
-            customSelect.innerHTML = choices.length
-                ? choices.map((model) => `<option value="${escapeHtml(model)}">${escapeHtml(model)}</option>`).join('')
-                : '<option value="">请先拉取模型</option>';
-            customSelect.value = current;
+    #renderNovelAiStatus(state) {
+        const status = this.#root.querySelector('[data-role="novelai-status"]');
+        if (status) status.textContent = state.novelStatus || '';
+        const preview = this.#root.querySelector('[data-role="draw-preview"]');
+        if (preview && state.novelImage) {
+            preview.innerHTML = `<img src="${escapeHtml(state.novelImage)}" alt="生成图片">`;
         }
     }
 
-    #renderPromptPreset(state) {
-        const kind = ['body', 'chat', 'call_single', 'call_group'].includes(state.settings.promptWorkflowKind) ? state.settings.promptWorkflowKind : 'body';
-        const preset = normalizePhonePromptPreset(kind === 'body'
-            ? state.settings.bodyPromptPreset
-            : kind === 'call_single'
-                ? state.settings.callPromptPreset
-                : kind === 'call_group' ? state.settings.groupCallPromptPreset : state.settings.chatPromptPreset);
-        const name = this.#root.querySelector('[data-prompt-preset-field="name"]');
-        const depth = this.#root.querySelector('[data-prompt-preset-field="insertionDepth"]');
-        if (name instanceof HTMLInputElement) name.value = preset.name;
-        if (depth instanceof HTMLInputElement) depth.value = String(preset.insertionDepth);
-        const librarySelect = this.#root.querySelector('[data-role="prompt-preset-library"]');
-        if (librarySelect instanceof HTMLSelectElement) {
-            const presets = state.settings.promptPresetLibraries?.[kind] || [preset];
-            librarySelect.innerHTML = presets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}</option>`).join('');
-            librarySelect.value = presets.some((entry) => entry.id === preset.id) ? preset.id : '';
-        }
-        const list = this.#root.querySelector('[data-role="prompt-entry-list"]');
-        if (list) list.innerHTML = preset.entries.map((entry, index) => promptEntryMarkup(entry, index, preset.entries.length)).join('');
-        this.#setText('[data-role="prompt-intro"]', kind === 'body'
-            ? '正文生成前按顺序注入；译文保留在正文，TTSVoice 标签只作为角色、情绪和原语言的内部控制。'
-            : kind === 'call_single'
-                ? '单人电话编排；只使用单人电话预设，不会覆盖多人电话。'
-                : kind === 'call_group'
-                    ? '多人电话编排；按参与角色自然交替，不会套用单人电话预设。'
-                : '私信聊天专用工作流；不会与电话编排预设互相覆盖。');
-        const master = this.#root.querySelector('[data-role="body-prompt-master"]');
-        if (master) master.hidden = kind !== 'body';
-    }
-    #renderSettings(state) {
-        for (const control of this.#root.querySelectorAll('[data-setting]')) {
-            const value = state.settings[control.dataset.setting];
-            if (control instanceof HTMLInputElement && control.type === 'checkbox') {
-                control.checked = Boolean(value);
-            } else if (control instanceof HTMLSelectElement) {
-                control.value = String(value ?? '');
-            } else if (control instanceof HTMLInputElement) {
-                control.value = String(value ?? '');
-            }
-        }
-        for (const select of this.#root.querySelectorAll('[data-language-select]')) {
-            if (!(select instanceof HTMLSelectElement)) continue;
-            const key = select.dataset.languageSelect;
-            const value = String(state.settings[key] || '');
-            const known = LANGUAGE_OPTIONS.some(([code]) => code === value);
-            select.value = known ? value : 'custom';
-            const custom = this.#root.querySelector(`[data-language-custom="${key}"]`);
-            if (custom instanceof HTMLInputElement) {
-                custom.hidden = known;
-                if (!known && document.activeElement !== custom) custom.value = value;
-            }
-        }
-        const stats = state.audioCacheStats || { count: 0, bytes: 0 };
-        this.#setText('[data-role="audio-cache-size"]', `${formatBytes(stats.bytes)} · ${stats.count} 条`);
-        const clear = this.#root.querySelector('[data-action="clear-cache"]');
-        if (clear instanceof HTMLButtonElement) {
-            clear.disabled = Boolean(state.cacheBusy);
-            clear.dataset.busy = String(Boolean(state.cacheBusy));
-            clear.setAttribute('aria-busy', String(Boolean(state.cacheBusy)));
-        }
+    #renderCacheStats(state) {
+        const stats = this.#root.querySelector('[data-role="cache-stats"]');
+        if (!stats) return;
+        const value = state.audioCacheStats;
+        stats.textContent = value ? `${value.count} 段 · ${formatBytes(value.bytes)}` : '正在统计…';
     }
 
-    #renderDeviceStatus(state) {
-        const battery = state.deviceStatus?.battery || {};
-        const network = state.deviceStatus?.network || {};
-        this.#setText('[data-role="network-label"]', network.label || '在线');
-        this.#setText('[data-role="battery-label"]', battery.available ? `${battery.percent}%` : '--%');
-        const networkIcon = this.#root.querySelector('[data-role="network-icon"]');
-        if (networkIcon) networkIcon.innerHTML = icon(network.kind === 'wifi' ? 'wifi' : 'signal');
-        const charging = this.#root.querySelector('[data-role="charging-icon"]');
-        if (charging) charging.hidden = !battery.charging;
-        const signals = this.#root.querySelector('.phonie-status__signals');
-        if (signals) {
-            signals.dataset.online = String(network.online !== false);
-            signals.title = [
-                network.label || '网络状态不可读',
-                network.downlink ? `${network.downlink} Mbps` : '',
-                battery.available ? `电量 ${battery.percent}%${battery.charging ? ' · 充电中' : ''}` : '浏览器不提供电量权限',
-            ].filter(Boolean).join(' · ');
+    #syncFormValues(state) {
+        for (const input of this.#root.querySelectorAll('[data-setting]')) {
+            if (input === document.activeElement) continue;
+            const key = input.dataset.setting;
+            const value = state.settings?.[key];
+            if (input.type === 'checkbox') input.checked = Boolean(value);
+            else if (input.value !== String(value ?? '')) input.value = String(value ?? '');
         }
-    }
-
-    #renderClocks() {
-        const now = new Date();
-        const clock = formatClock(now.getTime());
-        this.#setText('[data-role="clock"]', clock);
-        this.#setText('[data-role="home-clock"]', clock);
-        this.#setText('[data-role="home-date"]', new Intl.DateTimeFormat('zh-CN', {
-            month: 'long',
-            day: 'numeric',
-            weekday: 'short',
-        }).format(now));
-        const state = this.#store.getState();
-        if (state && ACTIVE_CALL_STATES.has(state.callState)) {
-            this.#setText('[data-role="call-status"]', state.callPreparationLabel || callStatusLabel(state.callState, this.#elapsed(state.callStartedAt), state.callDirection));
+        for (const input of this.#root.querySelectorAll('[data-proactive]')) {
+            if (input === document.activeElement) continue;
+            const key = input.dataset.proactive;
+            const value = state.settings?.proactiveCalls?.[key];
+            if (input.type === 'checkbox') input.checked = Boolean(value);
+            else if (input.value !== String(value ?? '')) input.value = String(value ?? '');
         }
-    }
-
-    #elapsed(startedAt) {
-        if (!startedAt) return '';
-        const total = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-        const minutes = Math.floor(total / 60).toString().padStart(2, '0');
-        const seconds = (total % 60).toString().padStart(2, '0');
-        return `${minutes}:${seconds}`;
-    }
-
-    #renderToast(toast) {
-        const element = this.#root.querySelector('[data-role="toast"]');
-        if (!element) return;
-        window.clearTimeout(this.#toastTimer);
-        if (!toast?.text) {
-            element.dataset.visible = 'false';
-            return;
+        for (const input of this.#root.querySelectorAll('[data-novelai-setting]')) {
+            if (input === document.activeElement) continue;
+            const value = state.settings?.novelAi?.[input.dataset.novelaiSetting];
+            if (input.type === 'checkbox') input.checked = Boolean(value);
+            else if (input.value !== String(value ?? '')) input.value = String(value ?? '');
         }
-        element.textContent = toast.text;
-        element.dataset.visible = 'true';
-        this.#toastTimer = window.setTimeout(() => this.#actions.clearToast?.(), 2600);
-    }
-
-    #setText(selector, value) {
-        const element = this.#root?.querySelector(selector);
-        if (element) element.textContent = String(value ?? '');
     }
 
     #positionOrb(settings) {
-        if (!this.#orb || this.#drag?.moved) return;
-        const top = getOrbTop(settings?.dockY, window.innerHeight, this.#orb.offsetHeight || 48);
-        this.#orb.style.top = Math.round(top) + 'px';
-        this.#orb.style.bottom = 'auto';
+        const orb = this.#orb;
+        if (!(orb instanceof HTMLElement)) return;
+        const dockY = Math.min(1, Math.max(0, Number(settings?.dockY) || 0.5));
+        const size = orb.offsetHeight || 54;
+        const edge = 8;
+        const range = Math.max(0, window.innerHeight - size - edge * 2);
+        orb.style.top = Math.round(edge + dockY * range) + 'px';
+        orb.style.bottom = 'auto';
         if (settings?.dockSide === 'left') {
-            this.#orb.style.left = '-33px';
-            this.#orb.style.right = 'auto';
+            orb.style.left = '-12px';
+            orb.style.right = 'auto';
         } else {
-            this.#orb.style.right = '-33px';
-            this.#orb.style.left = 'auto';
+            orb.style.right = '-12px';
+            orb.style.left = 'auto';
         }
     }
 
-    #wakeOrb(delay = 1700) {
-        if (!this.#orb) return;
-        window.clearTimeout(this.#orbWakeTimer);
-        this.#orb.dataset.awake = 'true';
-        this.#orbWakeTimer = window.setTimeout(() => {
-            if (this.#orb && !this.#drag) this.#orb.dataset.awake = 'false';
-        }, delay);
-    }
-
     dispose() {
-        window.clearInterval(this.#clockTimer);
-        window.clearTimeout(this.#toastTimer);
-        window.clearTimeout(this.#orbWakeTimer);
         this.#unsubscribe?.();
         this.#removeOrbWindowListeners();
-        this.#audioMenu.dispose();
-        this.#motionRuntime?.destroy();
         if (this.#resizeHandler) window.removeEventListener('resize', this.#resizeHandler);
         this.#launcher?.remove();
         this.#wandLauncher?.remove();
         this.#orb?.remove();
         this.#root?.remove();
+        this.#launcher = null;
+        this.#wandLauncher = null;
         this.#orb = null;
         this.#root = null;
-        this.#motionRuntime = null;
     }
 }

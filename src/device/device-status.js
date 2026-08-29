@@ -36,8 +36,17 @@ export function normalizeNetworkStatus({ online = true, connection = null } = {}
     };
 }
 
-export function createDeviceStatusSnapshot({ navigatorRef = globalThis.navigator, battery = null } = {}) {
+function formatClock(timestamp = Date.now()) {
+    return new Intl.DateTimeFormat('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).format(new Date(timestamp));
+}
+
+export function createDeviceStatusSnapshot({ navigatorRef = globalThis.navigator, battery = null, now = Date.now() } = {}) {
     return {
+        time: formatClock(now),
         battery: normalizeBatteryStatus(battery),
         network: normalizeNetworkStatus({
             online: navigatorRef?.onLine !== false,
@@ -52,6 +61,7 @@ export class DeviceStatusMonitor {
     #listener;
     #battery = null;
     #disposers = [];
+    #clockTimer = null;
 
     constructor({ navigatorRef = globalThis.navigator, windowRef = globalThis.window, onChange = () => {} } = {}) {
         this.#navigator = navigatorRef;
@@ -70,6 +80,7 @@ export class DeviceStatusMonitor {
         this.#disposers.push(() => connection?.removeEventListener?.('change', emit));
 
         emit();
+        this.#clockTimer = this.#window?.setInterval?.(emit, 1000);
         try {
             if (typeof this.#navigator?.getBattery === 'function') {
                 this.#battery = await this.#navigator.getBattery();
@@ -79,7 +90,7 @@ export class DeviceStatusMonitor {
                 }
             }
         } catch (error) {
-            console.debug('[Phonie] Battery API is unavailable; status bar will use an honest fallback.', error);
+            console.debug('[Phonie] Battery API 不可用，状态栏使用诚实降级。', error);
         }
         emit();
         return this.snapshot();
@@ -91,6 +102,10 @@ export class DeviceStatusMonitor {
 
     dispose() {
         for (const dispose of this.#disposers.splice(0)) dispose();
+        if (this.#clockTimer != null) {
+            this.#window?.clearInterval?.(this.#clockTimer);
+            this.#clockTimer = null;
+        }
         this.#battery = null;
     }
 }
