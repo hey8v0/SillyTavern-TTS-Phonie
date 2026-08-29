@@ -56,12 +56,33 @@ function speechSignature(speeches) {
 /**
  * 只对 .mes_text 里现存的文字节点做标签替换，绝不整体覆盖 innerHTML，
  * 避免破坏酒馆正则脚本或其他插件已经渲染好的 DOM。
+ * 递归扫描全部后代文字节点：正文经 Markdown/正则处理后标签经常包在 <p>/<span> 里，
+ * 只查第一层会永远抓不到。
  */
 function decorateExistingTextNodes(textElement) {
     let decorated = 0;
-    for (const node of [...textElement.childNodes]) {
-        if (node.nodeType !== Node.TEXT_NODE || !node.nodeValue) continue;
-        if (!hasBodySpeechTag(node.nodeValue)) continue;
+    const walker = document.createTreeWalker(
+        textElement,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode(node) {
+                if (!node.nodeValue || !hasBodySpeechTag(node.nodeValue)) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                const parent = node.parentElement;
+                if (
+                    !parent
+                    || parent.closest('.phonie-body-speech, script, style, textarea, code, pre')
+                ) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            },
+        },
+    );
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
         node.replaceWith(decorateTextNodeFragment(node.nodeValue));
         decorated += 1;
     }

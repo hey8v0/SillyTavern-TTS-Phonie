@@ -5,7 +5,7 @@
  * 兼容旧版 [TTSVoice:…] 标签（读取时不区分，输出一律按 TTS 处理）。
  */
 
-const BODY_TAG_PATTERN_SOURCE = String.raw`\[(?:TTSVoice|TTS):([^:\]]*):([^:\]]*):([^\]]*)\]`;
+const BODY_TAG_PATTERN_SOURCE = String.raw`\[(?:TTSVoice|TTS)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([^\]]*)\]`;
 const BODY_TAG_PATTERN_SINGLE = new RegExp(BODY_TAG_PATTERN_SOURCE);
 
 function escapeAttr(value) {

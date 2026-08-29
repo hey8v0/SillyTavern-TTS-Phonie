@@ -985,7 +985,7 @@ function createTagRegex() {
     if (template === VISIBLE_TAG_TEMPLATE) {
         // 中文译文是普通正文，只替换后面的 TTS 标签。这样即使 Markdown
         // 在两者之间插入空格、换行或 <br>，语音条也能在普通模式渲染。
-        return /(\s*)\[TTSVoice\s*[:：]\s*(?<speaker>[^:：\]]+?)\s*[:：]\s*(?<emotion>[^:：\]]*?)\s*[:：]\s*(?<text>[\s\S]*?)\]/gi;
+        return /(\s*)\[(?:TTSVoice|TTS)\s*[:：]\s*(?<speaker>[^:：\]]+?)\s*[:：]\s*(?<emotion>[^:：\]]*?)\s*[:：]\s*(?<text>[\s\S]*?)\]/gi;
     }
     const tokenPattern = /(\{角色\}|\{情绪\}|\{文本\})/g;
     let cursor = 0;
