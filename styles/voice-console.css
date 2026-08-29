@@ -2864,16 +2864,21 @@
     border-radius: 20px;
     background: var(--voice-panel);
 }
-.voice-dial-display { display: grid; grid-template-columns: 1fr 44px; gap: 8px; margin-bottom: 10px; }
+.voice-dial-display { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; margin-bottom: 10px; }
 .voice-dial-display input {
-    padding: 0 14px;
+    min-width: 0;
+    width: 100%;
+    padding: 0 12px;
     min-height: 46px;
     border: 1px solid var(--voice-line);
     border-radius: 14px;
     background: var(--voice-bg);
     color: var(--voice-text);
-    font: 600 17px/1 var(--voice-font, "Microsoft YaHei UI", sans-serif);
-    letter-spacing: .06em;
+    font: 600 16px/1 var(--voice-font, "Microsoft YaHei UI", sans-serif);
+    letter-spacing: .05em;
+}
+@media (max-width: 380px) {
+    .voice-dial-display input { padding: 0 10px; font-size: 14px; letter-spacing: .04em; }
 }
 .voice-dial-display button {
     display: grid;
@@ -3329,3 +3334,28 @@
 .voice-chat-sticker-fields > label input { min-width: 0; min-height: 36px; padding: 0 9px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 10px; background: var(--voice-bg); font-size: 10px; }
 .voice-chat-rich-card.is-sticker { min-width: 0; align-items: flex-start; gap: 8px; color: var(--voice-copper); }
 .voice-chat-rich-card.is-sticker .voice-chat-sticker-image { width: 72px; height: 72px; display: block; flex: 0 0 72px; object-fit: cover; border-radius: 10px; }
+
+/* ── 表情包批量管理（选择 / 删除 / 编辑）──────────────────────────── */
+.voice-sticker-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-panel-2); }
+.voice-sticker-toolbar label { display: inline-flex; align-items: center; gap: 5px; color: var(--voice-muted); font-size: 9px; cursor: pointer; }
+.voice-sticker-toolbar label input { accent-color: var(--voice-cyan); }
+.voice-sticker-count { flex: 1; color: var(--voice-muted); font-size: 9px; }
+.voice-sticker-toolbar button { min-height: 30px; display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; color: var(--voice-muted); border: 1px solid var(--voice-line); border-radius: 9px; background: var(--voice-bg); font: 650 9px/1 inherit; cursor: pointer; }
+.voice-sticker-toolbar button[data-sticker-delete-selected] { color: hsl(4 68% 69%); border-color: hsl(4 55% 60% / .35); background: hsl(4 52% 55% / .09); }
+.voice-sticker-toolbar button[data-sticker-bulk-toggle].is-active { color: var(--voice-cyan); border-color: color-mix(in srgb, var(--voice-cyan) 45%, var(--voice-line)); }
+.voice-sticker-toolbar button:disabled { opacity: .4; cursor: default; }
+.voice-sticker-bulk-form { display: grid; gap: 9px; margin-top: 10px; }
+.voice-sticker-bulk-form textarea { width: 100%; min-height: 92px; padding: 9px 10px; resize: vertical; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-bg); font: 10px/1.6 inherit; }
+.voice-sticker-selector { position: absolute; z-index: 2; top: 5px; left: 5px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--voice-bg) 72%, transparent); cursor: pointer; }
+.voice-sticker-selector input { position: absolute; opacity: 0; }
+.voice-sticker-selector i { width: 14px; height: 14px; border: 1.5px solid var(--voice-muted); border-radius: 5px; background: var(--voice-panel); }
+.voice-sticker-selector input:checked + i { border-color: var(--voice-cyan); background: var(--voice-cyan); box-shadow: inset 0 0 0 2.5px var(--voice-panel); }
+.voice-sticker-item.is-selected { border-color: var(--voice-cyan); box-shadow: 0 0 0 1.5px var(--voice-cyan-soft); }
+.voice-sticker-item-actions { display: inline-flex; align-items: center; gap: 2px; }
+.voice-sticker-item-actions button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; color: var(--voice-muted); border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.voice-sticker-item-actions button[data-sticker-remove] { color: var(--voice-danger); }
+.voice-sticker-item figcaption.is-editing { display: grid; gap: 5px; padding: 7px; }
+.voice-sticker-item figcaption.is-editing input { width: 100%; min-width: 0; min-height: 30px; padding: 0 8px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 8px; background: var(--voice-bg); font-size: 9px; }
+.voice-sticker-item figcaption.is-editing div { display: flex; gap: 5px; }
+.voice-sticker-item figcaption.is-editing button { min-height: 28px; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: var(--voice-cyan); border: 1px solid color-mix(in srgb, var(--voice-cyan) 40%, var(--voice-line)); border-radius: 8px; background: var(--voice-cyan-soft); font: 650 9px/1 inherit; cursor: pointer; }
+.voice-sticker-item figcaption.is-editing button[data-sticker-cancel-edit] { flex: 0 0 28px; color: var(--voice-muted); border-color: var(--voice-line); background: var(--voice-panel-2); }

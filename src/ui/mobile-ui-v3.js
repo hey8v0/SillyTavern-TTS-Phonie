@@ -70,6 +70,9 @@ const state = {
     phoneContentSource: 'context',
     dialInput: '',
     tracksFilter: 'all',
+    stickerSelected: [],
+    stickerEditingId: '',
+    stickerBulkEditOpen: false,
     plannerModels: [],
     plannerModelsBusy: false,
     toolAudioCache: new Map(),
@@ -1633,9 +1636,26 @@ function renderSettingsQqPage() {
         </section>`;
 }
 
+function parseStickerBatchText(batchText) {
+    const parseItem = raw => {
+        const text = String(raw || '').trim();
+        if (!text) return null;
+        const httpIndex = text.search(/https?:\/\//);
+        if (httpIndex <= 0) return null;
+        const name = text.slice(0, httpIndex).trim().slice(0, 40) || '表情包';
+        const url = text.slice(httpIndex).trim();
+        return /^https?:\/\//.test(url) ? { name, url } : null;
+    };
+    return String(batchText || '').split(/[,，\n]/).map(parseItem).filter(Boolean);
+}
+
 function renderSettingsStickersPage() {
     const qq = TTS_ProviderRegistry.getQqState();
     const stickers = Array.isArray(qq.stickers) ? qq.stickers : [];
+    const selected = new Set(Array.isArray(state.stickerSelected) ? state.stickerSelected : []);
+    const allSelected = stickers.length > 0 && stickers.every(sticker => selected.has(sticker.id));
+    const editingId = state.stickerEditingId || '';
+    const bulkText = stickers.map(sticker => `${sticker.name || '表情包'}${sticker.url || ''}`).join(',');
     return `
         <section class="voice-secondary-view" aria-labelledby="voice-settings-heading">
             ${settingsPageHeader('设置 · 子页', '表情包')}
@@ -1649,11 +1669,45 @@ function renderSettingsStickersPage() {
                     </label>
                     <button class="voice-button primary" type="submit">${icon('plus', 16)} 批量导入表情包</button>
                 </form>
+                ${stickers.length ? `
+                <div class="voice-sticker-toolbar">
+                    <label><input type="checkbox" data-sticker-select-all ${allSelected ? 'checked' : ''}><span>全选</span></label>
+                    <span class="voice-sticker-count">已选 ${selected.size}/${stickers.length}</span>
+                    <button type="button" data-sticker-delete-selected ${selected.size ? '' : 'disabled'}>${icon('trash', 14)} 删除所选</button>
+                    <button type="button" data-sticker-bulk-toggle class="${state.stickerBulkEditOpen ? 'is-active' : ''}">${icon('edit', 14)} 批量编辑</button>
+                </div>` : ''}
+                ${state.stickerBulkEditOpen ? `
+                <form class="voice-sticker-bulk-form" data-sticker-bulk-form>
+                    <label class="voice-field" for="tts-sticker-bulk-edit">
+                        <span class="voice-field-label">批量编辑</span>
+                        <textarea id="tts-sticker-bulk-edit" name="stickerBulk" rows="6">${safe(bulkText)}</textarea>
+                        <small>按“名字URL,名字URL”改写，保存后整体替换表情包列表。</small>
+                    </label>
+                    <button class="voice-button primary" type="submit">${icon('check', 16)} 保存全部修改</button>
+                </form>` : ''}
                 <div class="voice-sticker-grid" data-preserve-scroll="sticker-grid">
-                    ${stickers.length ? stickers.map(sticker => `<figure class="voice-sticker-item">
-                        <img src="${safe(sticker.url)}" alt="${safe(sticker.name || '表情包')}" loading="lazy">
-                        <figcaption><span>${safe(sticker.name || '未命名')}</span><button type="button" data-sticker-remove="${safe(sticker.id)}" aria-label="删除表情包">${icon('trash', 14)}</button></figcaption>
-                    </figure>`).join('') : `<p class="voice-qq-picker-empty">还没有表情包，用“名字URL,名字URL”批量导入。</p>`}
+                    ${stickers.length ? stickers.map(sticker => {
+                        const isEditing = sticker.id === editingId;
+                        return `<figure class="voice-sticker-item ${selected.has(sticker.id) ? 'is-selected' : ''}">
+                            <label class="voice-sticker-selector" title="选择"><input type="checkbox" data-sticker-select="${safe(sticker.id)}" ${selected.has(sticker.id) ? 'checked' : ''}><i></i></label>
+                            <img src="${safe(sticker.url)}" alt="${safe(sticker.name || '表情包')}" loading="lazy">
+                            ${isEditing ? `
+                            <figcaption class="is-editing">
+                                <input data-sticker-edit-name type="text" maxlength="40" value="${safe(sticker.name)}" aria-label="表情包名字">
+                                <input data-sticker-edit-url type="text" value="${safe(sticker.url)}" aria-label="表情包地址">
+                                <div>
+                                    <button type="button" data-sticker-save-edit>${icon('check', 13)} 保存</button>
+                                    <button type="button" data-sticker-cancel-edit aria-label="取消编辑">${icon('close', 13)}</button>
+                                </div>
+                            </figcaption>` : `
+                            <figcaption><span>${safe(sticker.name || '未命名')}</span>
+                                <span class="voice-sticker-item-actions">
+                                    <button type="button" data-sticker-edit="${safe(sticker.id)}" aria-label="编辑表情包">${icon('edit', 13)}</button>
+                                    <button type="button" data-sticker-remove="${safe(sticker.id)}" aria-label="删除表情包">${icon('trash', 14)}</button>
+                                </span>
+                            </figcaption>`}
+                        </figure>`;
+                    }).join('') : `<p class="voice-qq-picker-empty">还没有表情包，用“名字URL,名字URL”批量导入。</p>`}
                 </div>
                 ${stickers.length ? `<button class="voice-button danger wide" type="button" data-sticker-clear>${icon('trash', 15)} 清空全部表情包</button>` : ''}
             </section>
@@ -1797,10 +1851,6 @@ function renderPhoneSetup(tools, context, plan) {
                     <option value="medium" ${state.phoneLength === 'medium' ? 'selected' : ''}>普通 · 7–10 句</option>
                     <option value="long" ${state.phoneLength === 'long' ? 'selected' : ''}>长 · 12–18 句</option>
                 </select>`}
-                <button id="tts-generate-phone-plan" type="submit" ${!context.available || busy || participantCount === 0 ? 'disabled' : ''}>
-                    ${icon(busy ? 'activity' : 'phone', 18)}${busy ? '正在规划' : isGroup ? '拨出多人通话' : '拨出电话'}
-                </button>
-                <p class="voice-settings-note">多人通话会自动生成 15–28 段；完成后请到“追踪”APP 重听或收藏。</p>
             </form>
         </section>`;
 }
@@ -2102,7 +2152,6 @@ function renderTracksPanel() {
         <section class="voice-secondary-view voice-tool-view" aria-labelledby="voice-tracks-heading">
             <div class="voice-kicker">${icon('headphones', 15)} 通话记录库</div>
             <h1 id="voice-tracks-heading">追踪</h1>
-            <p class="voice-tracks-intro">每次由你拨出的通话都会自动保存到这里，可重听、重新渲染或收藏；收藏会随当前对话关闭后继续可用。</p>
             <nav class="voice-tracks-filter" aria-label="通话过滤">
                 <button type="button" data-set-tracks-filter="all" class="${state.tracksFilter !== 'favorites' ? 'is-active' : ''}">全部 · ${calls.length}</button>
                 <button type="button" data-set-tracks-filter="favorites" class="${state.tracksFilter === 'favorites' ? 'is-active' : ''}">收藏 · ${calls.filter(call => call.favorite).length}</button>
@@ -4524,8 +4573,79 @@ function bindEvents(eventRoot) {
             const stickers = (Array.isArray(currentQq.stickers) ? currentQq.stickers : [])
                 .filter(sticker => sticker.id !== stickerRemove);
             TTS_ProviderRegistry.updateQqState({ stickers });
+            state.stickerSelected = (state.stickerSelected || []).filter(id => id !== stickerRemove);
+            if (state.stickerEditingId === stickerRemove) state.stickerEditingId = '';
             updateView();
             announce('表情包已删除');
+            return;
+        }
+        const stickerSelect = event.target.closest('input[data-sticker-select]');
+        if (stickerSelect) {
+            const id = stickerSelect.dataset.stickerSelect;
+            const selected = new Set(Array.isArray(state.stickerSelected) ? state.stickerSelected : []);
+            if (stickerSelect.checked) selected.add(id);
+            else selected.delete(id);
+            state.stickerSelected = [...selected];
+            updateView();
+            return;
+        }
+        const stickerSelectAll = event.target.closest('input[data-sticker-select-all]');
+        if (stickerSelectAll) {
+            const currentQq = TTS_ProviderRegistry.getQqState();
+            const stickers = Array.isArray(currentQq.stickers) ? currentQq.stickers : [];
+            state.stickerSelected = stickerSelectAll.checked ? stickers.map(sticker => sticker.id) : [];
+            updateView();
+            return;
+        }
+        const stickerDeleteSelected = event.target.closest('[data-sticker-delete-selected]');
+        if (stickerDeleteSelected) {
+            const selected = new Set(Array.isArray(state.stickerSelected) ? state.stickerSelected : []);
+            if (!selected.size) return;
+            if (!window.confirm(`确定删除选中的 ${selected.size} 个表情包吗？`)) return;
+            const currentQq = TTS_ProviderRegistry.getQqState();
+            const stickers = (Array.isArray(currentQq.stickers) ? currentQq.stickers : [])
+                .filter(sticker => !selected.has(sticker.id));
+            TTS_ProviderRegistry.updateQqState({ stickers });
+            state.stickerSelected = [];
+            state.stickerEditingId = '';
+            updateView();
+            announce(`已删除 ${selected.size} 个表情包`);
+            return;
+        }
+        const stickerBulkToggle = event.target.closest('[data-sticker-bulk-toggle]');
+        if (stickerBulkToggle) {
+            state.stickerBulkEditOpen = !state.stickerBulkEditOpen;
+            updateView();
+            return;
+        }
+        const stickerEdit = event.target.closest('[data-sticker-edit]')?.dataset.stickerEdit;
+        if (stickerEdit) {
+            state.stickerEditingId = stickerEdit;
+            updateView();
+            return;
+        }
+        if (event.target.closest('[data-sticker-cancel-edit]')) {
+            state.stickerEditingId = '';
+            updateView();
+            return;
+        }
+        const stickerSaveEdit = event.target.closest('[data-sticker-save-edit]');
+        if (stickerSaveEdit) {
+            const id = state.stickerEditingId;
+            const figure = stickerSaveEdit.closest('.voice-sticker-item');
+            const name = String(figure?.querySelector('[data-sticker-edit-name]')?.value || '').trim().slice(0, 40) || '表情包';
+            const url = String(figure?.querySelector('[data-sticker-edit-url]')?.value || '').trim();
+            if (!/^https?:\/\//.test(url)) {
+                announce('表情包地址必须是 http(s) 链接');
+                return;
+            }
+            const currentQq = TTS_ProviderRegistry.getQqState();
+            const stickers = (Array.isArray(currentQq.stickers) ? currentQq.stickers : [])
+                .map(sticker => (sticker.id === id ? { ...sticker, name, url } : sticker));
+            TTS_ProviderRegistry.updateQqState({ stickers });
+            state.stickerEditingId = '';
+            updateView();
+            announce('表情包已更新');
             return;
         }
         const qqPickFriend = event.target.closest('[data-qq-pick-friend]')?.dataset.qqPickFriend;
@@ -4746,20 +4866,38 @@ function bindEvents(eventRoot) {
             return;
         }
         if (event.target.closest('[data-dial-call]')) {
+            if (state.featureBusy) return;
             const input = document.getElementById('tts-dial-input');
-            const number = String(input?.value || '').replace(/[\s-]/g, '');
+            const normalizeNumber = value => String(value || '').replace(/[\s+\-]/g, '');
+            const number = normalizeNumber(input?.value);
             const contacts = FrontendVoiceTools.getVoiceContacts?.() || [];
-            const match = contacts.find(contact => virtualNumber(contact.name).replace(/\s/g, '') === number);
+            const match = contacts.find(contact => normalizeNumber(virtualNumber(contact.name)) === number);
             if (!match) {
                 announce('该号码不存在，请从通讯录号码选择');
                 return;
             }
+            const form = document.getElementById('tts-phone-plan-form');
+            const source = String(form?.elements?.source?.value || state.phoneContentSource || 'context');
+            const brief = source === 'topic' ? String(form?.elements?.brief?.value || '').trim() : '';
+            if (source === 'topic' && !brief) {
+                announce('请填写通话主题');
+                return;
+            }
+            let participants = [...(form?.querySelectorAll('input[name="participants"]:checked') || [])]
+                .map(element => String(element.value)).filter(Boolean);
+            if (!participants.includes(match.name)) participants = [match.name, ...participants];
+            if (!participants.length) participants = [match.name];
             state.dialInput = input?.value || '';
             state.phoneCaller = match.name;
-            state.phoneDirection = 'outgoing';
+            state.phoneContentSource = source;
             state.phoneStage = 'setup';
-            updateView();
-            announce(`已输入 ${match.name} 的号码，选择通话内容后点击拨出`);
+            await runPhonePlan({
+                caller: match.name,
+                brief,
+                duration: String(form?.elements?.duration?.value || 'medium'),
+                direction: 'outgoing',
+                participants,
+            });
             return;
         }
         const route = event.target.closest('[data-route]')?.dataset.route;
@@ -4995,17 +5133,8 @@ function bindEvents(eventRoot) {
         if (event.target.hasAttribute('data-sticker-add-form')) {
             event.preventDefault();
             const batchText = String(event.target.elements.stickerBatch?.value || '').trim();
-            const parseItem = raw => {
-                const text = String(raw || '').trim();
-                if (!text) return null;
-                const httpIndex = text.search(/https?:\/\//);
-                if (httpIndex <= 0) return null;
-                const name = text.slice(0, httpIndex).trim().slice(0, 40) || '表情包';
-                const url = text.slice(httpIndex).trim();
-                return /^https?:\/\//.test(url) ? { name, url } : null;
-            };
             const incoming = batchText
-                ? batchText.split(/[,，\n]/).map(parseItem).filter(Boolean)
+                ? parseStickerBatchText(batchText)
                 : (() => {
                     const url = String(event.target.elements.stickerUrl?.value || '').trim();
                     return url ? [{ name: (url.split('/').pop() || '').split('?')[0].slice(0, 40) || '表情包', url }] : [];
@@ -5020,6 +5149,21 @@ function bindEvents(eventRoot) {
             TTS_ProviderRegistry.updateQqState({ stickers: [...stickers, ...added] });
             updateView();
             announce(`已导入 ${added.length} 个表情包`);
+            return;
+        }
+        if (event.target.hasAttribute('data-sticker-bulk-form')) {
+            event.preventDefault();
+            const incoming = parseStickerBatchText(event.target.elements.stickerBulk?.value || '');
+            if (!incoming.length) {
+                announce('没有可保存的表情包，请按“名字URL”格式填写');
+                return;
+            }
+            const stickers = incoming.map(item => ({ id: `sticker-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ...item }));
+            TTS_ProviderRegistry.updateQqState({ stickers });
+            state.stickerBulkEditOpen = false;
+            state.stickerSelected = [];
+            updateView();
+            announce(`已保存 ${stickers.length} 个表情包`);
             return;
         }
         if (event.target.hasAttribute('data-qq-group-form')) {

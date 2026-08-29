@@ -10,7 +10,7 @@
 import { eventSource, event_types } from '/script.js';
 import { TTS_ProviderRegistry } from '../tts/provider-registry.js';
 import { TTS_AudioCache, cacheKey } from '../tts/cache.js';
-import { decorateBodyText, parseBodySpeechTags } from './body-speech.js';
+import { decorateTextNodeFragment, hasBodySpeechTag, parseBodySpeechTags } from './body-speech.js';
 
 let initialized = false;
 let scheduled = false;
@@ -49,6 +49,25 @@ function stopActiveAudio() {
     }
 }
 
+function speechSignature(speeches) {
+    return speeches.map(segment => `${segment.speaker}\u0001${segment.emotion}\u0001${segment.sourceText}`).join('\u0002');
+}
+
+/**
+ * 只对 .mes_text 里现存的文字节点做标签替换，绝不整体覆盖 innerHTML，
+ * 避免破坏酒馆正则脚本或其他插件已经渲染好的 DOM。
+ */
+function decorateExistingTextNodes(textElement) {
+    let decorated = 0;
+    for (const node of [...textElement.childNodes]) {
+        if (node.nodeType !== Node.TEXT_NODE || !node.nodeValue) continue;
+        if (!hasBodySpeechTag(node.nodeValue)) continue;
+        node.replaceWith(decorateTextNodeFragment(node.nodeValue));
+        decorated += 1;
+    }
+    return decorated;
+}
+
 function processRenderedMessages() {
     const chatContainer = document.getElementById('chat');
     if (!chatContainer) return;
@@ -65,12 +84,24 @@ function processRenderedMessages() {
         if (!textElement) return;
         const segments = parseBodySpeechTags(message.mes);
         const speeches = segments.filter(segment => segment.type === 'speech');
-        if (!speeches.length) return;
+        if (!speeches.length) {
+            // 编辑后不再有标签：清掉我们的签名标记，让酒馆自己渲染纯文本。
+            if (element.dataset.phonieSig) {
+                delete element.dataset.phonieSig;
+                textElement.classList.remove('phonie-body-tts-text');
+            }
+            return;
+        }
         if (!flags.enabled) return; // 总开关关闭：不解析、不装饰、不生成。
-        if (!element.dataset.phonieDone) {
-            textElement.innerHTML = decorateBodyText(message.mes);
+        const signature = speechSignature(speeches);
+        if (element.dataset.phonieSig === signature) {
+            if (flags.autoRender) prerenderBodyAudio(speeches);
+            return;
+        }
+        // 小铅笔编辑 / 滑动重选后 ST 会重新渲染 .mes_text，标签重新出现在文字节点里。
+        if (decorateExistingTextNodes(textElement) > 0) {
+            element.dataset.phonieSig = signature;
             textElement.classList.add('phonie-body-tts-text');
-            element.dataset.phonieDone = '1';
             try {
                 message.extra = message.extra || {};
                 message.extra.phonie_v2 = {
@@ -83,8 +114,9 @@ function processRenderedMessages() {
             } catch {
                 // 写入 message.extra 失败不影响渲染。
             }
+            if (flags.autoRender) prerenderBodyAudio(speeches);
         }
-        if (flags.autoRender) prerenderBodyAudio(speeches);
+        // 标签不在文字节点里（可能被其他脚本处理过）：不动 DOM，等下一次渲染事件再试。
     });
 }
 

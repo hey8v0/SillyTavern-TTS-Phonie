@@ -4490,7 +4490,7 @@
     border-bottom: 1px dashed currentColor;
 }
 
-/* ========================================================================== 
+/* ==========================================================================
    2026 绮句慨瑙嗚灞?路 Quiet Hardware
    鏆栫摲鐧?/ 澧ㄨ壊鏈鸿韩銆佺紪杈戞劅鎺掔増銆佸厠鍒堕浘闈㈠眰绾с€傝灞傚彧瑕嗙洊瑙嗚锛屼繚鐣欎笟鍔￠€夋嫨鍣ㄣ€?   ========================================================================== */
 .phonie-root {
@@ -5120,16 +5120,21 @@
     border-radius: 20px;
     background: var(--voice-panel);
 }
-.voice-dial-display { display: grid; grid-template-columns: 1fr 44px; gap: 8px; margin-bottom: 10px; }
+.voice-dial-display { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; margin-bottom: 10px; }
 .voice-dial-display input {
-    padding: 0 14px;
+    min-width: 0;
+    width: 100%;
+    padding: 0 12px;
     min-height: 46px;
     border: 1px solid var(--voice-line);
     border-radius: 14px;
     background: var(--voice-bg);
     color: var(--voice-text);
-    font: 600 17px/1 var(--voice-font, "Microsoft YaHei UI", sans-serif);
-    letter-spacing: .06em;
+    font: 600 16px/1 var(--voice-font, "Microsoft YaHei UI", sans-serif);
+    letter-spacing: .05em;
+}
+@media (max-width: 380px) {
+    .voice-dial-display input { padding: 0 10px; font-size: 14px; letter-spacing: .04em; }
 }
 .voice-dial-display button {
     display: grid;
@@ -5542,4 +5547,102 @@
 .phonie-body-speech.is-playing svg.is-play { display: none; }
 .phonie-body-speech.is-playing svg.is-pause { display: block; }
 @keyframes phonie-body-spin { to { transform: rotate(360deg); } }
+
+/* ── PLAN 对齐：通话记录库 / 生图画廊 / 表情包卡片 ────────────────── */
+.voice-tracks-filter { display: flex; gap: 6px; margin: 0 0 10px; }
+.voice-tracks-filter button {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 13px;
+    color: var(--voice-muted);
+    border: 1px solid var(--voice-line);
+    border-radius: 999px;
+    background: var(--voice-panel-2);
+    font: 650 9px/1 inherit;
+    cursor: pointer;
+}
+.voice-tracks-filter button.is-active { color: hsl(225 24% 8%); border-color: var(--voice-copper); background: linear-gradient(135deg, hsl(35 78% 72%), hsl(26 65% 57%)); }
+.voice-tracks-intro { margin: 4px 0 12px; color: var(--voice-muted); font-size: 9px; line-height: 1.6; }
+
+.voice-history-stack .voice-call-record { margin: 0; }
+.voice-history-stack .voice-call-record:not(.is-latest) { border-color: var(--voice-line); background: color-mix(in srgb, var(--voice-panel) 90%, transparent); }
+.voice-call-record {
+    padding: 15px;
+    border: 1px solid color-mix(in srgb, var(--voice-cyan) 27%, var(--voice-line));
+    border-radius: 21px;
+    background: linear-gradient(145deg, var(--voice-cyan-soft), transparent 48%), color-mix(in srgb, var(--voice-panel) 90%, transparent);
+}
+.voice-call-record.is-group { border-color: color-mix(in srgb, var(--voice-copper) 34%, var(--voice-line)); background: linear-gradient(145deg, var(--voice-copper-soft), transparent 48%), color-mix(in srgb, var(--voice-panel) 90%, transparent); }
+.voice-call-record > header { display: flex; align-items: center; gap: 8px; color: var(--voice-cyan); font-size: 8px; letter-spacing: .08em; }
+.voice-call-record > header > span:first-child { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-call-record > header time { color: var(--voice-muted); letter-spacing: 0; }
+.voice-call-favorite-flag { display: grid; place-items: center; }
+.voice-call-favorite-flag svg { color: var(--voice-muted); }
+.voice-call-favorite-flag.is-active svg { color: var(--voice-copper); }
+.voice-call-record h2 { margin: 9px 0 5px; font-size: 18px; }
+.voice-call-record > p { margin: 0 0 10px; color: var(--voice-muted); font-size: 10px; line-height: 1.55; }
+.voice-call-speakers { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; }
+.voice-call-speakers > span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 3px; color: var(--voice-muted); border: 1px solid var(--voice-line); border-radius: 999px; background: var(--voice-panel-2); font-size: 8px; }
+.voice-call-speakers i { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; color: var(--voice-cyan); background: var(--voice-cyan-soft); font-size: 8px; font-style: normal; }
+.voice-call-record > footer { display: flex; align-items: center; gap: 6px; }
+.voice-call-record > footer > button:first-child { min-height: 36px; display: flex; align-items: center; gap: 6px; flex: 1; padding: 0 12px; color: var(--voice-cyan); border: 1px solid color-mix(in srgb, var(--voice-cyan) 34%, var(--voice-line)); border-radius: 11px; background: var(--voice-cyan-soft); font: 650 10px/1 inherit; cursor: pointer; }
+.voice-call-record > footer > button[data-toggle-call-favorite] { min-height: 36px; display: flex; align-items: center; gap: 5px; padding: 0 11px; color: var(--voice-muted); border: 1px solid var(--voice-line); border-radius: 11px; background: var(--voice-panel-2); font: 650 9px/1 inherit; cursor: pointer; }
+.voice-call-record > footer > button[data-toggle-call-favorite][aria-pressed="true"] { color: var(--voice-copper); border-color: color-mix(in srgb, var(--voice-copper) 40%, var(--voice-line)); background: var(--voice-copper-soft); }
+
+.voice-drawing-gallery { margin-bottom: 12px; }
+.voice-drawing-gallery > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.voice-drawing-gallery > header > span { min-width: 0; display: grid; gap: 2px; }
+.voice-drawing-gallery > header strong { font-size: 11px; }
+.voice-drawing-gallery > header small { color: var(--voice-muted); font-size: 8px; }
+.voice-button.ghost { min-height: 30px; padding: 0 10px; border: 1px solid var(--voice-line); border-radius: 10px; background: transparent; color: var(--voice-muted); font-size: 9px; }
+.voice-button.ghost.danger { color: hsl(4 68% 69%); border-color: hsl(4 55% 60% / .35); background: hsl(4 52% 55% / .09); }
+.voice-drawing-gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 300px; overflow-y: auto; padding: 2px; scrollbar-width: thin; scrollbar-color: var(--voice-copper-soft) transparent; }
+.voice-drawing-gallery-grid::-webkit-scrollbar { width: 4px; }
+.voice-drawing-gallery-grid::-webkit-scrollbar-thumb { border-radius: 99px; background: var(--voice-copper-soft); }
+.voice-drawing-gallery-item { margin: 0; overflow: hidden; border: 1px solid var(--voice-line); border-radius: 14px; background: var(--voice-panel-2); }
+.voice-drawing-gallery-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.voice-drawing-gallery-item figcaption { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 5px 6px 6px; }
+.voice-drawing-gallery-item figcaption span { min-width: 0; overflow: hidden; color: var(--voice-muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.voice-drawing-gallery-item figcaption button { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 22px; padding: 0; color: hsl(4 68% 69%); border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
+.voice-drawing-gallery-item figcaption button:hover { background: hsl(4 52% 55% / .12); }
+
+.voice-chat-sticker-fields { grid-column: 1 / -1; display: grid; gap: 6px; }
+.voice-chat-sticker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 148px; overflow-y: auto; scrollbar-width: none; }
+.voice-chat-sticker-grid::-webkit-scrollbar { display: none; }
+.voice-chat-sticker-item { position: relative; min-width: 0; }
+.voice-chat-sticker-item input { position: absolute; opacity: 0; }
+.voice-chat-sticker-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border: 1.5px solid var(--voice-line); border-radius: 12px; cursor: pointer; }
+.voice-chat-sticker-item span { display: block; margin-top: 3px; overflow: hidden; color: var(--voice-muted); font-size: 7px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.voice-chat-sticker-item input:checked + img { border-color: var(--voice-cyan); box-shadow: 0 0 0 2px var(--voice-cyan-soft); }
+.voice-chat-sticker-fields > label { display: grid; gap: 3px; color: var(--voice-muted); font-size: 7px; }
+.voice-chat-sticker-fields > label input { min-width: 0; min-height: 36px; padding: 0 9px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 10px; background: var(--voice-bg); font-size: 10px; }
+.voice-chat-rich-card.is-sticker { min-width: 0; align-items: flex-start; gap: 8px; color: var(--voice-copper); }
+.voice-chat-rich-card.is-sticker .voice-chat-sticker-image { width: 72px; height: 72px; display: block; flex: 0 0 72px; object-fit: cover; border-radius: 10px; }
+
+/* ── 表情包批量管理（选择 / 删除 / 编辑）──────────────────────────── */
+.voice-sticker-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-panel-2); }
+.voice-sticker-toolbar label { display: inline-flex; align-items: center; gap: 5px; color: var(--voice-muted); font-size: 9px; cursor: pointer; }
+.voice-sticker-toolbar label input { accent-color: var(--voice-cyan); }
+.voice-sticker-count { flex: 1; color: var(--voice-muted); font-size: 9px; }
+.voice-sticker-toolbar button { min-height: 30px; display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; color: var(--voice-muted); border: 1px solid var(--voice-line); border-radius: 9px; background: var(--voice-bg); font: 650 9px/1 inherit; cursor: pointer; }
+.voice-sticker-toolbar button[data-sticker-delete-selected] { color: hsl(4 68% 69%); border-color: hsl(4 55% 60% / .35); background: hsl(4 52% 55% / .09); }
+.voice-sticker-toolbar button[data-sticker-bulk-toggle].is-active { color: var(--voice-cyan); border-color: color-mix(in srgb, var(--voice-cyan) 45%, var(--voice-line)); }
+.voice-sticker-toolbar button:disabled { opacity: .4; cursor: default; }
+.voice-sticker-bulk-form { display: grid; gap: 9px; margin-top: 10px; }
+.voice-sticker-bulk-form textarea { width: 100%; min-height: 92px; padding: 9px 10px; resize: vertical; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-bg); font: 10px/1.6 inherit; }
+.voice-sticker-selector { position: absolute; z-index: 2; top: 5px; left: 5px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--voice-bg) 72%, transparent); cursor: pointer; }
+.voice-sticker-selector input { position: absolute; opacity: 0; }
+.voice-sticker-selector i { width: 14px; height: 14px; border: 1.5px solid var(--voice-muted); border-radius: 5px; background: var(--voice-panel); }
+.voice-sticker-selector input:checked + i { border-color: var(--voice-cyan); background: var(--voice-cyan); box-shadow: inset 0 0 0 2.5px var(--voice-panel); }
+.voice-sticker-item.is-selected { border-color: var(--voice-cyan); box-shadow: 0 0 0 1.5px var(--voice-cyan-soft); }
+.voice-sticker-item-actions { display: inline-flex; align-items: center; gap: 2px; }
+.voice-sticker-item-actions button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; color: var(--voice-muted); border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.voice-sticker-item-actions button[data-sticker-remove] { color: var(--voice-danger); }
+.voice-sticker-item figcaption.is-editing { display: grid; gap: 5px; padding: 7px; }
+.voice-sticker-item figcaption.is-editing input { width: 100%; min-width: 0; min-height: 30px; padding: 0 8px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 8px; background: var(--voice-bg); font-size: 9px; }
+.voice-sticker-item figcaption.is-editing div { display: flex; gap: 5px; }
+.voice-sticker-item figcaption.is-editing button { min-height: 28px; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: var(--voice-cyan); border: 1px solid color-mix(in srgb, var(--voice-cyan) 40%, var(--voice-line)); border-radius: 8px; background: var(--voice-cyan-soft); font: 650 9px/1 inherit; cursor: pointer; }
+.voice-sticker-item figcaption.is-editing button[data-sticker-cancel-edit] { flex: 0 0 28px; color: var(--voice-muted); border-color: var(--voice-line); background: var(--voice-panel-2); }
 
