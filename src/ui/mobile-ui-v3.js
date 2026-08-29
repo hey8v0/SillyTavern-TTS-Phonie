@@ -3734,12 +3734,16 @@ function getRecordSegments(kind, record) {
     return [];
 }
 
-async function prepareToolAudio(_kind, record, signal) {
+async function prepareToolAudio(_kind, record, signal, { fromIndex = 0, limit } = {}) {
     // 通话记录的音频逐段准备流程：复用单人与多人的 segments。
     const segments = getRecordSegments('phone', record);
     if (!segments.length) throw new Error('这条通话没有可播放的台词。');
+    const start = Math.min(Math.max(0, Math.round(Number(fromIndex) || 0)), segments.length);
+    const end = Number.isFinite(limit)
+        ? Math.min(segments.length, start + Math.max(0, Math.round(limit)))
+        : segments.length;
     const prepared = [];
-    for (let index = 0; index < segments.length; index += 1) {
+    for (let index = start; index < end; index += 1) {
         signal?.throwIfAborted?.();
         const segment = segments[index];
         const blob = await synthesizeToolSegment(segment, record.charName, signal);
@@ -3792,6 +3796,7 @@ function stopPhoneAudio() {
 }
 
 function finishPhoneCall(errorMessage = '') {
+    state.featureAudioController?.abort();
     stopPhoneAudio();
     window.clearTimeout(state.phoneRingTimer);
     state.phoneRingTimer = null;
@@ -3880,8 +3885,13 @@ async function answerPhoneCall() {
     stopToolPlayback();
     updateView();
     try {
-        const queue = await prepareToolAudio('phone', plan, controller.signal);
+        // 主动来电已在响铃前准备好头两段，接听时直接从剩余段继续。
+        const preparedHead = Array.isArray(state.phoneAudioQueue) && state.phoneAudioQueue.length
+            ? state.phoneAudioQueue
+            : [];
+        const remaining = await prepareToolAudio('phone', plan, controller.signal, { fromIndex: preparedHead.length });
         if (controller.signal.aborted) return;
+        const queue = [...preparedHead, ...remaining];
         state.phoneAudioQueue = queue;
         state.phoneCompletedDuration = 0;
         state.featureBusy = null;
@@ -4145,7 +4155,7 @@ async function startProactiveIncomingCall({ caller, reason, tone }) {
     state.phoneDirection = 'incoming';
     state.phoneCaller = caller;
     state.phoneParticipants = [];
-    state.phoneStage = 'ringing';
+    state.phoneStage = 'connecting'; // 准备来电：先生成完整剧本并准备头两段语音，再进入响铃。
     state.phoneError = '';
     state.phoneElapsed = 0;
     state.phoneSegmentIndex = 0;
@@ -4162,11 +4172,9 @@ async function startProactiveIncomingCall({ caller, reason, tone }) {
         favorite: false,
     };
     updateView();
-    window.clearTimeout(state.phoneRingTimer);
-    state.phoneRingTimer = window.setTimeout(() => {
-        if (state.phoneStage === 'ringing') finishPhoneCall('来电超时未接');
-    }, 30000);
     state.featureBusy = 'phone-plan';
+    const controller = new AbortController();
+    state.featureAudioController = controller;
     try {
         const plan = await FrontendVoiceTools.generatePhonePlan({
             caller,
@@ -4174,14 +4182,28 @@ async function startProactiveIncomingCall({ caller, reason, tone }) {
             duration: 'medium',
             participants: [],
         });
-        if (state.phoneStage !== 'ringing') return;
+        if (controller.signal.aborted || state.phoneStage !== 'connecting') return;
         state.phonePlan = plan;
+        state.featureBusy = 'phone-audio';
         updateView();
+        const head = await prepareToolAudio('phone', plan, controller.signal, { limit: 2 });
+        if (controller.signal.aborted || state.phoneStage !== 'connecting') return;
+        state.phoneAudioQueue = head;
+        state.phoneStage = 'ringing';
+        state.featureBusy = null;
+        state.featureAudioController = null;
+        updateView();
+        window.clearTimeout(state.phoneRingTimer);
+        state.phoneRingTimer = window.setTimeout(() => {
+            if (state.phoneStage === 'ringing') finishPhoneCall('来电超时未接');
+        }, 30000);
     } catch (error) {
-        if (state.phoneStage === 'ringing') finishPhoneCall(error?.message || '来电规划失败');
+        if (error?.name === 'AbortError') return;
+        if (state.phoneStage === 'connecting') finishPhoneCall(error?.message || '来电准备失败');
     } finally {
         state.featureBusy = null;
-        if (state.phoneStage === 'ringing') updateView();
+        if (state.featureAudioController === controller) state.featureAudioController = null;
+        if (['connecting', 'ringing'].includes(state.phoneStage)) updateView();
     }
 }
 

@@ -16,9 +16,32 @@ import { initBodyTtsRuntime } from './body-tts.js';
 
 const SETTINGS_KEY = 'gpt_sovits_frontend_voice_tools';
 const MAX_HISTORY = 24;
-const DEFAULT_PHONE_PROMPT = `你是角色语音导演。请根据当前聊天，让一个已有声线路由的角色主动打来一通像真实电话的完整对话。
-保持角色人设、关系和当前剧情，不替 {{用户}} 说话，不复述整段聊天。
-台词要口语化、有停顿感，围绕一至三个自然话题展开，每句适合直接交给 TTS 朗读。`;
+const DEFAULT_PHONE_PROMPT = `## 单人电话导演
+你正在生成一通已经实际拨出并即将接通的完整单人电话，而不是手机聊天消息、短信，也不是“准备打电话”的说明。
+本次远端角色：{{角色}}
+通话另一端：{{用户}}
+要求长度：{{长度}}
+台词语言：{{语言}}
+### 核心规则
+1. 这是一通完整电话。必须从接通后的第一句话开始，经过自然展开，最后形成一个完整但不必刻意正式的通话片段。不要只生成一句问候、一个问题或一句“我现在打给你”。
+2. segments 数量必须严格满足 {{长度}}。长度要求是硬约束，不是建议。每一个 segment 都必须包含实际可朗读的有效台词，不得使用空字符串凑数量。
+3. 单人电话只生成 {{角色}} 在电话另一端真实说出口的内容。绝对不要替 {{用户}} 生成台词、回答、动作、心理或反应，也不要虚构 {{用户}} 刚刚在电话中说了什么。
+4. 不能因为无法生成 {{用户}} 的电话台词，就让通话在第一句结束。{{角色}} 应像真实打电话的人一样，在自然停顿之间继续表达、补充、追问、讲述或转换话题，使这通电话本身具有足够内容。
+5. 第一段是“电话接通后的第一句话”。如果电话来自主动来电，不要再说“我现在给你打电话”“等我拨给你”“我要打过去了”等已经发生完毕的事情。可以简短招呼，然后立刻进入真正的来电原因。
+6. reason / 本次通话主题只是通话的起点。不要只把 reason 改写一次就结束。应结合角色卡、世界书、实际聊天上下文和双方关系，把它自然展开成 1～3 个互相关联的话题。
+### 通话节奏
+一通自然的电话通常应有以下发展，但不要机械套模板：
+- 开头：接通、确认对方在听，并自然切入来电原因；
+- 展开：说明事情、分享细节、表达态度或情绪；
+- 延伸：根据人物性格继续追问、联想、吐槽、安慰、分析、转换到相关话题；
+- 收束：形成一个自然暂歇点或结束点。
+不要让整通电话变成连续采访。不要每一段都以问题结尾。不要连续输出“嗯”“然后呢”“在吗”“听得到吗”之类没有实质内容的短句来凑段数。
+### 每段台词
+每个 segment 是一次自然的连续发言，而不是必须只有一句话。通常可包含 1～3 个自然口语句子，根据情绪自行决定长短。短句可以存在，但多数 segment 应具有实际信息、情绪或交流推进作用。
+台词应：口语化；符合 {{角色}} 的说话习惯；适合直接交给 TTS；可以有自然停顿、笑声、叹气等已支持的语音标签；不写旁白、动作描写、舞台说明或第三人称叙述；不重复聊天记录；不解释规则。
+### 特别禁止
+禁止整通电话只生成“喂？”“怎么了？”“你想聊什么？”“我打给你了”。也禁止用一条很长的 segment 把整通电话压缩完毕。
+{{输出格式}}`;
 const DEFAULT_TRACK_PROMPT = `你是创意编剧。请根据当前选取的楼层、角色卡与世界书，创作一段 {{用户}} 不在场时可以偷听到的角色私下对话。
 参与角色必须从已有声线路由列表中选择，至少两人；保持每个人的人设、知识边界和说话习惯。
 生成 10 到 25 段自然交替的纯台词，可以谈论 {{用户}}、角色关系、秘密、日常或尚未解决的剧情，但不要让任何角色替 {{用户}} 说话。`;
@@ -44,7 +67,16 @@ const DEFAULT_CHAT_PROMPT = `[最高优先级：手机私聊]
 5. 可以根据关系与语境选择文字或语音。用户要求语音时必须发语音；语音内容也必须像自然口语并适合 TTS 直接朗读。
 6. 实际消息语言遵循：{{语言}}。若不是中文，另给语义一致、自然易懂的中文译文。`;
 const DEFAULT_PHONE_FORMAT_PROMPT = `{{输出格式}}
-每段 speaker 必须是真实说话人；text 使用所选台词语言，translation 必须是语义一致的自然中文译文。`;
+这是单人电话的硬性输出协议：
+- segments 数量必须严格满足 {{长度}}；
+- 每一段 speaker 都必须是 {{角色}}；
+- 不得生成 {{用户}} 的 segment；
+- 每段 text 必须有真实可朗读台词；
+- 不得用空台词、重复台词或无意义短句凑数量；
+- 第一段必须是电话已经接通后的实际发言；
+- 最后一段不能只是突然截断的半句话；
+- text 使用所选台词语言；
+- translation 必须填写语义一致、自然的中文译文。`;
 const DEFAULT_TRACK_FORMAT_PROMPT = `{{输出格式}}
 台词中不要写括号动作、心理或场景说明；speaker 必须精确使用参与角色的名字并自然交替。`;
 const DEFAULT_CHAT_FORMAT_PROMPT = `一次回复可以连续发送 1 到 6 条独立消息，不要把所有内容挤进一条长消息。
@@ -147,17 +179,17 @@ const DEFAULT_PROMPT_WORKFLOWS = Object.freeze({
         Object.freeze({ id: 'body-rules', name: '正文语音规则', role: 'system', enabled: true, content: DEFAULT_BODY_TTS_PROMPT }),
         Object.freeze({ id: 'body-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
     ]),
-    phone: Object.freeze([
-        Object.freeze({ id: 'phone-director', name: '来电导演', role: 'system', enabled: true, content: DEFAULT_PHONE_PROMPT }),
-        Object.freeze({ id: 'phone-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
-        Object.freeze({ id: 'phone-format', name: '输出协议', role: 'system', enabled: true, content: DEFAULT_PHONE_FORMAT_PROMPT }),
-        Object.freeze({ id: 'phone-context', name: '来电任务与上下文', role: 'user', enabled: true, content: '{{任务上下文}}' }),
+    single_call: Object.freeze([
+        Object.freeze({ id: 'single_call-director', name: '来电导演', role: 'system', enabled: true, content: DEFAULT_PHONE_PROMPT }),
+        Object.freeze({ id: 'single_call-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
+        Object.freeze({ id: 'single_call-format', name: '输出协议', role: 'system', enabled: true, content: DEFAULT_PHONE_FORMAT_PROMPT }),
+        Object.freeze({ id: 'single_call-context', name: '来电任务与上下文', role: 'user', enabled: true, content: '{{任务上下文}}' }),
     ]),
-    track: Object.freeze([
-        Object.freeze({ id: 'track-director', name: '私聊导演', role: 'system', enabled: true, content: DEFAULT_TRACK_PROMPT }),
-        Object.freeze({ id: 'track-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
-        Object.freeze({ id: 'track-format', name: '输出协议', role: 'system', enabled: true, content: DEFAULT_TRACK_FORMAT_PROMPT }),
-        Object.freeze({ id: 'track-context', name: '追踪任务与上下文', role: 'user', enabled: true, content: '{{任务上下文}}' }),
+    group_call: Object.freeze([
+        Object.freeze({ id: 'group_call-director', name: '私聊导演', role: 'system', enabled: true, content: DEFAULT_TRACK_PROMPT }),
+        Object.freeze({ id: 'group_call-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
+        Object.freeze({ id: 'group_call-format', name: '输出协议', role: 'system', enabled: true, content: DEFAULT_TRACK_FORMAT_PROMPT }),
+        Object.freeze({ id: 'group_call-context', name: '追踪任务与上下文', role: 'user', enabled: true, content: '{{任务上下文}}' }),
     ]),
     chat: Object.freeze([
         Object.freeze({ id: 'chat-character', name: '手机私聊角色', role: 'system', enabled: true, content: DEFAULT_CHAT_PROMPT }),
@@ -225,7 +257,7 @@ const PHONE_SCHEMA = Object.freeze({
             tone: { type: 'string' },
             segments: {
                 type: 'array',
-                minItems: 1,
+                minItems: 4,
                 maxItems: 18,
                 items: {
                     type: 'object',
@@ -410,7 +442,7 @@ function createId(prefix) {
 }
 
 function cloneDefaultWorkflowEntries(kind) {
-    return clone(DEFAULT_PROMPT_WORKFLOWS[kind] || DEFAULT_PROMPT_WORKFLOWS.chat);
+    return clone(DEFAULT_PROMPT_WORKFLOWS[kind] || []);
 }
 
 function sanitizePromptEntries(entries, kind) {
@@ -697,7 +729,18 @@ function ensureStore() {
         const formatEntry = chatWorkflow.entries.find(entry => entry.id === 'chat-format');
         if (formatEntry) formatEntry.content = DEFAULT_CHAT_FORMAT_PROMPT;
     }
-    store.planner.schemaVersion = 14;
+    if (storedSchemaVersion < 15) {
+        // 迁移：把单人电话工作流里旧版“来电导演/输出协议”升级为硬约束版本。
+        const upgradeSingleCall = workflow => {
+            const director = workflow.entries.find(entry => entry.id === 'phone-director' || entry.id === 'single_call-director' || entry.name === '来电导演');
+            if (director) director.content = DEFAULT_PHONE_PROMPT;
+            const format = workflow.entries.find(entry => entry.id === 'phone-format' || entry.id === 'single_call-format' || entry.name === '输出协议');
+            if (format) format.content = DEFAULT_PHONE_FORMAT_PROMPT;
+            workflow.presets.forEach(preset => upgradeSingleCall(preset));
+        };
+        upgradeSingleCall(store.promptWorkflows.single_call);
+    }
+    store.planner.schemaVersion = 15;
     if (!store.phoneChat.presets.some(item => item.id === store.phoneChat.settings.activePresetId)) {
         store.phoneChat.settings.activePresetId = '';
     }
@@ -1251,7 +1294,7 @@ async function testPromptWorkflow(kind) {
     const compiled = compilePromptWorkflow(kind);
     const blocking = compiled.issues.find(issue => issue.severity === 'error');
     if (blocking) throw new Error(blocking.message);
-    const schemas = { phone: PHONE_SCHEMA, group_call: GROUP_CALL_PHONE_SCHEMA, chat: CHAT_SCHEMA };
+    const schemas = { phone: PHONE_SCHEMA, single_call: PHONE_SCHEMA, group_call: GROUP_CALL_PHONE_SCHEMA, chat: CHAT_SCHEMA };
     const raw = await callPlanner('', '', schemas[kind], compiled.messages.map(({ role, content }) => ({ role, content })));
     let output = raw;
     if (kind !== 'body') output = extractStructuredResult(raw, kind);
@@ -2401,10 +2444,10 @@ async function requestStructuredResult({ systemPrompt = '', prompt = '', message
             const raw = await callPlanner(`${systemPrompt}${repairNote}`, prompt, schema, orderedMessages);
             const result = extractStructuredResult(raw, kind);
             const segments = result?.segments || result?.dialogue || result?.lines;
-            if (kind === 'phone' && (!Array.isArray(segments) || segments.length < minimumSegments)) {
+            if (['phone', 'single_call'].includes(kind) && (!Array.isArray(segments) || segments.length < minimumSegments)) {
                 throw new Error(`来电台词只有 ${Array.isArray(segments) ? segments.length : 0} 句，少于所选长度要求的 ${minimumSegments} 句。`);
             }
-            if (kind === 'group_call' && (!Array.isArray(segments) || segments.length < minimumSegments)) {
+            if (['group_call', 'track'].includes(kind) && (!Array.isArray(segments) || segments.length < minimumSegments)) {
                 throw new Error(`多人通话只有 ${Array.isArray(segments) ? segments.length : 0} 段，需要至少 ${minimumSegments} 段。`);
             }
             if (requireChineseTranslations && Array.isArray(segments)) {
