@@ -5519,7 +5519,6 @@
 .voice-speaker-fold progress { width: 100%; accent-color: var(--voice-cyan); }
 
 /* ── Phonie 正文 TTS 播放控件（[TTS:…] 标签渲染）────────────────── */
-.phonie-body-tts-text { white-space: pre-wrap; }
 .phonie-body-speech {
     display: inline-flex;
     align-items: center;

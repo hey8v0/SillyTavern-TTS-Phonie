@@ -107,22 +107,21 @@ function processRenderedMessages() {
         const speeches = segments.filter(segment => segment.type === 'speech');
         if (!speeches.length) {
             // 编辑后不再有标签：清掉我们的签名标记，让酒馆自己渲染纯文本。
-            if (element.dataset.phonieSig) {
-                delete element.dataset.phonieSig;
-                textElement.classList.remove('phonie-body-tts-text');
-            }
+            if (element.dataset.phonieSig) delete element.dataset.phonieSig;
             return;
         }
         if (!flags.enabled) return; // 总开关关闭：不解析、不装饰、不生成。
         const signature = speechSignature(speeches);
-        if (element.dataset.phonieSig === signature) {
+        // 酒馆的小铅笔会保留 .mes 元素但重建 .mes_text，因此“签名相同”不代表 DOM 仍已装饰，
+        // 必须同时确认正文里还有我们的播放按钮，否则重新扫描替换。
+        const alreadyDecorated = Boolean(textElement.querySelector('.phonie-body-speech'));
+        if (element.dataset.phonieSig === signature && alreadyDecorated) {
             if (flags.autoRender) prerenderBodyAudio(speeches);
             return;
         }
         // 小铅笔编辑 / 滑动重选后 ST 会重新渲染 .mes_text，标签重新出现在文字节点里。
         if (decorateExistingTextNodes(textElement) > 0) {
             element.dataset.phonieSig = signature;
-            textElement.classList.add('phonie-body-tts-text');
             try {
                 message.extra = message.extra || {};
                 message.extra.phonie_v2 = {
