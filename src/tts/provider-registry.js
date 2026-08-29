@@ -413,6 +413,7 @@ function ensureStore() {
             : null,
         triggerDock: store.ui?.triggerDock === 'left' ? 'left' : 'right',
         homePage: Number(store.ui?.homePage) === 1 ? 1 : 0,
+        launcherMode: ['orb', 'wand', 'both'].includes(store.ui?.launcherMode) ? store.ui.launcherMode : 'both',
         customTheme: {
             bg: String(store.ui?.customTheme?.bg || ''),
             surface: String(store.ui?.customTheme?.surface || ''),
@@ -912,6 +913,9 @@ function updateUiSettings(updates = {}) {
     }
     if (updates.triggerDock !== undefined) {
         store.ui.triggerDock = updates.triggerDock === 'left' ? 'left' : 'right';
+    }
+    if (updates.launcherMode !== undefined) {
+        store.ui.launcherMode = ['orb', 'wand', 'both'].includes(updates.launcherMode) ? updates.launcherMode : 'both';
     }
     if (updates.homePage !== undefined) {
         store.ui.homePage = Number(updates.homePage) === 1 ? 1 : 0;

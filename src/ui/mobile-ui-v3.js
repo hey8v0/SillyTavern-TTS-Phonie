@@ -1506,6 +1506,15 @@ function renderSettingsDisplayPage() {
                     </select>
                     <small>悬浮球可拖动，松开后自动贴到这一侧。</small>
                 </label>
+                <label class="voice-field" for="tts-launcher-mode">
+                    <span class="voice-field-label">打开入口</span>
+                    <select id="tts-launcher-mode" name="launcherMode">
+                        <option value="orb" ${getLauncherMode() === 'orb' ? 'selected' : ''}>悬浮球</option>
+                        <option value="wand" ${getLauncherMode() === 'wand' ? 'selected' : ''}>酒馆魔棒菜单</option>
+                        <option value="both" ${getLauncherMode() === 'both' ? 'selected' : ''}>两者都显示</option>
+                    </select>
+                    <small>魔棒菜单在部分新版酒馆中已并入扩展面板。</small>
+                </label>
                 <label class="voice-field" for="tts-planner-output-language">
                     <span class="voice-field-label">台词生成语言</span>
                     <select id="tts-planner-output-language" name="outputLanguage">
@@ -3098,6 +3107,72 @@ function bindScrollVisibility(screen) {
         window.clearTimeout(state.scrollIdleTimer);
         state.scrollIdleTimer = window.setTimeout(() => screen.classList.remove('is-scrollbar-visible'), 650);
     }, { passive: true });
+}
+
+function getLauncherMode() {
+    const mode = TTS_ProviderRegistry.getUiSettings()?.launcherMode;
+    return ['orb', 'wand', 'both'].includes(mode) ? mode : 'both';
+}
+
+function applyLauncherVisibility() {
+    const mode = getLauncherMode();
+    const trigger = document.getElementById('tts-mobile-trigger');
+    if (trigger) trigger.style.display = mode === 'wand' ? 'none' : '';
+    const wandItem = document.getElementById('phonie-wand-menu-item');
+    if (wandItem) wandItem.hidden = mode === 'orb';
+    const modeSelect = document.getElementById('phonie-launcher-mode');
+    if (modeSelect) modeSelect.value = mode;
+}
+
+function mountSettingsLauncher(attempt = 0) {
+    if (document.getElementById('phonie-settings-launcher')) return;
+    const container = document.getElementById('extensions_settings') || document.getElementById('extensions_settings2');
+    if (!container) {
+        if (attempt < 10) window.setTimeout(() => mountSettingsLauncher(attempt + 1), 700);
+        return;
+    }
+    const launcher = document.createElement('div');
+    launcher.id = 'phonie-settings-launcher';
+    launcher.className = 'extension_container phonie-settings-launcher';
+    launcher.innerHTML = `<div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Phonie 声纹手机</b><div class="inline-drawer-icon down">${icon('chevronRight', 18)}</div></div><div class="inline-drawer-content"><label for="phonie-launcher-mode">打开入口</label><select id="phonie-launcher-mode" class="text_pole"><option value="orb">悬浮球</option><option value="wand">酒馆魔棒菜单</option><option value="both">两者都显示</option></select><button class="menu_button" type="button" data-launcher-open><span>打开手机</span></button></div></div>`;
+    launcher.querySelector('[data-launcher-open]')?.addEventListener('click', () => TTS_Mobile.open());
+    launcher.querySelector('#phonie-launcher-mode')?.addEventListener('change', event => {
+        TTS_ProviderRegistry.updateUiSettings({ launcherMode: event.currentTarget.value });
+        applyLauncherVisibility();
+    });
+    container.append(launcher);
+    applyLauncherVisibility();
+}
+
+function mountWandLauncher(attempt = 0) {
+    if (document.getElementById('phonie-wand-menu-item')) return;
+    const container = document.getElementById('extensionsMenu') || document.getElementById('tts_wand_container');
+    if (!container) {
+        if (attempt < 10) window.setTimeout(() => mountWandLauncher(attempt + 1), 700);
+        return;
+    }
+    const item = document.createElement('div');
+    item.id = 'phonie-wand-menu-item';
+    item.className = 'list-group-item flex-container flexGap5 phonie-wand-menu-item';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.innerHTML = `<div class="extensionsMenuExtensionButton">${icon('phone', 18)}</div><span>Phonie 手机</span>`;
+    const open = () => TTS_Mobile.open();
+    item.addEventListener('click', open);
+    item.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open();
+        }
+    });
+    container.append(item);
+    applyLauncherVisibility();
+}
+
+function mountPhonieLaunchers() {
+    mountSettingsLauncher();
+    mountWandLauncher();
+    applyLauncherVisibility();
 }
 
 function buildShell() {
@@ -5510,6 +5585,10 @@ function bindEvents(eventRoot) {
             applyTheme(form.elements.theme.value);
             TTS_ProviderRegistry.updateUiSettings({ triggerDock: form.elements.triggerDock.value });
             state.triggerDock = form.elements.triggerDock.value;
+            if (form.elements.launcherMode) {
+                TTS_ProviderRegistry.updateUiSettings({ launcherMode: form.elements.launcherMode.value });
+                applyLauncherVisibility();
+            }
             updateView();
             announce('显示与语言设置已保存');
             return;
@@ -5935,6 +6014,7 @@ export const TTS_Mobile = {
         FrontendVoiceTools.init();
         if (!savedUiSettings.theme) TTS_ProviderRegistry.updateUiSettings({ theme: state.theme });
         buildShell();
+        mountPhonieLaunchers();
         startClock();
         startSystemStatus();
         loadDrawingGallery();

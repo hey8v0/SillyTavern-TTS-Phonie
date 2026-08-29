@@ -5547,6 +5547,24 @@
 .phonie-body-speech.is-playing svg.is-pause { display: block; }
 @keyframes phonie-body-spin { to { transform: rotate(360deg); } }
 
+/* ── 酒馆魔棒菜单与扩展设置入口 ───────────────────────────────────── */
+.phonie-wand-menu-item { cursor: pointer; }
+.phonie-wand-menu-item .extensionsMenuExtensionButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-right: 6px;
+    border-radius: 8px;
+    color: hsl(30 69% 64%);
+    background: hsl(32 62% 56% / .12);
+}
+.phonie-settings-launcher .inline-drawer-content { display: flex; align-items: center; gap: 8px; }
+.phonie-settings-launcher .inline-drawer-content label { margin: 0; font-size: 13px; }
+.phonie-settings-launcher .inline-drawer-content select { max-width: 180px; }
+.phonie-settings-launcher .inline-drawer-content button { margin: 0; }
+
 /* ── PLAN 对齐：通话记录库 / 生图画廊 / 表情包卡片 ────────────────── */
 .voice-tracks-filter { display: flex; gap: 6px; margin: 0 0 10px; }
 .voice-tracks-filter button {
