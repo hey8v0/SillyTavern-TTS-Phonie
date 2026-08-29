@@ -4095,18 +4095,21 @@ async function generatePendingPhoneChatReply() {
     state.featureBusy = 'phone-chat';
     state.chatActionId = '';
     updateView();
+    let proactiveCall = null;
     try {
         const result = await FrontendVoiceTools.generatePhoneChatReply();
         state.chatScrollToBottom = true;
         const voiceCount = result.assistantMessages.filter(message => message.type === 'voice').length;
         announce(`${result.assistantMessages.length} 条角色消息已送达${voiceCount ? `，其中 ${voiceCount} 条语音` : ''}`);
-        maybeStartProactiveCall(result.proactiveCall);
+        proactiveCall = result.proactiveCall || null;
     } catch (error) {
         announce(error.message || '手机聊天回复生成失败');
     } finally {
         state.featureBusy = null;
         updateView();
     }
+    // 必须先清掉 busy 再触发主动来电，否则 maybeStartProactiveCall 的忙碌守卫会直接返回。
+    if (proactiveCall) maybeStartProactiveCall(proactiveCall);
 }
 
 function maybeStartProactiveCall(proactiveCall) {
