@@ -1282,6 +1282,16 @@ function renderDrawingPanel() {
                     <small>最终正面词顺序固定为：前置 + 动态 + 后置。</small>
                 </label>
                 <button class="voice-button secondary wide" type="button" data-generate-drawing-tags ${busy ? 'disabled' : ''}>${icon(busy ? 'activity' : 'spark', 16)} ${busy ? '正在生成' : '生成动态 Tag'}</button>
+                <div class="voice-section-heading compact"><div><span>NovelAI 密钥</span><h2>安全保存</h2></div></div>
+                <label class="voice-field" for="tts-drawing-novel-token">
+                    <span class="voice-field-label">Persistent API Token</span>
+                    <div class="voice-secret-row">
+                        <input id="tts-drawing-novel-token" type="password" autocomplete="new-password" placeholder="保存后不会回显">
+                        <button type="button" class="voice-button secondary" data-save-novelai-token>${icon('check', 15)} 安全保存</button>
+                    </div>
+                    <small>Token 保存到酒馆安全密钥槽，不写入 Phonie 设置。</small>
+                </label>
+                <button type="button" class="voice-button secondary wide manage-api-keys" data-key="api_key_novel">${icon('key', 16)} 管理已保存密钥</button>
                 <div class="voice-section-heading compact"><div><span>NovelAI 参数</span><h2>模型与采样</h2></div></div>
                 <div class="voice-drawing-params">
                     <label class="voice-field" for="tts-drawing-model">
@@ -4295,6 +4305,19 @@ async function generateProactivePhoneChat() {
     announce('主动来电会根据聊天情境由角色自己发起。');
 }
 
+async function saveNovelAiToken(value) {
+    const token = String(value || '').trim();
+    if (!token) throw new Error('请输入 NovelAI Persistent API Token');
+    const secrets = await import('/scripts/secrets.js');
+    const key = secrets.SECRET_KEYS?.NOVEL || 'api_key_novel';
+    if (typeof secrets.writeSecret !== 'function') {
+        throw new Error('当前 SillyTavern 不支持安全保存 NovelAI Token');
+    }
+    const result = await secrets.writeSecret(key, token, 'Phonie · NovelAI Diffusion');
+    if (!result) throw new Error('NovelAI Token 保存失败');
+    return true;
+}
+
 function bindEvents(eventRoot) {
     eventRoot.addEventListener('click', async event => {
         if (Date.now() < state.suppressHomeClickUntil && event.target.closest('[data-home-pages]')) {
@@ -5053,6 +5076,18 @@ function bindEvents(eventRoot) {
             return;
         }
 
+        const saveNovelTokenButton = event.target.closest('[data-save-novelai-token]');
+        if (saveNovelTokenButton) {
+            const input = document.getElementById('tts-drawing-novel-token');
+            try {
+                await saveNovelAiToken(input?.value);
+                if (input) input.value = '';
+                announce('NovelAI Token 已保存到酒馆安全密钥槽');
+            } catch (error) {
+                announce(error?.message || 'NovelAI Token 保存失败');
+            }
+            return;
+        }
         const dialKey = event.target.closest('[data-dial-key]')?.dataset.dialKey;
         if (dialKey) {
             const input = document.getElementById('tts-dial-input');
@@ -5654,29 +5689,32 @@ function bindEvents(eventRoot) {
             state.featureBusy = 'novelai-draw';
             updateView();
             try {
-                const response = await fetch('/api/novelai/generate', {
+                const response = await fetch('/api/novelai/generate-image', {
                     method: 'POST',
                     headers: { ...getRequestHeaders(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        input: prompt,
+                        prompt,
                         model: form.elements.model.value,
-                        parameters: {
-                            width,
-                            height,
-                            scale: Number(form.elements.guidance.value) || 5,
-                            sampler: form.elements.sampler.value,
-                            scheduler: form.elements.scheduler.value,
-                            steps,
-                            seed: Number(form.elements.seed.value) || -1,
-                            uncond_scale: Number(form.elements.rescale.value) || 0,
-                            cfg_rescale: Number(form.elements.rescale.value) || 0,
-                            decrisper: Number(form.elements.decrisper.value) || 0,
-                            negative_prompt: form.elements.negative.value.trim(),
-                        },
+                        width,
+                        height,
+                        negative_prompt: form.elements.negative.value.trim(),
+                        scale: Number(form.elements.guidance.value) || 5,
+                        sampler: form.elements.sampler.value,
+                        scheduler: form.elements.scheduler.value,
+                        steps,
+                        seed: Number(form.elements.seed.value) || -1,
+                        decrisper: Number(form.elements.decrisper.value) > 0,
                     }),
                 });
                 if (!response.ok) throw new Error(`NovelAI 返回 ${response.status}`);
-                const blob = await response.blob();
+                // 酒馆 /generate-image 返回 PNG 的 Base64 字符串，需转成 Blob 再入库。
+                const base64 = (await response.text())
+                    .replace(/^data:image\/\w+;base64,/, '')
+                    .trim();
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+                const blob = new Blob([bytes], { type: 'image/png' });
                 const key = `img-${Date.now().toString(36)}`;
                 await TTS_ImageCache.put(key, blob, { description: dynamic });
                 if (state.drawingLastImage?.startsWith('blob:')) URL.revokeObjectURL(state.drawingLastImage);
