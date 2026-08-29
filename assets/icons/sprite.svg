@@ -1,144 +1,394 @@
-<svg xmlns="http://www.w3.org/2000/svg">
-  <symbol id="phonie-wave" viewBox="0 0 24 24">
-    <path d="M4 13.5v-3M8 17V7m4 12V5m4 12V7m4 6.5v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+﻿<svg xmlns="http://www.w3.org/2000/svg">
+  <s
+ymbol id="phonie-wave" viewBox="0 0 24 24">
+ 
+   <path d="M4 13.5v-3M8 17V7m4 12V5m4 12V7m4
+ 6.5v-3" fill="none" stroke="currentColor" st
+roke-width="1.8" stroke-linecap="round"/>
+  <
+/symbol>
+  <symbol id="phonie-message" viewBo
+x="0 0 24 24">
+    <path d="M5 5.5h14v10.2H9.
+2L5 19V5.5Z" fill="none" stroke="currentColor
+" stroke-width="1.7" stroke-linejoin="round"/
+>
   </symbol>
-  <symbol id="phonie-message" viewBox="0 0 24 24">
-    <path d="M5 5.5h14v10.2H9.2L5 19V5.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+  <symbol id="phonie-phone" vie
+wBox="0 0 24 24">
+    <path d="M7.2 4.2 9.8 8
+ 8.2 9.6c1.1 2.5 3.7 5.1 6.2 6.2l1.6-1.6 3.8 
+2.6-.9 2.7c-.3.8-1.1 1.3-2 1.2C10 19.8 4.2 14
+ 3.3 7.1c-.1-.9.4-1.7 1.2-2l2.7-.9Z" fill="no
+ne" stroke="currentColor" stroke-width="1.7" 
+stroke-linecap="round" stroke-linejoin="round
+"/>
   </symbol>
-  <symbol id="phonie-phone" viewBox="0 0 24 24">
-    <path d="M7.2 4.2 9.8 8 8.2 9.6c1.1 2.5 3.7 5.1 6.2 6.2l1.6-1.6 3.8 2.6-.9 2.7c-.3.8-1.1 1.3-2 1.2C10 19.8 4.2 14 3.3 7.1c-.1-.9.4-1.7 1.2-2l2.7-.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id="phonie-settings
+" viewBox="0 0 24 24">
+    <path d="M9.7 3.8h
+4.6l.6 2.2c.5.2.9.4 1.3.7l2.2-.7 2.3 4-1.7 1.
+5v1l1.7 1.5-2.3 4-2.2-.7c-.4.3-.8.5-1.3.7l-.6
+ 2.2H9.7L9.1 18c-.5-.2-.9-.4-1.3-.7l-2.2.7-2.
+3-4L5 12.5v-1L3.3 10l2.3-4 2.2.7c.4-.3.8-.5 1
+.3-.7l.6-2.2Z" fill="none" stroke="currentCol
+or" stroke-width="1.55" stroke-linejoin="roun
+d"/>
+    <circle cx="12" cy="12" r="3.1" fill
+="none" stroke="currentColor" stroke-width="1
+.65"/>
   </symbol>
-  <symbol id="phonie-settings" viewBox="0 0 24 24">
-    <path d="M9.7 3.8h4.6l.6 2.2c.5.2.9.4 1.3.7l2.2-.7 2.3 4-1.7 1.5v1l1.7 1.5-2.3 4-2.2-.7c-.4.3-.8.5-1.3.7l-.6 2.2H9.7L9.1 18c-.5-.2-.9-.4-1.3-.7l-2.2.7-2.3-4L5 12.5v-1L3.3 10l2.3-4 2.2.7c.4-.3.8-.5 1.3-.7l.6-2.2Z" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
-    <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.65"/>
+  <symbol id="phonie-close
+" viewBox="0 0 24 24">
+    <path d="m7 7 10 1
+0M17 7 7 17" fill="none" stroke="currentColor
+" stroke-width="1.8" stroke-linecap="round"/>
+
   </symbol>
-  <symbol id="phonie-close" viewBox="0 0 24 24">
-    <path d="m7 7 10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <symbol id="phonie-send" viewB
+ox="0 0 24 24">
+    <path d="m4 5 16 7-16 7 2
+.7-7L4 5Zm2.7 7H20" fill="none" stroke="curre
+ntColor" stroke-width="1.7" stroke-linecap="r
+ound" stroke-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-send" viewBox="0 0 24 24">
-    <path d="m4 5 16 7-16 7 2.7-7L4 5Zm2.7 7H20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+ 
+ <symbol id="phonie-play" viewBox="0 0 24 24"
+>
+    <path d="m9 7 8 5-8 5V7Z" fill="current
+Color"/>
   </symbol>
-  <symbol id="phonie-play" viewBox="0 0 24 24">
-    <path d="m9 7 8 5-8 5V7Z" fill="currentColor"/>
+  <symbol id="phonie-pau
+se" viewBox="0 0 24 24">
+    <path d="M8.5 7v
+10M15.5 7v10" fill="none" stroke="currentColo
+r" stroke-width="2" stroke-linecap="round"/>
+
   </symbol>
-  <symbol id="phonie-pause" viewBox="0 0 24 24">
-    <path d="M8.5 7v10M15.5 7v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <symbol id="phonie-end-call" vi
+ewBox="0 0 24 24">
+    <path d="M4.5 14.5c4.7
+-3.4 10.3-3.4 15 0l-2.2 3.2-3-1.6v-2c-1.5-.4-
+3.1-.4-4.6 0v2l-3 1.6-2.2-3.2Z" fill="none" s
+troke="currentColor" stroke-width="1.7" strok
+e-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-end-call" viewBox="0 0 24 24">
-    <path d="M4.5 14.5c4.7-3.4 10.3-3.4 15 0l-2.2 3.2-3-1.6v-2c-1.5-.4-3.1-.4-4.6 0v2l-3 1.6-2.2-3.2Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+  <symbol id
+="phonie-caption" viewBox="0 0 24 24">
+    <r
+ect x="4" y="6" width="16" height="12" rx="2"
+ fill="none" stroke="currentColor" stroke-wid
+th="1.7"/>
+    <path d="M7.5 10h4M7.5 14h3M13
+ 10h3.5M12 14h4.5" fill="none" stroke="curren
+tColor" stroke-width="1.5" stroke-linecap="ro
+und"/>
   </symbol>
-  <symbol id="phonie-caption" viewBox="0 0 24 24">
-    <rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-    <path d="M7.5 10h4M7.5 14h3M13 10h3.5M12 14h4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <symbol id="phonie-chevr
+on" viewBox="0 0 24 24">
+    <path d="m9 6 6 
+6-6 6" fill="none" stroke="currentColor" stro
+ke-width="1.8" stroke-linecap="round" stroke-
+linejoin="round"/>
   </symbol>
-  <symbol id="phonie-chevron" viewBox="0 0 24 24">
-    <path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id="
+phonie-trash" viewBox="0 0 24 24">
+    <path 
+d="M7 7h10l-.6 13H7.6L7 7Zm-2 0h14M9 7V4h6v3M
+10 10v6M14 10v6" fill="none" stroke="currentC
+olor" stroke-width="1.6" stroke-linecap="roun
+d" stroke-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-trash" viewBox="0 0 24 24">
-    <path d="M7 7h10l-.6 13H7.6L7 7Zm-2 0h14M9 7V4h6v3M10 10v6M14 10v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <s
+ymbol id="phonie-home" viewBox="0 0 24 24">
+ 
+   <path d="m4 11 8-7 8 7v9h-6v-5h-4v5H4v-9Z"
+ fill="none" stroke="currentColor" stroke-wid
+th="1.7" stroke-linejoin="round"/>
+  </symbol
+>
+  <symbol id="phonie-headphones" viewBox="0
+ 0 24 24">
+    <path d="M4 13v-2a8 8 0 0 1 16
+ 0v2M4 13v5h3v-6H5a1 1 0 0 0-1 1Zm16 0v5h-3v-
+6h2a1 1 0 0 1 1 1Z" fill="none" stroke="curre
+ntColor" stroke-width="1.7" stroke-linecap="r
+ound" stroke-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-home" viewBox="0 0 24 24">
-    <path d="m4 11 8-7 8 7v9h-6v-5h-4v5H4v-9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+ 
+ <symbol id="phonie-spark" viewBox="0 0 24 24
+">
+    <path d="M12 3c.7 5.2 3.8 8.3 9 9-5.2.
+7-8.3 3.8-9 9-.7-5.2-3.8-8.3-9-9 5.2-.7 8.3-3
+.8 9-9Z" fill="none" stroke="currentColor" st
+roke-width="1.6" stroke-linejoin="round"/>
+  
+  <path d="M18.5 3.5v4M20.5 5.5h-4" fill="non
+e" stroke="currentColor" stroke-width="1.4" s
+troke-linecap="round"/>
   </symbol>
-  <symbol id="phonie-headphones" viewBox="0 0 24 24">
-    <path d="M4 13v-2a8 8 0 0 1 16 0v2M4 13v5h3v-6H5a1 1 0 0 0-1 1Zm16 0v5h-3v-6h2a1 1 0 0 1 1 1Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol
+ id="phonie-person" viewBox="0 0 24 24">
+    
+<circle cx="12" cy="8" r="3.2" fill="none" st
+roke="currentColor" stroke-width="1.7"/>
+    
+<path d="M5.5 20c.7-4.1 3-6.2 6.5-6.2s5.8 2.1
+ 6.5 6.2" fill="none" stroke="currentColor" s
+troke-width="1.7" stroke-linecap="round"/>
+  
+</symbol>
+  <symbol id="phonie-layers" viewBo
+x="0 0 24 24">
+    <path d="m4 9 8-5 8 5-8 5-
+8-5Zm2.5 4 5.5 3.4 5.5-3.4M6.5 17l5.5 3.4 5.5
+-3.4" fill="none" stroke="currentColor" strok
+e-width="1.6" stroke-linecap="round" stroke-l
+inejoin="round"/>
   </symbol>
-  <symbol id="phonie-spark" viewBox="0 0 24 24">
-    <path d="M12 3c.7 5.2 3.8 8.3 9 9-5.2.7-8.3 3.8-9 9-.7-5.2-3.8-8.3-9-9 5.2-.7 8.3-3.8 9-9Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-    <path d="M18.5 3.5v4M20.5 5.5h-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+  <symbol id="p
+honie-sliders" viewBox="0 0 24 24">
+    <path
+ d="M5 4v5M5 15v5M12 4v9M12 19v1M19 4v2M19 12
+v8M3 12h4M10 16h4M17 9h4" fill="none" stroke=
+"currentColor" stroke-width="1.7" stroke-line
+cap="round"/>
   </symbol>
-  <symbol id="phonie-person" viewBox="0 0 24 24">
-    <circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-    <path d="M5.5 20c.7-4.1 3-6.2 6.5-6.2s5.8 2.1 6.5 6.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <symbol id="phoni
+e-signal" viewBox="0 0 24 24">
+    <circle cx
+="12" cy="12" r="1.6" fill="currentColor"/>
+ 
+   <path d="M8.4 8.4a5.1 5.1 0 0 0 0 7.2M15.6
+ 8.4a5.1 5.1 0 0 1 0 7.2M5.6 5.6a9 9 0 0 0 0 
+12.8M18.4 5.6a9 9 0 0 1 0 12.8" fill="none" s
+troke="currentColor" stroke-width="1.5" strok
+e-linecap="round"/>
   </symbol>
-  <symbol id="phonie-layers" viewBox="0 0 24 24">
-    <path d="m4 9 8-5 8 5-8 5-8-5Zm2.5 4 5.5 3.4 5.5-3.4M6.5 17l5.5 3.4 5.5-3.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id=
+"phonie-wifi" viewBox="0 0 24 24">
+    <path 
+d="M4.5 9.5a11.2 11.2 0 0 1 15 0M7.4 12.6a7 7
+ 0 0 1 9.2 0M10.4 15.6a2.5 2.5 0 0 1 3.2 0" f
+ill="none" stroke="currentColor" stroke-width
+="1.7" stroke-linecap="round"/>
+    <circle c
+x="12" cy="18.3" r="1" fill="currentColor"/>
+
   </symbol>
-  <symbol id="phonie-sliders" viewBox="0 0 24 24">
-    <path d="M5 4v5M5 15v5M12 4v9M12 19v1M19 4v2M19 12v8M3 12h4M10 16h4M17 9h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <symbol id="phonie-battery" vie
+wBox="0 0 24 24">
+    <rect x="3.5" y="7.5" w
+idth="16" height="9" rx="2" fill="none" strok
+e="currentColor" stroke-width="1.5"/>
+    <pa
+th d="M21 10.2v3.6M6 10h9v4H6z" fill="current
+Color"/>
   </symbol>
-  <symbol id="phonie-signal" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-    <path d="M8.4 8.4a5.1 5.1 0 0 0 0 7.2M15.6 8.4a5.1 5.1 0 0 1 0 7.2M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <symbol id="phonie-bac
+k" viewBox="0 0 24 24">
+    <path d="m14.5 5-
+7 7 7 7" fill="none" stroke="currentColor" st
+roke-width="1.9" stroke-linecap="round" strok
+e-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-wifi" viewBox="0 0 24 24">
-    <path d="M4.5 9.5a11.2 11.2 0 0 1 15 0M7.4 12.6a7 7 0 0 1 9.2 0M10.4 15.6a2.5 2.5 0 0 1 3.2 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
-    <circle cx="12" cy="18.3" r="1" fill="currentColor"/>
+  <symbol id
+="phonie-plus" viewBox="0 0 24 24">
+    <path
+ d="M12 5v14M5 12h14" fill="none" stroke="cur
+rentColor" stroke-width="1.8" stroke-linecap=
+"round"/>
   </symbol>
-  <symbol id="phonie-battery" viewBox="0 0 24 24">
-    <rect x="3.5" y="7.5" width="16" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <path d="M21 10.2v3.6M6 10h9v4H6z" fill="currentColor"/>
+  <symbol id="phonie-re
+set" viewBox="0 0 24 24">
+    <path d="M5.2 8
+.2A8 8 0 1 1 4 14M5.2 8.2V4.5M5.2 8.2h3.7" fi
+ll="none" stroke="currentColor" stroke-width=
+"1.7" stroke-linecap="round" stroke-linejoin=
+"round"/>
   </symbol>
-  <symbol id="phonie-back" viewBox="0 0 24 24">
-    <path d="m14.5 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id="phonie-dr
+ag" viewBox="0 0 24 24">
+    <circle cx="8" c
+y="6" r="1.2" fill="currentColor"/><circle cx
+="16" cy="6" r="1.2" fill="currentColor"/><ci
+rcle cx="8" cy="12" r="1.2" fill="currentColo
+r"/><circle cx="16" cy="12" r="1.2" fill="cur
+rentColor"/><circle cx="8" cy="18" r="1.2" fi
+ll="currentColor"/><circle cx="16" cy="18" r=
+"1.2" fill="currentColor"/>
   </symbol>
-  <symbol id="phonie-plus" viewBox="0 0 24 24">
-    <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <sy
+mbol id="phonie-sun" viewBox="0 0 24 24">
+   
+ <circle cx="12" cy="12" r="4.2" fill="none" 
+stroke="currentColor" stroke-width="1.7"/>
+  
+  <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 
+12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5
+.3l-1.4 1.4M6.7 17.3l-1.4 1.4" fill="none" st
+roke="currentColor" stroke-width="1.7" stroke
+-linecap="round"/>
   </symbol>
-  <symbol id="phonie-reset" viewBox="0 0 24 24">
-    <path d="M5.2 8.2A8 8 0 1 1 4 14M5.2 8.2V4.5M5.2 8.2h3.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id="
+phonie-moon" viewBox="0 0 24 24">
+    <path d
+="M19.4 15.2A8.1 8.1 0 0 1 8.8 4.6 8.2 8.2 0 
+1 0 19.4 15.2Z" fill="none" stroke="currentCo
+lor" stroke-width="1.7" stroke-linejoin="roun
+d"/>
   </symbol>
-  <symbol id="phonie-drag" viewBox="0 0 24 24">
-    <circle cx="8" cy="6" r="1.2" fill="currentColor"/><circle cx="16" cy="6" r="1.2" fill="currentColor"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="16" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="18" r="1.2" fill="currentColor"/><circle cx="16" cy="18" r="1.2" fill="currentColor"/>
+  <symbol id="phonie-stars" 
+viewBox="0 0 24 24">
+    <path d="M9 3.5c.5 3
+.1 2.4 5 5.5 5.5-3.1.5-5 2.4-5.5 5.5C8.5 11.4
+ 6.6 9.5 3.5 9 6.6 8.5 8.5 6.6 9 3.5ZM17.5 13
+c.3 2 1.5 3.2 3.5 3.5-2 .3-3.2 1.5-3.5 3.5-.3
+-2-1.5-3.2-3.5-3.5 2-.3 3.2-1.5 3.5-3.5Z" fil
+l="none" stroke="currentColor" stroke-width="
+1.55" stroke-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-sun" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
-    <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+ 
+ <symbol id="phonie-accept-call" viewBox="0 0
+ 24 24">
+    <path d="M7.2 4.2 9.8 8 8.2 9.6c
+1.1 2.5 3.7 5.1 6.2 6.2l1.6-1.6 3.8 2.6-.9 2.
+7c-.3.8-1.1 1.3-2 1.2C10 19.8 4.2 14 3.3 7.1c
+-.1-.9.4-1.7 1.2-2l2.7-.9Z" fill="none" strok
+e="currentColor" stroke-width="1.7" stroke-li
+necap="round" stroke-linejoin="round"/>
+  </s
+ymbol>
+  <symbol id="phonie-microphone" viewB
+ox="0 0 24 24">
+    <rect x="8.2" y="3" width
+="7.6" height="12" rx="3.8" fill="none" strok
+e="currentColor" stroke-width="1.7"/>
+    <pa
+th d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.
+5 21h7" fill="none" stroke="currentColor" str
+oke-width="1.7" stroke-linecap="round"/>
+  </
+symbol>
+  <symbol id="phonie-speaker" viewBox
+="0 0 24 24">
+    <path d="M4 10h4l5-4v12l-5-
+4H4v-4Z" fill="none" stroke="currentColor" st
+roke-width="1.7" stroke-linejoin="round"/>
+  
+  <path d="M16 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8
+ 8 0 0 1 0 11" fill="none" stroke="currentCol
+or" stroke-width="1.6" stroke-linecap="round"
+/>
   </symbol>
-  <symbol id="phonie-moon" viewBox="0 0 24 24">
-    <path d="M19.4 15.2A8.1 8.1 0 0 1 8.8 4.6 8.2 8.2 0 1 0 19.4 15.2Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+  <symbol id="phonie-keypad" v
+iewBox="0 0 24 24">
+    <g fill="currentColor
+"><circle cx="7" cy="6" r="1.3"/><circle cx="
+12" cy="6" r="1.3"/><circle cx="17" cy="6" r=
+"1.3"/><circle cx="7" cy="11" r="1.3"/><circl
+e cx="12" cy="11" r="1.3"/><circle cx="17" cy
+="11" r="1.3"/><circle cx="7" cy="16" r="1.3"
+/><circle cx="12" cy="16" r="1.3"/><circle cx
+="17" cy="16" r="1.3"/><circle cx="12" cy="21
+" r="1.3"/></g>
   </symbol>
-  <symbol id="phonie-stars" viewBox="0 0 24 24">
-    <path d="M9 3.5c.5 3.1 2.4 5 5.5 5.5-3.1.5-5 2.4-5.5 5.5C8.5 11.4 6.6 9.5 3.5 9 6.6 8.5 8.5 6.6 9 3.5ZM17.5 13c.3 2 1.5 3.2 3.5 3.5-2 .3-3.2 1.5-3.5 3.5-.3-2-1.5-3.2-3.5-3.5 2-.3 3.2-1.5 3.5-3.5Z" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round"/>
+  <symbol id="pho
+nie-bolt" viewBox="0 0 24 24">
+    <path d="m
+13.5 2.5-7 11H12l-1.5 8 7-11H12l1.5-8Z" fill=
+"currentColor"/>
   </symbol>
-  <symbol id="phonie-accept-call" viewBox="0 0 24 24">
-    <path d="M7.2 4.2 9.8 8 8.2 9.6c1.1 2.5 3.7 5.1 6.2 6.2l1.6-1.6 3.8 2.6-.9 2.7c-.3.8-1.1 1.3-2 1.2C10 19.8 4.2 14 3.3 7.1c-.1-.9.4-1.7 1.2-2l2.7-.9Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id="ph
+onie-image" viewBox="0 0 24 24">
+    <rect x=
+"3.5" y="4.5" width="17" height="15" rx="2.5"
+ fill="none" stroke="currentColor" stroke-wid
+th="1.7"/>
+    <circle cx="9" cy="10" r="1.6"
+ fill="none" stroke="currentColor" stroke-wid
+th="1.5"/>
+    <path d="m5.5 17 4.2-4 2.8 2.5
+ 2.3-2 3.7 3.5" fill="none" stroke="currentCo
+lor" stroke-width="1.6" stroke-linecap="round
+" stroke-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-microphone" viewBox="0 0 24 24">
-    <rect x="8.2" y="3" width="7.6" height="12" rx="3.8" fill="none" stroke="currentColor" stroke-width="1.7"/>
-    <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  <sy
+mbol id="phonie-wallet" viewBox="0 0 24 24">
+
+    <path d="M4 6.5h14.5A1.5 1.5 0 0 1 20 8v1
+0H5.5A1.5 1.5 0 0 1 4 16.5v-10Zm0 2.5h16M15 1
+2h5v3h-5a1.5 1.5 0 1 1 0-3Z" fill="none" stro
+ke="currentColor" stroke-width="1.7" stroke-l
+inejoin="round"/>
   </symbol>
-  <symbol id="phonie-speaker" viewBox="0 0 24 24">
-    <path d="M4 10h4l5-4v12l-5-4H4v-4Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-    <path d="M16 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <symbol id="p
+honie-gift" viewBox="0 0 24 24">
+    <path d=
+"M4 10h16v10H4V10Zm-1-4h18v4H3V6Zm9 0v14M12 6
+C9 6 7.5 4.8 7.5 3.5S9.7 2 12 6Zm0 0c3 0 4.5-
+1.2 4.5-2.5S14.3 2 12 6Z" fill="none" stroke=
+"currentColor" stroke-width="1.6" stroke-line
+join="round"/>
   </symbol>
-  <symbol id="phonie-keypad" viewBox="0 0 24 24">
-    <g fill="currentColor"><circle cx="7" cy="6" r="1.3"/><circle cx="12" cy="6" r="1.3"/><circle cx="17" cy="6" r="1.3"/><circle cx="7" cy="11" r="1.3"/><circle cx="12" cy="11" r="1.3"/><circle cx="17" cy="11" r="1.3"/><circle cx="7" cy="16" r="1.3"/><circle cx="12" cy="16" r="1.3"/><circle cx="17" cy="16" r="1.3"/><circle cx="12" cy="21" r="1.3"/></g>
+  <symbol id="phon
+ie-quote" viewBox="0 0 24 24">
+    <path d="M
+5 6h14v9H9l-4 3V6Z" fill="none" stroke="curre
+ntColor" stroke-width="1.7" stroke-linejoin="
+round"/>
+    <path d="M8 10h8" fill="none" st
+roke="currentColor" stroke-width="1.5" stroke
+-linecap="round"/>
   </symbol>
-  <symbol id="phonie-bolt" viewBox="0 0 24 24">
-    <path d="m13.5 2.5-7 11H12l-1.5 8 7-11H12l1.5-8Z" fill="currentColor"/>
+  <symbol id="
+phonie-recall" viewBox="0 0 24 24">
+    <path
+ d="M8.5 8H4V3.5M4.5 7.5A8 8 0 1 1 4 15" fill
+="none" stroke="currentColor" stroke-width="1
+.7" stroke-linecap="round" stroke-linejoin="r
+ound"/>
   </symbol>
-  <symbol id="phonie-image" viewBox="0 0 24 24">
-    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
-    <circle cx="9" cy="10" r="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-    <path d="m5.5 17 4.2-4 2.8 2.5 2.3-2 3.7 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <symbol id="phonie-expo
+rt" viewBox="0 0 24 24">
+    <path d="M12 15V
+3m0 0L8 7m4-4 4 4M5 13v7h14v-7" fill="none" s
+troke="currentColor" stroke-width="1.7" strok
+e-linecap="round" stroke-linejoin="round"/>
+ 
+ </symbol>
+  <symbol id="phonie-download" vie
+wBox="0 0 24 24">
+    <path d="M12 3v11m0 0-4
+-4m4 4 4-4M5 16v4h14v-4" fill="none" stroke="
+currentColor" stroke-width="1.7" stroke-linec
+ap="round" stroke-linejoin="round"/>
+  </symb
+ol>
+  <symbol id="phonie-import" viewBox="0 0
+ 24 24">
+    <path d="M12 3v12m0 0-4-4m4 4 4-
+4M5 13v7h14v-7" fill="none" stroke="currentCo
+lor" stroke-width="1.7" stroke-linecap="round
+" stroke-linejoin="round"/>
   </symbol>
-  <symbol id="phonie-wallet" viewBox="0 0 24 24">
-    <path d="M4 6.5h14.5A1.5 1.5 0 0 1 20 8v10H5.5A1.5 1.5 0 0 1 4 16.5v-10Zm0 2.5h16M15 12h5v3h-5a1.5 1.5 0 1 1 0-3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+  <sy
+mbol id="phonie-check" viewBox="0 0 24 24">
+ 
+   <path d="m5 12.5 4.2 4.2L19 7" fill="none"
+ stroke="currentColor" stroke-width="1.9" str
+oke-linecap="round" stroke-linejoin="round"/>
+
   </symbol>
-  <symbol id="phonie-gift" viewBox="0 0 24 24">
-    <path d="M4 10h16v10H4V10Zm-1-4h18v4H3V6Zm9 0v14M12 6C9 6 7.5 4.8 7.5 3.5S9.7 2 12 6Zm0 0c3 0 4.5-1.2 4.5-2.5S14.3 2 12 6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-  </symbol>
-  <symbol id="phonie-quote" viewBox="0 0 24 24">
-    <path d="M5 6h14v9H9l-4 3V6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-    <path d="M8 10h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-  </symbol>
-  <symbol id="phonie-recall" viewBox="0 0 24 24">
-    <path d="M8.5 8H4V3.5M4.5 7.5A8 8 0 1 1 4 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-  </symbol>
-  <symbol id="phonie-export" viewBox="0 0 24 24">
-    <path d="M12 15V3m0 0L8 7m4-4 4 4M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-  </symbol>
-  <symbol id="phonie-download" viewBox="0 0 24 24">
-    <path d="M12 3v11m0 0-4-4m4 4 4-4M5 16v4h14v-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-  </symbol>
-  <symbol id="phonie-import" viewBox="0 0 24 24">
-    <path d="M12 3v12m0 0-4-4m4 4 4-4M5 13v7h14v-7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-  </symbol>
-  <symbol id="phonie-check" viewBox="0 0 24 24">
-    <path d="m5 12.5 4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-  </symbol>
-  <symbol id="phonie-book" viewBox="0 0 24 24">
-    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11a2 2 0 0 1 2 2v15a2.5 2.5 0 0 0-2.5-2.5H4v-12Zm16 0A2.5 2.5 0 0 0 17.5 3H13v17a2.5 2.5 0 0 1 2.5-2.5H20v-12Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+  <symbol id="phonie-book" viewB
+ox="0 0 24 24">
+    <path d="M4 5.5A2.5 2.5 0
+ 0 1 6.5 3H11a2 2 0 0 1 2 2v15a2.5 2.5 0 0 0-
+2.5-2.5H4v-12Zm16 0A2.5 2.5 0 0 0 17.5 3H13v1
+7a2.5 2.5 0 0 1 2.5-2.5H20v-12Z" fill="none" 
+stroke="currentColor" stroke-width="1.7" stro
+ke-linejoin="round"/>
   </symbol>
 </svg>
+
+

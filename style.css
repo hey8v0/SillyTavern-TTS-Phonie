@@ -5549,16 +5549,20 @@
 
 /* ── 酒馆魔棒菜单与扩展设置入口 ───────────────────────────────────── */
 .phonie-wand-menu-item { cursor: pointer; }
-.phonie-wand-menu-item .extensionsMenuExtensionButton {
+.phonie-wand-menu-item .phonie-menu-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+.phonie-settings-launcher .inline-drawer-header b {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-right: 6px;
-    border-radius: 8px;
-    color: hsl(30 69% 64%);
-    background: hsl(32 62% 56% / .12);
+    gap: 6px;
+}
+.phonie-settings-launcher .phonie-launcher-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
 }
 .phonie-settings-launcher .inline-drawer-content { display: flex; align-items: center; gap: 8px; }
 .phonie-settings-launcher .inline-drawer-content label { margin: 0; font-size: 13px; }

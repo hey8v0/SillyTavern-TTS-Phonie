@@ -3114,6 +3114,14 @@ function getLauncherMode() {
     return ['orb', 'wand', 'both'].includes(mode) ? mode : 'both';
 }
 
+const PHONIE_SPRITE_URL = new URL('../../assets/icons/sprite.svg', import.meta.url).href;
+
+function legacyPhonieIcon(name, className = 'phonie-icon') {
+    const safeName = String(name).replace(/[^a-z-]/g, '');
+    const safeClass = String(className).replace(/[^a-zA-Z0-9 _-]/g, '');
+    return `<svg class="${safeClass}" aria-hidden="true" focusable="false"><use href="${PHONIE_SPRITE_URL}#phonie-${safeName}"></use></svg>`;
+}
+
 function applyLauncherVisibility() {
     const mode = getLauncherMode();
     const trigger = document.getElementById('tts-mobile-trigger');
@@ -3134,7 +3142,7 @@ function mountSettingsLauncher(attempt = 0) {
     const launcher = document.createElement('div');
     launcher.id = 'phonie-settings-launcher';
     launcher.className = 'extension_container phonie-settings-launcher';
-    launcher.innerHTML = `<div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Phonie 声纹手机</b><div class="inline-drawer-icon down">${icon('chevronRight', 18)}</div></div><div class="inline-drawer-content"><label for="phonie-launcher-mode">打开入口</label><select id="phonie-launcher-mode" class="text_pole"><option value="orb">悬浮球</option><option value="wand">酒馆魔棒菜单</option><option value="both">两者都显示</option></select><button class="menu_button" type="button" data-launcher-open><span>打开手机</span></button></div></div>`;
+    launcher.innerHTML = `<div class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>${legacyPhonieIcon('phone', 'phonie-icon phonie-launcher-icon')} Phonie 声纹手机</b><div class="inline-drawer-icon down">${icon('chevronRight', 18)}</div></div><div class="inline-drawer-content"><label for="phonie-launcher-mode">打开入口</label><select id="phonie-launcher-mode" class="text_pole"><option value="orb">悬浮球</option><option value="wand">酒馆魔棒菜单</option><option value="both">两者都显示</option></select><button class="menu_button" type="button" data-launcher-open><span>打开手机</span></button></div></div>`;
     launcher.querySelector('[data-launcher-open]')?.addEventListener('click', () => TTS_Mobile.open());
     launcher.querySelector('#phonie-launcher-mode')?.addEventListener('change', event => {
         TTS_ProviderRegistry.updateUiSettings({ launcherMode: event.currentTarget.value });
@@ -3156,7 +3164,7 @@ function mountWandLauncher(attempt = 0) {
     item.className = 'list-group-item flex-container flexGap5 phonie-wand-menu-item';
     item.tabIndex = 0;
     item.setAttribute('role', 'button');
-    item.innerHTML = `<div class="extensionsMenuExtensionButton">${icon('phone', 18)}</div><span>Phonie 手机</span>`;
+    item.innerHTML = `<div class="extensionsMenuExtensionButton">${legacyPhonieIcon('phone', 'phonie-icon phonie-menu-icon')}</div><span>Phonie 手机</span>`;
     const open = () => TTS_Mobile.open();
     item.addEventListener('click', open);
     item.addEventListener('keydown', event => {
