@@ -3359,3 +3359,9 @@
 .voice-sticker-item figcaption.is-editing div { display: flex; gap: 5px; }
 .voice-sticker-item figcaption.is-editing button { min-height: 28px; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: var(--voice-cyan); border: 1px solid color-mix(in srgb, var(--voice-cyan) 40%, var(--voice-line)); border-radius: 8px; background: var(--voice-cyan-soft); font: 650 9px/1 inherit; cursor: pointer; }
 .voice-sticker-item figcaption.is-editing button[data-sticker-cancel-edit] { flex: 0 0 28px; color: var(--voice-muted); border-color: var(--voice-line); background: var(--voice-panel-2); }
+
+/* ── 提示词整体插入深度 ─────────────────────────────────────────── */
+.voice-prompt-depth-row { margin: 8px 0; padding: 9px 10px; border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-panel-2); }
+.voice-prompt-depth-row label { display: grid; grid-template-columns: auto 64px minmax(0, 1fr); align-items: center; gap: 8px; color: var(--voice-muted); font-size: 9px; }
+.voice-prompt-depth-row input { width: 64px; min-height: 32px; padding: 0 8px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 9px; background: var(--voice-bg); font-size: 11px; text-align: center; }
+.voice-prompt-depth-row small { color: var(--voice-muted); font-size: 8px; line-height: 1.5; }

@@ -48,9 +48,61 @@ const DEFAULT_PHONE_FORMAT_PROMPT = `{{输出格式}}
 const DEFAULT_TRACK_FORMAT_PROMPT = `{{输出格式}}
 台词中不要写括号动作、心理或场景说明；speaker 必须精确使用参与角色的名字并自然交替。`;
 const DEFAULT_CHAT_FORMAT_PROMPT = `一次回复可以连续发送 1 到 6 条独立消息，不要把所有内容挤进一条长消息。
-可用消息类型：text（文字）、voice（语音）、image（假装发送图片）、transfer（转账）、red_packet（表情包）。
-语音必须适合 TTS 直接朗读；图片用 description 描述画面；转账和表情包填写 amount 与 note。
+可用消息类型：text（文字）、voice（语音）、image（发送图片）、transfer（转账）、sticker（表情包）。
+语音必须适合 TTS 直接朗读；image 用 description 描述要生成的画面，不要写参数或链接；转账填写 amount 与 note；表情包只能使用已导入表情包的名字。
 {{输出格式}}`;
+const DEFAULT_CHAT_EXECUTION_PROMPT = `## 手机行为执行原则
+当 {{用户}} 请求一个当前聊天系统能够实际执行的手机行为时，不要只在文字中假装执行，应使用对应的结构化消息或动作字段真正执行。
+- “发张照片给我看看” → 返回一条 kind:"image" 消息，并在 description 里写清楚要生成的画面；
+- “给我发语音” → 返回 kind:"voice"，并填写实际要朗读的 text、translation 与 emotion；
+- “转我 20” → 若符合人物与剧情，返回 kind:"transfer" 并填写 amount 与 note；
+- “给我打电话”“你打过来” → 在单聊中将顶层 proactiveCall.shouldCall 设为 true，填写 caller、reason 和 tone。
+不要只发送“发你了”“我打给你”“接电话”等文字来代替插件能够真正完成的行为。
+同样，不必只在 {{用户}} 命令时才使用这些能力；{{角色}} 可以根据人物性格、关系、剧情和当前交流节奏主动选择发送图片、语音、转账、表情包或发起电话。
+所有行为首先服从人物设定和情境合理性，不要为了使用功能而使用功能。`;
+const DEFAULT_CHAT_IMAGE_PROMPT = `## 图片与多媒体行为
+你正在使用一个真实手机聊天环境。除了普通文字外，{{角色}} 可以根据角色性格、当前剧情、手机聊天记录和本轮消息，自然决定发送图片、语音、转账或表情包。
+### 图片
+当 {{角色}} 想让 {{用户}} 看见某个具体画面时，可以发送 kind:"image"。
+以下情况尤其适合发送图片：
+- {{用户}} 明确要求“发张照片”“给我看看”“拍给我看”“自拍看看”“你那里什么样”等；
+- 当前正在讨论某件能直接拍摄、展示或分享的东西；
+- {{角色}} 此刻看见了有趣、漂亮、重要、奇怪或值得分享的事物；
+- 根据人物性格，{{角色}} 自己产生了分享照片、自拍、现场画面、物品、食物、宠物、风景、穿搭等内容的自然冲动；
+- 用图片比继续文字描述更符合真实手机聊天习惯。
+不需要等待 {{用户}} 明确要求，若情境和人物动机自然成立，{{角色}} 可以主动发图片。
+发送图片时：
+- kind 必须为 "image"；
+- description 必须填写这张图片实际应该呈现的画面：一个明确的、可以被画出来的瞬间，包括主体、外观、动作或姿态、环境、构图和当下氛围；
+- description 必须遵守当前角色外貌、服装、地点、时间和剧情事实；
+- 不要在 description 中写 NovelAI Tag、参数、模型名、URL、Base64 或生成指令；
+- 插件会根据 description 自动调用后续生图流程，不要声称图片已经存在于现实文件中；
+- 每批回复最多发送一张图片。
+图片本身就是一条聊天消息，可以在图片前后搭配少量自然文字（如“你看这个”“刚拍的”），但不要用一大段文字重新描述图片内容。
+若 {{用户}} 明确要求 {{角色}} 发图片，只要请求符合当前情境且角色有能力做出该行为，应优先真正返回 kind:"image"，而不是只用文字说“好，我发给你”。`;
+const DEFAULT_CHAT_PROACTIVE_CALL_PROMPT = `## 主动来电
+当前单聊中的 {{角色}} 拥有主动给 {{用户}} 打电话的能力。
+主动来电不是一条 QQ 消息类型，不要输出 kind:"call"。
+是否打电话必须通过最终 JSON 顶层的 proactiveCall 表达：
+- shouldCall：本轮结束后是否真的发起一通角色来电；
+- caller：准备打电话的角色姓名，通常为 {{角色}}；
+- reason：为什么此刻要打电话，以及这通电话准备围绕什么事情展开；
+- tone：这通电话的整体语气或情绪，例如轻松、兴奋、担心、急切、害羞、认真、醉意、愤怒等。
+### 什么时候应该考虑主动打电话
+根据人物性格和当前情境自主判断，不需要等待 {{用户}} 主动提出。适合主动来电的情况包括但不限于：
+- {{用户}} 明确要求“给我打电话”“你打过来吧”“电话里说”等；
+- 当前事情用电话交流明显比继续打字更加自然；
+- {{角色}} 有急事、重要消息或强烈情绪，想立刻听见 {{用户}}；
+- 两人已经聊到一个明显适合转入语音交流的话题；
+- 当前剧情中突然发生了值得立刻联系 {{用户}} 的事情；
+- 根据 {{角色}} 的人物习惯和关系状态，突然打一通电话本身就是自然行为。
+不要为了展示功能而频繁打电话，主动来电必须来自人物动机和当前情境，而不是随机触发。
+### 明确请求
+如果 {{用户}} 明确要求 {{角色}} “打电话过来”“给我来个电话”“电话里聊”，并且当前是允许主动来电的单聊场景，应优先设置 proactiveCall.shouldCall = true，不要只回复“好，我打给你”然后把 shouldCall 设为 false。
+### 自主决定
+即使 {{用户}} 没有要求，如果 {{角色}} 根据当前故事、手机聊天记录、人物性格和关系自然地产生了打电话的动机，也可以设置 shouldCall = true。此时 reason 必须写清楚真正的来电原因，作为后续电话内容生成的重要依据，不要只写“想打电话”“主动来电”这种空泛描述。
+### 不来电时
+若当前没有自然的来电动机，则设置 shouldCall = false。不要硬制造事件来触发电话。群聊不得触发主动电话。`;
 const DEFAULT_MINIMAX_ADAPTATION_PROMPT = `#### 规则 1：全局情绪映射表（Emotion 规范）
 规定模型在 \`“译文”[TTS:角色:情绪:文本]\` 的“情绪”位置，必须从 MiniMax 支持的标准情绪中选择最契合的一项： ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent"]
 
@@ -109,6 +161,9 @@ const DEFAULT_PROMPT_WORKFLOWS = Object.freeze({
     ]),
     chat: Object.freeze([
         Object.freeze({ id: 'chat-character', name: '手机私聊角色', role: 'system', enabled: true, content: DEFAULT_CHAT_PROMPT }),
+        Object.freeze({ id: 'chat-execution-principle', name: '手机行为执行原则', role: 'system', enabled: true, content: DEFAULT_CHAT_EXECUTION_PROMPT }),
+        Object.freeze({ id: 'chat-image-behavior', name: '图片与多媒体行为', role: 'system', enabled: true, content: DEFAULT_CHAT_IMAGE_PROMPT }),
+        Object.freeze({ id: 'chat-proactive-call', name: '主动来电判断', role: 'system', enabled: true, content: DEFAULT_CHAT_PROACTIVE_CALL_PROMPT }),
         Object.freeze({ id: 'chat-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
         Object.freeze({ id: 'chat-format', name: '多消息与富消息协议', role: 'system', enabled: true, content: DEFAULT_CHAT_FORMAT_PROMPT }),
         Object.freeze({ id: 'chat-context', name: '聊天记录与待回复消息', role: 'user', enabled: true, content: '{{任务上下文}}' }),
@@ -290,8 +345,19 @@ const CHAT_SCHEMA = Object.freeze({
                     required: ['type', 'emotion', 'text', 'translation', 'description', 'amount', 'note', 'duration'],
                 },
             },
+            proactiveCall: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    shouldCall: { type: 'boolean' },
+                    caller: { type: 'string', maxLength: 120 },
+                    reason: { type: 'string', maxLength: 1200 },
+                    tone: { type: 'string', maxLength: 80 },
+                },
+                required: ['shouldCall', 'caller', 'reason', 'tone'],
+            },
         },
-        required: ['messages'],
+        required: ['messages', 'proactiveCall'],
     },
 });
 
@@ -417,7 +483,8 @@ function createPromptWorkflow(kind, stored, legacyValue, legacyPresets = []) {
     const activePresetId = presets.some(item => item.id === source.activePresetId)
         ? String(source.activePresetId)
         : '';
-    return { entries, presets, activePresetId };
+    const depth = Math.min(20, Math.max(0, Math.round(Number(source.depth) || 0)));
+    return { entries, presets, activePresetId, depth };
 }
 
 function getPrimaryWorkflowPrompt(store, kind) {
@@ -608,7 +675,29 @@ function ensureStore() {
             workflow.presets.forEach(preset => rewrite(preset.entries));
         }
     }
-    store.planner.schemaVersion = 13;
+    if (storedSchemaVersion < 14) {
+        // 迁移：给手机聊天工作流补上行为执行、图片与主动来电三个默认条目。
+        const chatWorkflow = store.promptWorkflows.chat;
+        const inserts = [
+            ['chat-execution-principle', 'chat-character', '手机行为执行原则', DEFAULT_CHAT_EXECUTION_PROMPT],
+            ['chat-image-behavior', 'chat-execution-principle', '图片与多媒体行为', DEFAULT_CHAT_IMAGE_PROMPT],
+            ['chat-proactive-call', 'chat-image-behavior', '主动来电判断', DEFAULT_CHAT_PROACTIVE_CALL_PROMPT],
+        ];
+        for (const [id, afterId, name, content] of inserts) {
+            if (chatWorkflow.entries.some(entry => entry.id === id)) continue;
+            const anchor = chatWorkflow.entries.findIndex(entry => entry.id === afterId);
+            chatWorkflow.entries.splice(anchor < 0 ? chatWorkflow.entries.length : anchor + 1, 0, { id, name, role: 'system', enabled: true, content });
+        }
+        // 旧协议里的 red_packet / 假装发图说法统一改成 sticker。
+        const normalizeChatEntries = entries => entries.forEach(entry => {
+            entry.content = String(entry.content || '').replaceAll('red_packet', 'sticker');
+        });
+        normalizeChatEntries(chatWorkflow.entries);
+        chatWorkflow.presets.forEach(preset => normalizeChatEntries(preset.entries));
+        const formatEntry = chatWorkflow.entries.find(entry => entry.id === 'chat-format');
+        if (formatEntry) formatEntry.content = DEFAULT_CHAT_FORMAT_PROMPT;
+    }
+    store.planner.schemaVersion = 14;
     if (!store.phoneChat.presets.some(item => item.id === store.phoneChat.settings.activePresetId)) {
         store.phoneChat.settings.activePresetId = '';
     }
@@ -914,6 +1003,15 @@ function updatePromptWorkflowEntries(kind, entries) {
     syncLegacyWorkflowPrompt(store, kind);
     if (kind === 'body') applyBodyPromptInjection();
     persist('prompt-workflow', { kind, action: 'update' });
+    return getPromptWorkflow(kind);
+}
+
+function updatePromptWorkflowDepth(kind, depth) {
+    assertPromptWorkflow(kind);
+    const store = ensureStore();
+    store.promptWorkflows[kind].depth = Math.min(20, Math.max(0, Math.round(Number(depth) || 0)));
+    if (kind === 'body') applyBodyPromptInjection();
+    persist('prompt-workflow', { kind, action: 'depth', depth: store.promptWorkflows[kind].depth });
     return getPromptWorkflow(kind);
 }
 
@@ -1395,11 +1493,12 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
         聊天记录: history,
         待回复消息: pendingMessages.map(message => formatPhoneChatMessage(message, thread)).join('\n') || '本轮没有用户消息，角色主动开启话题。',
         任务上下文: taskContext,
-        输出格式: `只返回严格 JSON，不要输出 Markdown、角色名、思考过程或额外说明：{"messages":[{"type":"text","emotion":"自然","text":"角色实际发送的原语言内容","translation":"自然中文译文","description":"","amount":"","note":"","duration":0}]}。messages 必须有 1 到 6 条；type 只能是 text、voice、image、transfer、red_packet。非图片消息 description 留空，非金额消息 amount 与 note 留空，非语音 duration 为 0。${preferVoice || settings.autoVoice ? '这次普通文字消息必须改为 voice。' : ''}`,
+        输出格式: `只返回严格 JSON，不要输出 Markdown、角色名、思考过程或额外说明：{"messages":[{"type":"text","emotion":"自然","text":"角色实际发送的原语言内容","translation":"自然中文译文","description":"","amount":"","note":"","duration":0}],"proactiveCall":{"shouldCall":false,"caller":"","reason":"","tone":""}}。messages 必须有 1 到 6 条；type 只能是 text、voice、image、transfer、sticker。image 用 description 描述要生成的画面，非图片消息 description 留空；非金额消息 amount 与 note 留空；非语音 duration 为 0；proactiveCall 每轮都要输出，没有来电意图时 shouldCall 为 false，有来电意图时填好 caller、reason、tone。${preferVoice || settings.autoVoice ? '这次普通文字消息必须改为 voice。' : ''}`,
     });
 
     let result = null;
     let lastError = null;
+    let proactiveCall = { shouldCall: false, caller: '', reason: '', tone: '' };
     for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
             const repair = attempt ? '\n上次回复格式或中文译文不合格。这次只返回完整 JSON。' : '';
@@ -1408,6 +1507,15 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
                 : message);
             const raw = await callPlanner('', '', CHAT_SCHEMA, attemptMessages);
             const structured = extractStructuredResult(raw, 'chat');
+            const sourceProactiveCall = structured?.proactiveCall && typeof structured.proactiveCall === 'object'
+                ? structured.proactiveCall
+                : null;
+            proactiveCall = {
+                shouldCall: sourceProactiveCall?.shouldCall === true,
+                caller: String(sourceProactiveCall?.caller || '').trim().slice(0, 120),
+                reason: String(sourceProactiveCall?.reason || '').trim().slice(0, 1200),
+                tone: String(sourceProactiveCall?.tone || '').trim().slice(0, 80),
+            };
             const sourceMessages = Array.isArray(structured?.messages)
                 ? structured.messages
                 : structured?.text ? [{ ...structured, type: structured.replyType || 'text' }] : [];
@@ -1473,7 +1581,12 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
     thread.messages = thread.messages.slice(-240);
     thread.updatedAt = new Date().toISOString();
     persist('phone-chat-message', { threadId: thread.id, messageIds: assistantMessages.map(message => message.id), sender: 'character', proactive: Boolean(proactive) });
-    return { assistantMessage: clone(assistantMessages[0]), assistantMessages: clone(assistantMessages), thread: clone(thread) };
+    return {
+        assistantMessage: clone(assistantMessages[0]),
+        assistantMessages: clone(assistantMessages),
+        proactiveCall: clone(proactiveCall),
+        thread: clone(thread),
+    };
 }
 
 function generateProactivePhoneChatMessage({ brief = '', preferVoice = false } = {}) {
@@ -1717,7 +1830,7 @@ async function generateGroupChatReply(groupId, { preferVoice = false } = {}) {
         `本轮等待回复的 ${pendingMessages.length} 条用户消息：\n${pendingMessages.map(message => formatGroupChatMessage(message, group)).join('\n')}`,
         `请让群成员根据各自人设自然决定谁先回复、谁补充、谁保持沉默；允许同一角色连续发送多条，也允许多名角色交替发送。`,
     ].filter(Boolean).join('\n\n');
-    const outputFormat = `只返回严格 JSON，不要输出 Markdown、思考过程或额外说明：{"messages":[{"speaker":"${group.memberNames[0]}","type":"text","emotion":"自然","text":"角色实际发送的原语言内容","translation":"自然中文译文","description":"","amount":"","note":"","duration":0}]}。messages 必须有 1 到 12 条；speaker 必须逐字使用以下群成员之一：${group.memberNames.join('、')}。type 只能是 text、voice、image、transfer、red_packet。${preferVoice || settings.autoVoice ? '这次普通文字消息必须改为 voice。' : ''}`;
+    const outputFormat = `只返回严格 JSON，不要输出 Markdown、思考过程或额外说明：{"messages":[{"speaker":"${group.memberNames[0]}","type":"text","emotion":"自然","text":"角色实际发送的原语言内容","translation":"自然中文译文","description":"","amount":"","note":"","duration":0}]}。messages 必须有 1 到 12 条；speaker 必须逐字使用以下群成员之一：${group.memberNames.join('、')}。type 只能是 text、voice、image、transfer、sticker。${preferVoice || settings.autoVoice ? '这次普通文字消息必须改为 voice。' : ''}`;
     const messages = buildPromptWorkflowMessages('chat', {
         角色: group.memberNames.join('、'),
         用户: group.userName,
@@ -2799,6 +2912,7 @@ function applyBodyPromptInjection() {
     const entries = planner.bodyPromptEnabled
         ? store.promptWorkflows.body.entries.filter(entry => entry.enabled && String(entry.content || '').trim())
         : [];
+    const workflowDepth = Math.min(20, Math.max(0, Number(store.promptWorkflows.body?.depth) || 0));
     injectedBodyPromptKeys = entries.map((entry, index) => {
         const key = `${BODY_PROMPT_KEY}_${entry.id}`;
         const role = entry.role === 'user' ? extension_prompt_roles.USER
@@ -2808,7 +2922,7 @@ function applyBodyPromptInjection() {
             key,
             renderPromptTemplate(entry.content, values),
             extension_prompt_types.IN_CHAT,
-            Math.max(0, entries.length - index - 1),
+            Math.min(100, workflowDepth + Math.max(0, entries.length - index - 1)),
             false,
             role,
         );
@@ -2955,6 +3069,7 @@ export const FrontendVoiceTools = {
     getPromptWorkflows,
     getPromptWorkflow,
     updatePromptWorkflowEntries,
+    updatePromptWorkflowDepth,
     insertPromptWorkflowEntry,
     movePromptWorkflowEntry,
     deletePromptWorkflowEntry,

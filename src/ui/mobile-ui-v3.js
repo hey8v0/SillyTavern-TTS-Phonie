@@ -68,6 +68,7 @@ const state = {
     phoneParticipants: [],
     phoneDirection: 'outgoing',
     phoneContentSource: 'context',
+    phoneRingTimer: null,
     dialInput: '',
     tracksFilter: 'all',
     stickerSelected: [],
@@ -1625,10 +1626,24 @@ function renderSettingsBodyPage() {
 
 function renderSettingsQqPage() {
     const qq = TTS_ProviderRegistry.getQqState();
+    const proactiveCalls = qq.proactiveCalls && typeof qq.proactiveCalls === 'object' ? qq.proactiveCalls : {};
     return `
         <section class="voice-secondary-view" aria-labelledby="voice-settings-heading">
             ${settingsPageHeader('设置 · 子页', 'QQ')}
             <p class="voice-settings-note">QQ 消息只会按当前聊天持久化到 <code>chatMetadata.phonie_v2</code>；好友与群聊全局保存，新开酒馆聊天也不会丢失。</p>
+            <form class="voice-qq-settings-form voice-route-editor" data-qq-settings-form>
+                <label class="voice-field switch-field" for="tts-proactive-enabled">
+                    <span><b>角色主动来电</b><small>单聊时角色可以按情境与动机主动打来电话。</small></span>
+                    <input id="tts-proactive-enabled" name="proactiveEnabled" type="checkbox" ${proactiveCalls.enabled !== false ? 'checked' : ''}>
+                    <i aria-hidden="true"></i>
+                </label>
+                <label class="voice-field" for="tts-proactive-cooldown">
+                    <span class="voice-field-label">来电冷却（分钟，0–1440）</span>
+                    <input id="tts-proactive-cooldown" name="proactiveCooldown" type="number" min="0" max="1440" step="1" value="${safe(proactiveCalls.cooldownMinutes ?? 30)}" inputmode="numeric">
+                    <small>同一位角色两次来电之间的最小间隔。</small>
+                </label>
+                <button class="voice-button primary wide" type="submit">${icon('check', 16)} 保存主动来电设置</button>
+            </form>
             <button type="button" class="voice-route-shortcut" data-route="qq">${icon('messageCircle', 18)}<span><strong>打开 QQ</strong><small>查看最近会话与好友</small></span>${icon('chevronRight', 16)}</button>
             <button type="button" class="voice-route-shortcut" data-route="chat">${icon('messageCircle', 18)}<span><strong>打开聊天</strong><small>手机私聊 + 内置提示词</small></span>${icon('chevronRight', 16)}</button>
             <button type="button" class="voice-route-shortcut" data-open-prompt-workflow="chat">${icon('layers', 18)}<span><strong>聊天提示词</strong><small>调整 system、user、assistant 条目</small></span>${icon('chevronRight', 16)}</button>
@@ -1935,6 +1950,7 @@ function renderIncomingPanel() {
     const context = tools.context;
     const plan = state.phonePlan || null;
     const callContext = plan ? { ...context, charName: plan.charName || context.charName, avatarUrl: plan.avatarUrl || (plan.charName === context.charName ? context.avatarUrl : '') } : context;
+    if (plan && state.phoneStage === 'ringing') return renderPhoneRinging(callContext, plan);
     if (plan && state.phoneStage === 'connecting') return renderPhoneConnecting(callContext);
     if (plan && state.phoneStage === 'active') return renderPhoneActive(callContext, plan);
     if (state.phoneStage === 'ended') return renderPhoneEnded(callContext, plan);
@@ -2350,6 +2366,9 @@ function renderPromptManager() {
             </nav>
             <section class="voice-prompt-preset-manager">
                 <header><span><strong>${safe(workflow.label)}预设</strong><small>${workflow.presets.length} 个已保存预设</small></span><button type="button" data-reset-prompt-workflow>${icon('refresh', 15)} 默认</button></header>
+                <div class="voice-prompt-depth-row">
+                    <label for="tts-workflow-depth"><span>整体插入深度</span><input id="tts-workflow-depth" type="number" min="0" max="20" step="1" value="${safe(workflow.depth ?? 0)}" inputmode="numeric" data-prompt-workflow-depth><small>0 紧贴生成内容，20 插到更靠前的位置。</small></label>
+                </div>
                 <div class="voice-prompt-preset-row">
                     <select id="tts-workflow-preset-select" aria-label="选择${safe(workflow.label)}预设">
                         <option value="">当前编辑</option>
@@ -3774,6 +3793,8 @@ function stopPhoneAudio() {
 
 function finishPhoneCall(errorMessage = '') {
     stopPhoneAudio();
+    window.clearTimeout(state.phoneRingTimer);
+    state.phoneRingTimer = null;
     state.featureBusy = null;
     state.phoneError = String(errorMessage || '');
     state.phoneStage = 'ended';
@@ -3782,6 +3803,8 @@ function finishPhoneCall(errorMessage = '') {
 
 function resetPhoneCall() {
     stopPhoneAudio();
+    window.clearTimeout(state.phoneRingTimer);
+    state.phoneRingTimer = null;
     state.featureBusy = null;
     state.phoneStage = 'setup';
     state.phoneElapsed = 0;
@@ -3846,6 +3869,8 @@ async function playPhoneSegment(index = 0) {
 async function answerPhoneCall() {
     const plan = state.phonePlan;
     if (!plan || state.featureBusy) return;
+    window.clearTimeout(state.phoneRingTimer);
+    state.phoneRingTimer = null;
     stopPhoneAudio();
     state.phoneStage = 'connecting';
     state.phoneError = '';
@@ -4075,6 +4100,7 @@ async function generatePendingPhoneChatReply() {
         state.chatScrollToBottom = true;
         const voiceCount = result.assistantMessages.filter(message => message.type === 'voice').length;
         announce(`${result.assistantMessages.length} 条角色消息已送达${voiceCount ? `，其中 ${voiceCount} 条语音` : ''}`);
+        maybeStartProactiveCall(result.proactiveCall);
     } catch (error) {
         announce(error.message || '手机聊天回复生成失败');
     } finally {
@@ -4083,9 +4109,82 @@ async function generatePendingPhoneChatReply() {
     }
 }
 
+function maybeStartProactiveCall(proactiveCall) {
+    if (!proactiveCall || proactiveCall.shouldCall !== true) return;
+    if (state.featureBusy) return;
+    if (['ringing', 'connecting', 'active'].includes(state.phoneStage)) return;
+    const qq = TTS_ProviderRegistry.getQqState();
+    const config = qq.proactiveCalls && typeof qq.proactiveCalls === 'object' ? qq.proactiveCalls : {};
+    if (config.enabled === false) return;
+    const caller = String(proactiveCall.caller || FrontendVoiceTools.getContextSnapshot().charName || '').trim();
+    if (!caller) return;
+    const cooldownByContact = config.cooldownByContact && typeof config.cooldownByContact === 'object'
+        ? config.cooldownByContact
+        : {};
+    const lastCall = Number(cooldownByContact[caller]) || 0;
+    const cooldownMinutes = Math.min(1440, Math.max(0, Number(config.cooldownMinutes) || 30));
+    if (lastCall && Date.now() - lastCall < cooldownMinutes * 60000) return;
+    TTS_ProviderRegistry.updateQqState({
+        proactiveCalls: { cooldownByContact: { ...cooldownByContact, [caller]: Date.now() } },
+    });
+    startProactiveIncomingCall({
+        caller,
+        reason: String(proactiveCall.reason || '').slice(0, 600),
+        tone: String(proactiveCall.tone || '').slice(0, 80),
+    });
+}
+
+async function startProactiveIncomingCall({ caller, reason, tone }) {
+    if (state.featureBusy) return;
+    state.route = 'incoming';
+    state.providerId = null;
+    stopPhoneAudio();
+    state.phoneDirection = 'incoming';
+    state.phoneCaller = caller;
+    state.phoneParticipants = [];
+    state.phoneStage = 'ringing';
+    state.phoneError = '';
+    state.phoneElapsed = 0;
+    state.phoneSegmentIndex = 0;
+    state.phoneAudioQueue = [];
+    state.phonePlan = {
+        id: 'proactive-pending',
+        kind: 'single',
+        charName: caller,
+        title: `${caller} 的来电`,
+        reason: reason || `${caller} 想给你打个电话。`,
+        tone,
+        segments: [],
+        createdAt: new Date().toISOString(),
+        favorite: false,
+    };
+    updateView();
+    window.clearTimeout(state.phoneRingTimer);
+    state.phoneRingTimer = window.setTimeout(() => {
+        if (state.phoneStage === 'ringing') finishPhoneCall('来电超时未接');
+    }, 30000);
+    state.featureBusy = 'phone-plan';
+    try {
+        const plan = await FrontendVoiceTools.generatePhonePlan({
+            caller,
+            brief: reason || `${caller} 主动打来的电话`,
+            duration: 'medium',
+            participants: [],
+        });
+        if (state.phoneStage !== 'ringing') return;
+        state.phonePlan = plan;
+        updateView();
+    } catch (error) {
+        if (state.phoneStage === 'ringing') finishPhoneCall(error?.message || '来电规划失败');
+    } finally {
+        state.featureBusy = null;
+        if (state.phoneStage === 'ringing') updateView();
+    }
+}
+
 async function generateProactivePhoneChat() {
-    // 兼容旧调用：不再有“角色主动来电/消息”功能。如果被触发，请提示用户。
-    announce('角色主动来电已迁移到电话 APP，QQ 内不再触发。');
+    // 兼容旧调用：主动消息已由聊天回复统一生成，主动来电由回复里的 proactiveCall 触发。
+    announce('主动来电会根据聊天情境由角色自己发起。');
 }
 
 function bindEvents(eventRoot) {
@@ -5126,8 +5225,15 @@ function bindEvents(eventRoot) {
     eventRoot.addEventListener('submit', async event => {
         if (event.target.hasAttribute('data-qq-settings-form')) {
             event.preventDefault();
+            const form = event.target;
+            TTS_ProviderRegistry.updateQqState({
+                proactiveCalls: {
+                    enabled: form.elements.proactiveEnabled?.checked !== false,
+                    cooldownMinutes: Math.min(1440, Math.max(0, Number(form.elements.proactiveCooldown?.value) || 30)),
+                },
+            });
             updateView();
-            announce('QQ 设置已更新');
+            announce('主动来电设置已保存');
             return;
         }
         if (event.target.hasAttribute('data-sticker-add-form')) {
@@ -5601,6 +5707,12 @@ function bindEvents(eventRoot) {
     });
 
     eventRoot.addEventListener('change', async event => {
+        if (event.target.matches('input[data-prompt-workflow-depth]')) {
+            const depth = Number(event.target.value);
+            FrontendVoiceTools.updatePromptWorkflowDepth(state.promptWorkflow, Number.isFinite(depth) ? depth : 0);
+            announce('整体插入深度已保存');
+            return;
+        }
         if (event.target.id === 'tts-voice-backup-file') {
             const file = event.target.files?.[0];
             if (!file || !window.confirm(`确定从“${file.name}”恢复吗？当前状态会临时保留以便撤销。`)) return;
