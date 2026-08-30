@@ -39,6 +39,17 @@ export function validateCallParticipants(values, { min = 1, max = 6 } = {}) {
     return participants;
 }
 
+/**
+ * Public Phonie calls currently accept exactly one contact. Keep this separate
+ * from the generic participant helper because QQ groups and legacy data may
+ * still contain more than one character.
+ */
+export function validateSingleCallParticipant(values) {
+    const participants = validateCallParticipants(values);
+    if (participants.length !== 1) throw new Error('公开版电话目前只能选择 1 位联系人');
+    return participants[0];
+}
+
 export function renderContactsApp({ FrontendVoiceTools, state, safe, icon }) {
     const renderAvatar = contact => (contact.avatarUrl
         ? `<img src="${safe(contact.avatarUrl)}" alt="">`

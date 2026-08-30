@@ -1,18 +1,27 @@
-import { validateCallParticipants } from './contacts.js';
+import { validateSingleCallParticipant } from './contacts.js';
 
 export function readSelectedParticipants(form) {
-    return validateCallParticipants(
+    return [validateSingleCallParticipant(
         [...(form?.querySelectorAll('input[name="participants"]:checked') || [])]
             .map(input => String(input.value || '').trim()),
-    );
+    )];
 }
 
-function virtualNumber(name) {
+export function virtualNumber(name) {
     let hash = 0;
     const value = String(name || '');
     for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
     const digits = String(Math.abs(hash)).padStart(10, '0').slice(0, 10);
     return `+00 ${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7)}`;
+}
+
+export function isPublicSingleCall(record) {
+    if (!record || typeof record !== 'object') return false;
+    if (record.kind === 'group') return false;
+    const participants = Array.isArray(record.participants)
+        ? record.participants.filter(Boolean)
+        : Array.isArray(record.speakers) ? record.speakers.filter(Boolean) : [];
+    return participants.length <= 1;
 }
 
 export function renderIncomingPanel({ FrontendVoiceTools, state, safe, icon, renderCallerAvatar, formatCallDuration }) {
@@ -22,10 +31,8 @@ export function renderIncomingPanel({ FrontendVoiceTools, state, safe, icon, ren
         const contacts = FrontendVoiceTools.getVoiceContacts?.() || [];
         const sourceIsTopic = state.phoneContentSource === 'topic';
         const selectedParticipants = state.phoneParticipants.length
-            ? state.phoneParticipants
+            ? state.phoneParticipants.slice(0, 1)
             : (state.phoneCaller && state.phoneCaller !== 'auto' ? [state.phoneCaller] : [context.charName].filter(Boolean));
-        const participantCount = selectedParticipants.length;
-        const isGroup = participantCount > 1;
         return `
             <section class="voice-secondary-view voice-tool-view" aria-labelledby="voice-incoming-heading">
                 <div class="voice-kicker">${icon('phone', 15)} 拨号通话</div>
@@ -53,10 +60,10 @@ export function renderIncomingPanel({ FrontendVoiceTools, state, safe, icon, ren
                 </section>
                 <form id="tts-phone-plan-form" class="voice-tool-form" data-phone-plan-form>
                     <fieldset class="voice-speaker-picker">
-                        <legend>${isGroup ? `多人通话 · 已选 ${participantCount} 位` : '参与角色'}</legend>
+                        <legend>通话角色 · 单选</legend>
                         ${voiceCharacters.length ? voiceCharacters.map(item => `
                             <label>
-                                <input type="checkbox" name="participants" value="${safe(item.name)}" ${selectedParticipants.includes(item.name) ? 'checked' : ''}>
+                                <input type="radio" name="participants" value="${safe(item.name)}" ${selectedParticipants.includes(item.name) ? 'checked' : ''}>
                                 <span>${safe(item.name)}<small>${safe(item.providerName)}</small></span>
                             </label>`).join('') : '<small>还没有角色声线路由。</small>'}
                     </fieldset>
@@ -67,13 +74,12 @@ export function renderIncomingPanel({ FrontendVoiceTools, state, safe, icon, ren
                     </select>
                     <label for="tts-phone-brief" data-phone-topic-label ${sourceIsTopic ? '' : 'hidden'}>这通电话想谈什么</label>
                     <textarea id="tts-phone-brief" name="brief" rows="3" ${sourceIsTopic ? '' : 'hidden'}>${safe(state.phoneBrief)}</textarea>
-                    ${isGroup ? '' : `
                     <label for="tts-phone-duration">长度</label>
                     <select id="tts-phone-duration" name="duration">
                         <option value="short" ${state.phoneLength === 'short' ? 'selected' : ''}>短 · 4–6 句</option>
                         <option value="medium" ${state.phoneLength === 'medium' ? 'selected' : ''}>普通 · 7–10 句</option>
                         <option value="long" ${state.phoneLength === 'long' ? 'selected' : ''}>长 · 12–18 句</option>
-                    </select>`}
+                    </select>
                 </form>
             </section>`;
     };

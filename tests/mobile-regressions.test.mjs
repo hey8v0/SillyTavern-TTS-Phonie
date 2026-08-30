@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
     buildVoiceContacts,
     validateCallParticipants,
+    validateSingleCallParticipant,
 } from '../src/ui/mobile/contacts.js';
 import {
     batchDeleteMessages,
@@ -29,6 +30,12 @@ import {
     normalizeChatTranslation,
     shouldRestoreGeneratedChat,
 } from '../src/ui/mobile/chat-response.js';
+import {
+    decorateBodyText,
+    findBodySpeechTags,
+    parseBodySpeechTags,
+} from '../src/dialogue/body-speech.js';
+import { isPublicSingleCall, virtualNumber } from '../src/ui/mobile/phone.js';
 
 test('通讯录只包含手动与正文发声角色，并应用隐藏名单', () => {
     const contacts = buildVoiceContacts({
@@ -41,11 +48,16 @@ test('通讯录只包含手动与正文发声角色，并应用隐藏名单', ()
     assert.deepEqual(contacts.find(item => item.name === '重复角色').sources, ['manual', 'body']);
 });
 
-test('拨号只接受 1 到 6 位明确选择的联系人', () => {
+test('通用参与者校验保留给 QQ 与旧数据，公开电话严格单选', () => {
     assert.deepEqual(validateCallParticipants(['甲']), ['甲']);
     assert.deepEqual(validateCallParticipants(['甲', '乙', '甲']), ['甲', '乙']);
     assert.throws(() => validateCallParticipants([]), /至少选择 1 位/);
     assert.throws(() => validateCallParticipants(['1', '2', '3', '4', '5', '6', '7']), /最多选择 6 位/);
+    assert.equal(validateSingleCallParticipant(['甲']), '甲');
+    assert.throws(() => validateSingleCallParticipant(['甲', '乙']), /只能选择 1 位/);
+    assert.equal(isPublicSingleCall({ kind: 'single', participants: ['甲'] }), true);
+    assert.equal(isPublicSingleCall({ kind: 'group', participants: ['甲', '乙'] }), false);
+    assert.equal(isPublicSingleCall({ speakers: ['甲', '乙'] }), false);
 });
 
 test('QQ 批量删除消息会保留线程并修复悬空引用', () => {
@@ -181,8 +193,31 @@ test('生成期间没有手动切换会话时恢复原目标线程，手动切�
     assert.equal(shouldRestoreGeneratedChat({ route: 'qq', revisionAtStart: 2, currentRevision: 2 }), false);
 });
 
-test('清单关闭自动更新并升级到 1.1.2', () => {
+test('通讯录虚拟号码由拨号界面和点击事件共享，点击号码会切换到唯一联系人', () => {
+    assert.match(virtualNumber('Mary'), /^\+00 \d{3} \d{4} \d{3}$/);
+    const mobile = readFileSync(new URL('../src/ui/mobile/index.js', import.meta.url), 'utf8');
+    assert.match(mobile, /virtualNumber \} from '\.\/phone\.js'/);
+    assert.match(mobile, /const match = number \? contacts\.find/);
+    assert.match(mobile, /if \(number && !match\)/);
+    assert.match(mobile, /participants = readSelectedParticipants\(form\)/);
+});
+
+test('正文 TTS 台词含直角引号时仍能解析并生成主题音波播放条', () => {
+    const source = '「可见译文」[TTS:夏尔:轻声:「你终于来了。」]';
+    const speeches = parseBodySpeechTags(source).filter(item => item.type === 'speech');
+    assert.equal(speeches.length, 1);
+    assert.equal(speeches[0].sourceText, '「你终于来了。」');
+    assert.deepEqual(findBodySpeechTags(source).map(item => [item.speaker, item.sourceText]), [['夏尔', '「你终于来了。」']]);
+    const html = decorateBodyText(source);
+    assert.match(html, /voice-body-speech/);
+    assert.match(html, /voice-body-wave/);
+    assert.match(html, /data-text="「你终于来了。」"/);
+    assert.match(html, /<span class="sr-only">夏尔<\/span>/);
+    assert.doesNotMatch(html, />夏尔<\/button>/);
+});
+
+test('清单关闭自动更新并升级到 1.2.0', () => {
     const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
     assert.equal(manifest.auto_update, false);
-    assert.equal(manifest.version, '1.1.2');
+    assert.equal(manifest.version, '1.2.0');
 });

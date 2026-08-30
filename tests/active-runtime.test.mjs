@@ -74,3 +74,30 @@ test('QQ 群聊使用独立提示词工作流并可在设置中编辑', () => {
     assert.match(mobile, /data-open-prompt-workflow="group_chat"/);
     assert.match(mobile, /group_chat:\s*'群聊'/);
 });
+
+test('公开电话只保留单人旧实现，实时重写与多人执行链暂不进入发行版', () => {
+    const tools = read('src/dialogue/voice-tools.js');
+    const mobile = `${read('src/ui/mobile/index.js')}\n${read('src/ui/mobile/phone.js')}`;
+    assert.match(tools, /validateSingleCallParticipant\(rawParticipants\)/);
+    assert.match(tools, /\['group_call', 'track'\]\.includes\(kind\)/);
+    assert.match(mobile, /type="radio" name="participants"/);
+    assert.match(mobile, /allCalls\.filter\(isPublicSingleCall\)/);
+    assert.doesNotMatch(tools, /generateLivePhoneTurn|createLivePhoneCall/);
+    assert.doesNotMatch(mobile, /data-phone-mode=|data-live-call-form/);
+    assert.doesNotMatch(read('scripts/check-project.mjs'), /live-call\.js/);
+});
+
+test('正文播放条跟随手机主题，并区分生成与播放音波', () => {
+    const body = read('src/dialogue/body-speech.js');
+    const bodyTts = read('src/dialogue/body-tts.js');
+    const css = read('styles/voice-console.css');
+    assert.match(body, /voice-body-wave/);
+    assert.match(css, /data-tts-voice-theme="light"/);
+    assert.match(css, /voice-body-speech\.is-loading/);
+    assert.match(css, /voice-body-speech\.is-playing/);
+    assert.match(css, /voice-body-speech\.is-ready:not\(\.is-loading\):not\(\.is-playing\):not\(\.is-played\)/);
+    assert.match(css, /voice-body-speech\.is-played:not\(\.is-loading\):not\(\.is-playing\)/);
+    assert.match(bodyTts, /inspectCachedBodyAudio/);
+    assert.match(bodyTts, /markSpeechButtonsLoading/);
+    assert.match(bodyTts, /classList\.add\('is-played', 'is-ready'\)/);
+});

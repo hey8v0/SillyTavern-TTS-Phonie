@@ -10,14 +10,20 @@
 import { eventSource, event_types } from '/script.js';
 import { TTS_ProviderRegistry } from '../tts/provider-registry.js';
 import { TTS_AudioCache, cacheKey } from '../tts/cache.js';
-import { decorateTextNodeFragment, hasBodySpeechTag, parseBodySpeechTags } from './body-speech.js';
+import {
+    createBodySpeechButton,
+    decorateTextNodeFragment,
+    findBodySpeechTags,
+    hasBodySpeechTag,
+    parseBodySpeechTags,
+} from './body-speech.js';
 
 let initialized = false;
 let scheduled = false;
 let activeAudio = null;
 let activeButton = null;
 let prerenderChain = Promise.resolve();
-const prerenderPending = new Set();
+const prerenderPending = new Map();
 
 function getBodyFlags() {
     const playback = TTS_ProviderRegistry.getPlaybackSettings?.() || {};
@@ -39,11 +45,13 @@ function scheduleProcess() {
 
 function stopActiveAudio() {
     if (!activeAudio) return;
+    const hadPlayed = (activeAudio.currentTime || 0) > 0;
     activeAudio.pause();
     activeAudio.removeAttribute('src');
     activeAudio.load?.();
     activeAudio = null;
     if (activeButton) {
+        if (hadPlayed) activeButton.classList.add('is-played', 'is-ready');
         activeButton.classList.remove('is-playing', 'is-loading');
         activeButton = null;
     }
@@ -89,6 +97,47 @@ function decorateExistingTextNodes(textElement) {
     return decorated;
 }
 
+/**
+ * Markdown 或正则插件偶尔会把一个 TTS 标签拆进数个相邻文字节点（常见于台词含「」时）。
+ * 用 DOM Range 只替换标签覆盖的范围，不重写整段 innerHTML，也不破坏标签外的其他插件节点。
+ */
+function decorateSplitSpeechTags(textElement) {
+    const nodes = [];
+    const walker = document.createTreeWalker(textElement, NodeFilter.SHOW_TEXT);
+    let combined = '';
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const parent = node.parentElement;
+        if (!node.nodeValue || !parent || parent.closest('.voice-body-speech, script, style, textarea, code, pre')) continue;
+        const start = combined.length;
+        combined += node.nodeValue;
+        nodes.push({ node, start, end: combined.length });
+    }
+    const matches = findBodySpeechTags(combined).filter(match => {
+        const startNode = nodes.find(item => match.start >= item.start && match.start < item.end);
+        const endNode = nodes.find(item => match.end > item.start && match.end <= item.end);
+        return startNode && endNode && startNode.node !== endNode.node;
+    });
+    let decorated = 0;
+    for (const match of matches.reverse()) {
+        const startNode = nodes.find(item => match.start >= item.start && match.start < item.end);
+        const endNode = nodes.find(item => match.end > item.start && match.end <= item.end);
+        if (!startNode || !endNode) continue;
+        try {
+            const range = document.createRange();
+            range.setStart(startNode.node, match.start - startNode.start);
+            range.setEnd(endNode.node, match.end - endNode.start);
+            range.deleteContents();
+            range.insertNode(createBodySpeechButton(match));
+            range.detach?.();
+            decorated += 1;
+        } catch (error) {
+            console.warn('[Phonie 正文TTS] 跨节点标签装饰失败，将等待下一次渲染。', error);
+        }
+    }
+    return decorated;
+}
+
 function processRenderedMessages() {
     const chatContainer = document.getElementById('chat');
     if (!chatContainer) return;
@@ -117,11 +166,13 @@ function processRenderedMessages() {
         // 必须同时确认正文里还有我们的播放按钮，否则重新扫描替换。
         const alreadyDecorated = Boolean(textElement.querySelector('.voice-body-speech'));
         if (element.dataset.phonieSig === signature && alreadyDecorated) {
-            if (flags.autoRender) prerenderBodyAudio(speeches);
+            if (flags.autoRender) prerenderBodyAudio(speeches, textElement);
+            else inspectCachedBodyAudio(speeches, textElement);
             return;
         }
         // 小铅笔编辑 / 滑动重选后 ST 会重新渲染 .mes_text，标签重新出现在文字节点里。
-        if (decorateExistingTextNodes(textElement) > 0) {
+        const decoratedCount = decorateExistingTextNodes(textElement) + decorateSplitSpeechTags(textElement);
+        if (decoratedCount > 0) {
             element.dataset.phonieSig = signature;
             try {
                 message.extra = message.extra || {};
@@ -135,33 +186,92 @@ function processRenderedMessages() {
             } catch {
                 // 写入 message.extra 失败不影响渲染。
             }
-            if (flags.autoRender) prerenderBodyAudio(speeches);
+            if (flags.autoRender) prerenderBodyAudio(speeches, textElement);
+            else inspectCachedBodyAudio(speeches, textElement);
         }
         // 标签不在文字节点里（可能被其他脚本处理过）：不动 DOM，等下一次渲染事件再试。
     });
 }
 
-function prerenderBodyAudio(speeches) {
+function markSpeechButtonsReady(root, segment) {
+    root?.querySelectorAll?.('.voice-body-speech').forEach(button => {
+        if (
+            button.dataset.speaker === segment.speaker
+            && button.dataset.emotion === segment.emotion
+            && button.dataset.text === segment.sourceText
+        ) {
+            button.classList.remove('is-loading');
+            button.classList.add('is-ready');
+        }
+    });
+}
+
+function markSpeechButtonsLoading(root, segment) {
+    root?.querySelectorAll?.('.voice-body-speech').forEach(button => {
+        if (
+            !button.classList.contains('is-ready')
+            && button.dataset.speaker === segment.speaker
+            && button.dataset.emotion === segment.emotion
+            && button.dataset.text === segment.sourceText
+        ) button.classList.add('is-loading');
+    });
+}
+
+function clearSpeechButtonsLoading(root, segment) {
+    root?.querySelectorAll?.('.voice-body-speech').forEach(button => {
+        if (
+            button.dataset.speaker === segment.speaker
+            && button.dataset.emotion === segment.emotion
+            && button.dataset.text === segment.sourceText
+        ) button.classList.remove('is-loading');
+    });
+}
+
+function getBodyAudioRequest(segment) {
+    const route = TTS_ProviderRegistry.resolveRoute?.(segment.speaker) || {};
+    const providerId = route.providerId || 'gpt_sovits';
+    const key = cacheKey({
+        text: segment.sourceText,
+        provider: providerId,
+        voice: String(route.voice || ''),
+    });
+    return { key, providerId, route };
+}
+
+/** 不触发合成，只检查旧缓存，让“未渲染”和“已经渲染”在关闭自动渲染时仍有颜色差别。 */
+function inspectCachedBodyAudio(speeches, root = document) {
     for (const segment of speeches) {
-        const route = TTS_ProviderRegistry.resolveRoute?.(segment.speaker) || {};
-        const providerId = route.providerId || 'gpt_sovits';
-        const key = cacheKey({
-            text: segment.sourceText,
-            provider: providerId,
-            voice: String(route.voice || ''),
-        });
-        if (prerenderPending.has(key)) continue;
-        prerenderPending.add(key);
-        prerenderChain = prerenderChain
-            .then(() => generateBodyAudio(key, providerId, route, segment))
+        const { key } = getBodyAudioRequest(segment);
+        TTS_AudioCache.get(key)
+            .then(cached => {
+                if (cached) markSpeechButtonsReady(root, segment);
+            })
             .catch(() => {});
+    }
+}
+
+function prerenderBodyAudio(speeches, root = document) {
+    for (const segment of speeches) {
+        const { key, providerId, route } = getBodyAudioRequest(segment);
+        markSpeechButtonsLoading(root, segment);
+        let pending = prerenderPending.get(key);
+        if (!pending) {
+            pending = prerenderChain.then(() => generateBodyAudio(key, providerId, route, segment));
+            prerenderPending.set(key, pending);
+            prerenderChain = pending.catch(() => {});
+            pending.finally(() => prerenderPending.delete(key));
+        }
+        pending.then(ready => {
+            if (ready) markSpeechButtonsReady(root, segment);
+            else clearSpeechButtonsLoading(root, segment);
+        }).catch(() => clearSpeechButtonsLoading(root, segment));
     }
 }
 
 async function generateBodyAudio(key, providerId, route, segment) {
     try {
         const cached = await TTS_AudioCache.get(key);
-        if (cached) return;
+        if (cached) return true;
         const blob = await TTS_ProviderRegistry.synthesize(providerId, {
             text: segment.sourceText,
             voice: String(route.voice || ''),
@@ -169,10 +279,10 @@ async function generateBodyAudio(key, providerId, route, segment) {
             emotion: segment.emotion,
         });
         await TTS_AudioCache.put(key, blob, { providerId });
+        return true;
     } catch (error) {
         console.warn(`[Phonie 正文TTS] 后台生成失败（${segment.speaker}）`, error);
-    } finally {
-        prerenderPending.delete(key);
+        return false;
     }
 }
 
@@ -188,11 +298,13 @@ async function playBodySpeech(button) {
     if (activeAudio && activeButton === button) {
         if (!activeAudio.paused) {
             activeAudio.pause();
+            button.classList.add('is-played', 'is-ready');
             button.classList.remove('is-playing');
             return;
         }
         try {
             await activeAudio.play();
+            button.classList.add('is-ready');
             button.classList.add('is-playing');
         } catch {
             // 自动播放受限时忽略。
@@ -227,21 +339,23 @@ async function playBodySpeech(button) {
         return;
     }
     button.classList.remove('is-loading');
+    button.classList.add('is-ready');
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     activeAudio = audio;
     activeButton = button;
     button.classList.add('is-playing');
-    const cleanup = () => {
+    const cleanup = ({ played = false } = {}) => {
         URL.revokeObjectURL(url);
         if (activeAudio === audio) {
             activeAudio = null;
             activeButton = null;
         }
+        if (played) button.classList.add('is-played', 'is-ready');
         button.classList.remove('is-playing');
     };
-    audio.addEventListener('ended', cleanup);
-    audio.addEventListener('error', cleanup);
+    audio.addEventListener('ended', () => cleanup({ played: true }));
+    audio.addEventListener('error', () => cleanup());
     try {
         await audio.play();
     } catch {

@@ -5,7 +5,7 @@
  * 兼容旧版 [TTSVoice:…] 标签（读取时不区分，输出一律按 TTS 处理）。
  */
 
-const BODY_TAG_PATTERN_SOURCE = String.raw`\[(?:TTSVoice|TTS)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([^\]]*)\]`;
+export const BODY_TAG_PATTERN_SOURCE = String.raw`\[(?:TTSVoice|TTS)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([^:：\]]*?)\s*[:：]\s*([^\]]*)\]`;
 const BODY_TAG_PATTERN_SINGLE = new RegExp(BODY_TAG_PATTERN_SOURCE);
 
 function escapeAttr(value) {
@@ -38,12 +38,25 @@ export function parseBodySpeechTags(text) {
     return segments;
 }
 
+export function findBodySpeechTags(text) {
+    const source = String(text || '');
+    const pattern = new RegExp(BODY_TAG_PATTERN_SOURCE, 'g');
+    return [...source.matchAll(pattern)].map(match => ({
+        start: match.index,
+        end: match.index + match[0].length,
+        speaker: match[1].trim(),
+        emotion: match[2].trim(),
+        sourceText: match[3].trim(),
+    }));
+}
+
 export function hasBodySpeechTag(text) {
     return BODY_TAG_PATTERN_SINGLE.test(String(text || ''));
 }
 
 const PLAY_ICON = '<svg class="is-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4.5v15l13-7.5z"/></svg>';
 const PAUSE_ICON = '<svg class="is-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>';
+const WAVE_ICON = '<i class="voice-body-wave" aria-hidden="true"><b style="--wave:0"></b><b style="--wave:1"></b><b style="--wave:2"></b><b style="--wave:3"></b></i>';
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -60,7 +73,7 @@ export function decorateBodyText(text, { enabled = true } = {}) {
     const pattern = new RegExp(BODY_TAG_PATTERN_SOURCE, 'g');
     const html = source.replace(pattern, (whole, speaker, emotion, sourceText) => {
         const label = escapeAttr(speaker || '角色');
-        return `<button type="button" class="voice-body-speech" data-speaker="${escapeAttr(speaker)}" data-emotion="${escapeAttr(emotion)}" data-text="${escapeAttr(sourceText)}" title="播放 ${label} 的语音" aria-label="播放 ${label} 的语音">${PLAY_ICON}${PAUSE_ICON}<span>${label}</span></button>`;
+        return `<button type="button" class="voice-body-speech" data-speaker="${escapeAttr(speaker)}" data-emotion="${escapeAttr(emotion)}" data-text="${escapeAttr(sourceText)}" title="播放 ${label} 的语音" aria-label="播放 ${label} 的语音">${PLAY_ICON}${PAUSE_ICON}${WAVE_ICON}<span class="sr-only">${label}</span></button>`;
     });
     return html;
 }
@@ -81,21 +94,25 @@ export function decorateTextNodeFragment(source) {
         const speaker = match[1].trim();
         const emotion = match[2].trim();
         const sourceText = match[3].trim();
-        const label = speaker || '角色';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'voice-body-speech';
-        button.dataset.speaker = speaker;
-        button.dataset.emotion = emotion;
-        button.dataset.text = sourceText;
-        button.title = `播放 ${label} 的语音`;
-        button.setAttribute('aria-label', button.title);
-        button.innerHTML = PLAY_ICON + PAUSE_ICON + `<span>${escapeHtml(label)}</span>`;
-        fragment.append(button);
+        fragment.append(createBodySpeechButton({ speaker, emotion, sourceText }));
         lastIndex = pattern.lastIndex;
     }
     if (lastIndex < source.length) {
         fragment.append(document.createTextNode(source.slice(lastIndex)));
     }
     return fragment;
+}
+
+export function createBodySpeechButton({ speaker = '', emotion = '', sourceText = '' } = {}) {
+    const label = String(speaker || '').trim() || '角色';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'voice-body-speech';
+    button.dataset.speaker = String(speaker || '').trim();
+    button.dataset.emotion = String(emotion || '').trim();
+    button.dataset.text = String(sourceText || '').trim();
+    button.title = `播放 ${label} 的语音`;
+    button.setAttribute('aria-label', button.title);
+    button.innerHTML = PLAY_ICON + PAUSE_ICON + WAVE_ICON + `<span class="sr-only">${escapeHtml(label)}</span>`;
+    return button;
 }

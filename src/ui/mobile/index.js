@@ -13,7 +13,7 @@ import {
 } from './qq-data.js';
 import { renderQqApp as renderQqView } from './qq.js';
 import { NOVELAI_MODELS, requestNovelAiImage } from './drawing.js';
-import { readSelectedParticipants, renderIncomingPanel as renderIncomingView } from './phone.js';
+import { isPublicSingleCall, readSelectedParticipants, renderIncomingPanel as renderIncomingView, virtualNumber } from './phone.js';
 import { RESPONSE_MODE_OPTIONS } from './settings.js';
 import {
     applyLauncherVisibility as applyLauncherVisibilityModule,
@@ -462,7 +462,7 @@ function renderHome() {
                             <button id="tts-app-chat" class="app-chat" type="button" data-route="qq"><span>${icon('messageCircle', 25)}</span><strong>QQ</strong><small>${chatMessages.length ? `${chatMessages.length} 条` : '角色私聊'}</small></button>
                             <button id="tts-feature-incoming" class="app-call" type="button" data-open-panel="incoming"><span>${icon('phone', 25)}</span><strong>电话</strong><small>${tools.calls.length} 通</small></button>
                             <button id="tts-app-contacts" class="app-contacts" type="button" data-route="contacts"><span>${icon('users', 25)}</span><strong>通讯录</strong><small>${contacts.length} 位角色</small></button>
-                            <button id="tts-feature-eavesdrop" class="app-track" type="button" data-route="tracks"><span>${icon('headphones', 25)}</span><strong>追踪</strong><small>${tools.calls.length} 通</small></button>
+                            <button id="tts-feature-eavesdrop" class="app-track" type="button" data-route="tracks"><span>${icon('headphones', 25)}</span><strong>通话记录</strong><small>${tools.calls.filter(isPublicSingleCall).length} 通</small></button>
                             <button id="tts-app-engines" class="app-engine provider-${safe(active.id)}" type="button" data-route="engines"><span>${icon(active.icon, 25)}</span><strong>引擎</strong><small>${safe(active.name)}</small></button>
                             <button id="tts-app-drawing" class="app-drawing" type="button" data-route="drawing"><span>${icon('edit', 25)}</span><strong>绘画</strong><small>NovelAI 文生图</small></button>
                             <button id="tts-app-themes" class="app-themes" type="button" data-route="themes"><span>${icon('sun', 25)}</span><strong>主题</strong><small>${themeLabel(state.theme)}</small></button>
@@ -1421,7 +1421,7 @@ function renderSettingsDisplayPage() {
 }
 
 function renderSettingsPromptsPage() {
-    const order = ['body', 'single_call', 'group_call', 'chat', 'group_chat', 'image'];
+    const order = ['body', 'single_call', 'chat', 'group_chat', 'image'];
     const labels = Object.fromEntries(order.map(kind => {
         try {
             return [kind, FrontendVoiceTools.getPromptWorkflow(kind)?.label || kind];
@@ -1855,18 +1855,12 @@ function renderCallRecord(call, index = 0) {
     if (!call) {
         return `<div class="voice-tool-empty">${icon('headphones', 24)}<strong>还没有通话记录</strong><small>到“电话”APP 拨出通话后，回这里重播或收藏。</small></div>`;
     }
-    const isGroup = call.kind === 'group' || (Array.isArray(call.speakers) && call.speakers.length > 1);
     const segments = Array.isArray(call.segments) ? call.segments : [];
     const firstSegment = segments[0] || {};
-    const speakers = Array.isArray(call.speakers) && call.speakers.length
-        ? call.speakers
-        : [call.charName || '通话角色'];
-    const subtitle = isGroup
-        ? `${speakers.join(' × ')} · ${segments.length || 0} 段`
-        : `${call.charName || '通话角色'} · ${call.duration === 'long' ? '长' : call.duration === 'medium' ? '普通' : '短'}`;
-    const title = call.title || (isGroup ? `${speakers[0]} 等多人通话` : `${call.charName} 的通话`);
+    const subtitle = `${call.charName || '通话角色'} · ${call.duration === 'long' ? '长' : call.duration === 'medium' ? '普通' : '短'}`;
+    const title = call.title || `${call.charName} 的通话`;
     return `
-        <article class="voice-call-record ${index === 0 ? 'is-latest' : ''} ${isGroup ? 'is-group' : ''}" data-call-record="${safe(call.id)}">
+        <article class="voice-call-record ${index === 0 ? 'is-latest' : ''}" data-call-record="${safe(call.id)}">
             <header>
                 <span>${safe(subtitle)}</span>
                 <time>${safe(formatToolTime(call.createdAt))}</time>
@@ -1874,7 +1868,6 @@ function renderCallRecord(call, index = 0) {
             </header>
             <h2>${safe(title)}</h2>
             <p>${safe(call.reason || firstSegment.text || '没有留下通话原因')}</p>
-            ${isGroup ? `<small class="voice-call-speakers">${speakers.map(speaker => `<span><i>${safe(speaker.slice(0, 1))}</i>${safe(speaker)}</span>`).join('')}</small>` : ''}
             <footer>
                 <button type="button" data-start-phone-call="${safe(call.id)}">${icon('play', 16)} 重听</button>
                 <button class="voice-history-regenerate" type="button" data-regenerate-tool-record="phone" data-tool-record-id="${safe(call.id)}" aria-label="重新生成通话 ${safe(title)}" title="重新生成" ${state.featureBusy ? 'disabled' : ''}>${icon('refresh', 15)}</button>
@@ -1886,14 +1879,17 @@ function renderCallRecord(call, index = 0) {
 
 function renderTracksPanel() {
     const tools = FrontendVoiceTools.getSnapshot();
-    const calls = Array.isArray(tools.calls) ? tools.calls : [];
+    const allCalls = Array.isArray(tools.calls) ? tools.calls : [];
+    const calls = allCalls.filter(isPublicSingleCall);
+    const archivedCount = allCalls.length - calls.length;
     const filtered = state.tracksFilter === 'favorites'
         ? calls.filter(call => call.favorite === true)
         : calls;
     return `
         <section class="voice-secondary-view voice-tool-view" aria-labelledby="voice-tracks-heading">
-            <div class="voice-kicker">${icon('headphones', 15)} 通话记录库</div>
-            <h1 id="voice-tracks-heading">追踪</h1>
+            <div class="voice-kicker">${icon('headphones', 15)} 单人电话</div>
+            <h1 id="voice-tracks-heading">通话记录</h1>
+            ${archivedCount ? `<p class="voice-tool-note">已保留 ${archivedCount} 条旧版多人电话数据；公开版不再生成、重听或重新生成这些记录。</p>` : ''}
             <nav class="voice-tracks-filter" aria-label="通话过滤">
                 <button type="button" data-set-tracks-filter="all" class="${state.tracksFilter !== 'favorites' ? 'is-active' : ''}">全部 · ${calls.length}</button>
                 <button type="button" data-set-tracks-filter="favorites" class="${state.tracksFilter === 'favorites' ? 'is-active' : ''}">收藏 · ${calls.filter(call => call.favorite).length}</button>
@@ -2083,7 +2079,6 @@ function renderPromptManager() {
     const variableHints = {
         body: '{{角色}}、{{用户}}、{{语言}}、{{格式}}',
         single_call: '{{角色}}、{{用户}}、{{长度}}、{{语言}}、{{可用声线}}、{{角色卡与世界书}}、{{任务上下文}}、{{输出格式}}',
-        group_call: '{{角色}}、{{用户}}、{{长度}}、{{语言}}、{{可用声线}}、{{角色卡与世界书}}、{{任务上下文}}、{{输出格式}}',
         chat: '{{角色}}、{{用户}}、{{语言}}、{{角色卡与世界书}}、{{聊天记录}}、{{待回复消息}}、{{任务上下文}}、{{输出格式}}',
         group_chat: '{{角色}}、{{用户}}、{{语言}}、{{可用声线}}、{{可用表情包}}、{{角色卡与世界书}}、{{聊天记录}}、{{待回复消息}}、{{任务上下文}}、{{输出格式}}',
         image: '{{角色}}、{{用户}}、{{角色卡与世界书}}、{{任务上下文}}、{{输出格式}}',
@@ -2091,7 +2086,6 @@ function renderPromptManager() {
     const tabLabels = {
         body: '正文',
         single_call: '单人通话',
-        group_call: '多人通话',
         chat: '聊天',
         group_chat: '群聊',
         image: '生图',
@@ -2153,7 +2147,7 @@ function renderPromptManager() {
 }
 
 function renderPromptLab() {
-    const kinds = { body: '正文', single_call: '单人通话', group_call: '多人通话', chat: '聊天', group_chat: '群聊', image: '生图' };
+    const kinds = { body: '正文', single_call: '单人通话', chat: '聊天', group_chat: '群聊', image: '生图' };
     const compiled = FrontendVoiceTools.compilePromptWorkflow(state.promptLabKind);
     const revisions = FrontendVoiceTools.getPromptWorkflowRevisions(state.promptLabKind);
     const busy = state.featureBusy === 'prompt-lab';
@@ -2370,7 +2364,7 @@ function getPhoneHeaderMeta() {
     if (state.route === 'library') return { title: '角色路由', subtitle: context.charName || '声线管理' };
     if (state.route === 'incoming') return { title: '电话', subtitle: '外呼通话' };
     if (state.route === 'favorites') return { title: '声线', subtitle: '收藏与复刻' };
-    if (state.route === 'tracks' || state.route === 'eavesdrop') return { title: '追踪', subtitle: '通话记录库' };
+    if (state.route === 'tracks' || state.route === 'eavesdrop') return { title: '通话记录', subtitle: '仅单人电话' };
     if (state.route === 'settings') {
         const tabTitle = {
             model: '模型来源',
@@ -2579,11 +2573,7 @@ function updateView() {
     const scrollState = preserveScroll ? captureScrollState(screen) : null;
     if (root) {
         root.dataset.voiceRoute = state.route;
-        root.dataset.callStage = state.route === 'incoming'
-            ? state.phoneStage
-            : state.route === 'eavesdrop' && state.toolPlaybackKey.startsWith('track:')
-                ? 'group-active'
-                : '';
+        root.dataset.callStage = state.route === 'incoming' ? state.phoneStage : '';
     }
     screen.innerHTML = renderRoute();
     state.renderKey = renderKey;
@@ -2819,6 +2809,15 @@ function applyTheme(theme, persist = true) {
             trigger?.style.removeProperty(variable);
         }
     });
+    if (document.body) {
+        if (state.theme === 'custom') {
+            document.body.style.setProperty('--phonie-body-accent', custom.accent || 'hsl(30 69% 64%)');
+            document.body.style.setProperty('--phonie-body-glow', custom.glow || 'hsl(184 62% 61%)');
+        } else {
+            document.body.style.removeProperty('--phonie-body-accent');
+            document.body.style.removeProperty('--phonie-body-glow');
+        }
+    }
     if (persist) {
         localStorage.setItem('tts_voice_hub_theme', state.theme);
         TTS_ProviderRegistry.updateUiSettings({ theme: state.theme });
@@ -3290,6 +3289,10 @@ async function regenerateToolRecord(kind, recordId) {
     clearToolRecordAudio(kind, recordId);
 
     if (kind === 'phone') {
+        if (!isPublicSingleCall(record)) {
+            announce('公开版已停止提供多人电话；旧记录仍保留，但不能重新生成。');
+            return;
+        }
         state.phoneBrief = String(record.brief || record.reason || '').trim();
         state.phoneLength = inferPhoneLength(record);
         state.phoneCaller = String(record.participants?.[0] || record.requestedCaller || record.charName || 'auto').trim() || 'auto';
@@ -3299,11 +3302,10 @@ async function regenerateToolRecord(kind, recordId) {
         state.phoneParticipants = [...participants];
         state.featureBusy = 'phone-regenerate';
         updateView();
-        const isGroup = record.kind === 'group' || participants.length > 1;
-        announce(isGroup ? '正在重新生成多人通话' : `正在重新生成 ${record.charName || '角色'} 的通话`);
+        announce(`正在重新生成 ${record.charName || '角色'} 的通话`);
         try {
             await FrontendVoiceTools.regeneratePhoneCall(recordId);
-            announce(isGroup ? '多人通话已重新生成' : `${record.charName || '角色'} 的通话已重新生成`);
+            announce(`${record.charName || '角色'} 的通话已重新生成`);
         } catch (error) {
             announce(error.message || '通话重新生成失败');
         } finally {
@@ -3421,6 +3423,10 @@ async function playPhoneChatVoice(messageId) {
 
 function beginOutgoingCall(plan, { requireRoute = null } = {}) {
     if (!plan || state.featureBusy) return false;
+    if (!isPublicSingleCall(plan)) {
+        announce('公开版电话目前只支持一位角色。');
+        return false;
+    }
     if (requireRoute && state.route !== requireRoute) return false;
     // 主动呼出：进入 ringing 展示“正在呼叫角色”，由 timer 自动接通，不显示接听按钮。
     window.clearTimeout(state.phoneRingTimer);
@@ -3433,8 +3439,7 @@ function beginOutgoingCall(plan, { requireRoute = null } = {}) {
     state.phoneSegmentIndex = 0;
     state.phoneAudioQueue = [];
     state.phoneCompletedDuration = 0;
-    const isGroup = Array.isArray(plan.participants) && plan.participants.length > 1;
-    announce(`正在呼叫 ${isGroup ? `${plan.charName} 等人` : plan.charName}`);
+    announce(`正在呼叫 ${plan.charName}`);
     updateView();
     state.phoneRingTimer = window.setTimeout(async () => {
         if (
@@ -3601,6 +3606,10 @@ function startPhoneRinging(recordId) {
     const plan = getToolRecord('phone', recordId) || state.phonePlan;
     if (!plan) {
         announce('找不到这通电话');
+        return;
+    }
+    if (!isPublicSingleCall(plan)) {
+        announce('公开版已停止提供多人电话；旧记录只保留在数据中。');
         return;
     }
     state.route = 'incoming';
@@ -4986,10 +4995,16 @@ function bindEvents(eventRoot) {
         const dialFill = event.target.closest('[data-dial-fill]')?.dataset.dialFill;
         if (dialFill) {
             const input = document.getElementById('tts-dial-input');
+            const form = document.getElementById('tts-phone-plan-form');
             if (input) {
                 input.value = virtualNumber(dialFill);
                 state.dialInput = input.value;
             }
+            const participantInputs = [...(form?.querySelectorAll('input[name="participants"]') || [])];
+            participantInputs.forEach(item => { item.checked = item.value === dialFill; });
+            state.phoneParticipants = [dialFill];
+            state.phoneCaller = dialFill;
+            announce(`已选择 ${dialFill}`);
             return;
         }
         if (event.target.closest('[data-dial-call]')) {
@@ -4998,8 +5013,8 @@ function bindEvents(eventRoot) {
             const normalizeNumber = value => String(value || '').replace(/[\s+\-]/g, '');
             const number = normalizeNumber(input?.value);
             const contacts = FrontendVoiceTools.getVoiceContacts?.() || [];
-            const match = contacts.find(contact => normalizeNumber(virtualNumber(contact.name)) === number);
-            if (!match) {
+            const match = number ? contacts.find(contact => normalizeNumber(virtualNumber(contact.name)) === number) : null;
+            if (number && !match) {
                 announce('该号码不存在，请从通讯录号码选择');
                 return;
             }
@@ -5010,20 +5025,29 @@ function bindEvents(eventRoot) {
                 announce('请填写通话主题');
                 return;
             }
-            let participants = [];
+            let participants;
             try {
                 participants = readSelectedParticipants(form);
-            } catch {
-                participants = [];
+            } catch (error) {
+                if (match) participants = [match.name];
+                else {
+                    announce(error.message || '请至少选择一位参与角色');
+                    return;
+                }
             }
-            if (!participants.includes(match.name)) participants = [match.name, ...participants];
-            if (!participants.length) participants = [match.name];
+            if (match && !participants.includes(match.name)) {
+                announce(`号码属于 ${match.name}，请先勾选该角色，或清空号码后按已勾选角色拨出`);
+                return;
+            }
+            if (match) participants = [match.name];
+            const caller = participants[0];
             state.dialInput = input?.value || '';
-            state.phoneCaller = match.name;
+            state.phoneCaller = caller;
+            state.phoneParticipants = [...participants];
             state.phoneContentSource = source;
             state.phoneStage = 'setup';
             await runPhonePlan({
-                caller: match.name,
+                caller,
                 brief,
                 duration: String(form?.elements?.duration?.value || 'medium'),
                 direction: 'outgoing',
@@ -5805,6 +5829,13 @@ function bindEvents(eventRoot) {
         }
         if (event.target.id === 'tts-phone-duration') {
             state.phoneLength = event.target.value;
+            return;
+        }
+        if (event.target.name === 'participants' && event.target.closest('[data-phone-plan-form]')) {
+            const form = event.target.closest('form');
+            state.phoneParticipants = [...form.querySelectorAll('input[name="participants"]:checked')].map(input => input.value);
+            if (state.phoneParticipants.length) state.phoneCaller = state.phoneParticipants[0];
+            updateView();
             return;
         }
         if (event.target.id === 'tts-planner-output-language') {

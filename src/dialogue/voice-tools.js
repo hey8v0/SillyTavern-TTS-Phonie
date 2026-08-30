@@ -13,7 +13,7 @@ import { extension_settings } from '/scripts/extensions.js';
 import { getWorldInfoPrompt, world_info_include_names } from '/scripts/world-info.js';
 import { LLM_Client } from './llm_client.js';
 import { initBodyTtsRuntime } from './body-tts.js';
-import { buildVoiceContacts, validateCallParticipants } from '../ui/mobile/contacts.js';
+import { buildVoiceContacts, validateCallParticipants, validateSingleCallParticipant } from '../ui/mobile/contacts.js';
 import { batchDeleteMessages, buildAllowedGroupMemberNames } from '../ui/mobile/qq-data.js';
 import { resolveSticker } from '../ui/mobile/stickers.js';
 import { normalizeChatTranslation } from '../ui/mobile/chat-response.js';
@@ -1514,6 +1514,9 @@ function compilePromptWorkflow(kind) {
 }
 
 async function testPromptWorkflow(kind) {
+    if (['group_call', 'track'].includes(kind)) {
+        throw new Error('公开版已停止提供多人电话与多人语音工作流。');
+    }
     const compiled = compilePromptWorkflow(kind);
     const blocking = compiled.issues.find(issue => issue.severity === 'error');
     if (blocking) throw new Error(blocking.message);
@@ -2826,116 +2829,49 @@ async function generatePhonePlan({ brief = '', duration = 'short', caller = 'aut
     const availableCharacters = getAvailableVoiceCharacters();
     if (!availableCharacters.length) throw new Error('还没有可用于通话的角色声线，请先配置角色路由。');
     const rawParticipants = Array.isArray(participants) && participants.length ? participants : [caller];
-    const requestedParticipants = validateCallParticipants(rawParticipants);
-    const unavailable = requestedParticipants.filter(name => !availableCharacters.some(item => item.name === name));
-    if (unavailable.length) throw new Error(`以下联系人没有可用声线路由：${unavailable.join('、')}`);
-    const requestedCaller = requestedParticipants[0];
-    const callerLabel = requestedParticipants.length === 1
-        ? requestedCaller
-        : `${requestedParticipants.join('、')}（${requestedParticipants.length} 人）`;
+    const requestedCaller = validateSingleCallParticipant(rawParticipants);
+    if (!availableCharacters.some(item => item.name === requestedCaller)) {
+        throw new Error(`${requestedCaller} 还没有可用声线路由。`);
+    }
     const planner = getPlannerSettings();
     const language = resolveOutputLanguage(planner);
     const lore = await collectLoreContext(context);
-    const isGroupCall = requestedParticipants.length > 1;
-    const minimumSegments = isGroupCall
-        ? 15
-        : (duration === 'long' ? 12 : duration === 'medium' ? 7 : 4);
-    const lengthHint = isGroupCall
-        ? '15 到 28 段'
-        : (duration === 'long' ? '12 到 18 句' : duration === 'medium' ? '7 到 10 句' : '4 到 6 句');
+    const minimumSegments = duration === 'long' ? 12 : duration === 'medium' ? 7 : 4;
+    const lengthHint = duration === 'long' ? '12 到 18 句' : duration === 'medium' ? '7 到 10 句' : '4 到 6 句';
     const taskContext = [
         `当前角色卡：${context.charName}`,
         `用户：${context.userName}`,
-        `本次通话人：${callerLabel}`,
+        `本次通话人：${requestedCaller}`,
         `可用声线：${availableCharacters.map(item => `${item.name}（${item.providerName}）`).join('、')}`,
         brief ? `这通电话想谈：${String(brief).trim()}` : '通话目的：从最近对话中自行判断一个最自然的延续点。',
         formatLorePrompt(lore),
         `已选对话楼层（${context.includedFloorCount}/${context.floorCount}）：`,
         formatContext(context),
     ].join('\n');
-    const workflowKind = isGroupCall ? 'group_call' : 'single_call';
-    const messages = buildPromptWorkflowMessages(workflowKind, {
-        角色: callerLabel,
+    const messages = buildPromptWorkflowMessages('single_call', {
+        角色: requestedCaller,
         用户: context.userName,
         长度: lengthHint,
         语言: language.instruction,
         格式: '',
-        可用声线: requestedParticipants.join('、'),
+        可用声线: requestedCaller,
         角色卡与世界书: formatLorePrompt(lore),
         任务上下文: taskContext,
-        输出格式: isGroupCall
-            ? `只返回严格 JSON，不要解释过程，不要使用 Markdown：{"sceneDescription":"","summary":"","speakers":[""],"threads":[""],"segments":[{"speaker":"","emotion":"","text":"","translation":""}]}。segments 必须生成 15 到 28 段；speakers 必须是 ${requestedParticipants.join('、')}；threads 最多 6 条；translation 必须填写自然中文译文；不要替 ${context.userName} 说话。语言要求：${language.instruction}。`
-            : `只返回严格 JSON，不要解释过程，不要使用 Markdown：{"caller":"","title":"","reason":"","tone":"","segments":[{"speaker":"","emotion":"","text":"","translation":""}]}。segments 必须有 ${lengthHint}；caller 必须是 ${requestedCaller}；只生成远端角色发言，不要替 ${context.userName} 说话；translation 必须填写自然中文译文。语言要求：${language.instruction}。`,
+        输出格式: `只返回严格 JSON，不要解释过程，不要使用 Markdown：{"caller":"","title":"","reason":"","tone":"","segments":[{"speaker":"","emotion":"","text":"","translation":""}]}。segments 必须有 ${lengthHint}；caller 必须是 ${requestedCaller}；只生成远端角色发言，不要替 ${context.userName} 说话；translation 必须填写自然中文译文。语言要求：${language.instruction}。`,
     });
-    const schema = isGroupCall ? GROUP_CALL_PHONE_SCHEMA : PHONE_SCHEMA;
     const structured = await requestStructuredResult({
         messages,
-        schema,
-        kind: workflowKind,
+        schema: PHONE_SCHEMA,
+        kind: 'single_call',
         minimumSegments,
         requireChineseTranslations: true,
     });
-    const result = isGroupCall
-        ? normalizeGroupCallPlan(structured, context, brief, requestedParticipants)
-        : normalizePhonePlan(structured, context, brief, duration, requestedCaller, availableCharacters);
+    const result = normalizePhonePlan(structured, context, brief, duration, requestedCaller, availableCharacters);
     const store = ensureStore();
     store.calls.unshift(result);
     store.calls = store.calls.slice(0, MAX_HISTORY);
-    persist(isGroupCall ? 'group-phone-plan' : 'phone-plan', { id: result.id });
+    persist('phone-plan', { id: result.id });
     return clone(result);
-}
-
-function normalizeGroupCallPlan(value, context, brief, requestedSpeakers) {
-    const speakerList = [...new Set(requestedSpeakers.map(name => String(name || '').trim()).filter(Boolean))];
-    if (speakerList.length < 2) {
-        throw new Error('多人通话至少需要两位已配置声线的角色。');
-    }
-    const threads = (Array.isArray(value?.threads) ? value.threads : [])
-        .map(item => String(item || '').trim()).filter(Boolean).slice(0, 6);
-    const sourceSegments = Array.isArray(value?.segments) ? value.segments : [];
-    let segments = sourceSegments.slice(0, 28).map((segment, index) => {
-        const rawSpeaker = String(segment?.speaker || '').trim();
-        const speaker = speakerList.includes(rawSpeaker)
-            ? rawSpeaker
-            : speakerList[index % speakerList.length];
-        const text = String(segment?.text || segment?.content || '').trim();
-        return {
-            speaker,
-            emotion: String(segment?.emotion || '自然').trim() || '自然',
-            text,
-            translation: String(segment?.translation || text).trim(),
-        };
-    }).filter(item => item.text);
-    if (segments.length < 15) throw new Error('多人通话没有生成足够的可播放台词。');
-    const uniqueSpeakers = new Set(segments.map(item => item.speaker));
-    if (uniqueSpeakers.size < 2) {
-        segments = segments.map((segment, index) => ({
-            ...segment,
-            speaker: speakerList[index % speakerList.length],
-        }));
-    }
-    const finalSpeakers = [...new Set(segments.map(item => item.speaker))];
-    const primarySpeaker = speakerList[0];
-    return {
-        id: createId('call'),
-        kind: 'group',
-        charName: primarySpeaker,
-        speakers: finalSpeakers,
-        participants: speakerList,
-        title: `${speakerList.join('、')} 多人通话`,
-        reason: String(brief || value?.summary || '').trim() || `${speakerList.length} 人同时通话`,
-        tone: String(value?.tone || '自然').trim() || '自然',
-        sceneDescription: String(value?.sceneDescription || value?.scene_description || '多人通话场景。').trim(),
-        summary: String(value?.summary || '已生成多人通话。').trim().slice(0, 200),
-        threads,
-        segments,
-        messageCount: context.messageCount,
-        floorCount: context.floorCount,
-        includedFloorCount: context.includedFloorCount,
-        duration: 'long',
-        favorite: false,
-        createdAt: new Date().toISOString(),
-    };
 }
 
 async function regeneratePhoneCall(callId) {
@@ -2943,6 +2879,7 @@ async function regeneratePhoneCall(callId) {
     const previous = store.calls.find(item => item.id === callId);
     if (!previous) throw new Error('找不到要重新生成的通话。');
     const isGroup = previous.kind === 'group' || (Array.isArray(previous.participants) && previous.participants.length > 1);
+    if (isGroup) throw new Error('公开版已停止提供多人电话；旧记录仍会保留，但不能重新生成。');
     return generatePhonePlan({
         brief: previous.brief || previous.reason || '',
         duration: previous.duration || 'short',
