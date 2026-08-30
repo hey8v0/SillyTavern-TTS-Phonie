@@ -32,6 +32,7 @@ test('QQ 和表情 UI 提供批量操作、图片状态与图片纯气泡', () =
     const mobile = `${read('src/ui/mobile/index.js')}\n${read('src/ui/mobile/qq.js')}`;
     for (const token of [
         'data-qq-delete-friends',
+        'data-qq-remove-friend',
         'data-chat-delete-selected',
         'data-chat-select-all',
         'data-group-delete-selected',

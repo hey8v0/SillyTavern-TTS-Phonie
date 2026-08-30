@@ -22,6 +22,10 @@ import {
 } from '../src/ui/mobile/novelai.js';
 import { readOpenAICompatibleResponse } from '../src/dialogue/llm_client.js';
 import { requestNovelAiImage } from '../src/ui/mobile/drawing.js';
+import {
+    normalizeChatTranslation,
+    shouldRestoreGeneratedChat,
+} from '../src/ui/mobile/chat-response.js';
 
 test('通讯录只包含手动与正文发声角色，并应用隐藏名单', () => {
     const contacts = buildVoiceContacts({
@@ -137,8 +141,22 @@ test('OpenAI 非流式响应继续解析普通 JSON', async () => {
     assert.equal(await readOpenAICompatibleResponse(response, { streaming: false }), '完成');
 });
 
-test('清单关闭自动更新并升级到 1.1.0', () => {
+test('中文或中外文混合消息缺少 translation 时保留原文而不丢弃整批回复', () => {
+    assert.equal(normalizeChatTranslation('今天辛苦啦，Kurohaちゃん～', ''), '今天辛苦啦，Kurohaちゃん～');
+    assert.equal(normalizeChatTranslation('纯中文消息', ''), '纯中文消息');
+    assert.equal(normalizeChatTranslation('当然可以呀', '缺失翻译'), '当然可以呀');
+    assert.equal(normalizeChatTranslation('おやすみ', '晚安'), '晚安');
+    assert.equal(normalizeChatTranslation('good night', ''), 'good night');
+});
+
+test('生成期间没有手动切换会话时恢复原目标线程，手动切换后不抢走界面', () => {
+    assert.equal(shouldRestoreGeneratedChat({ route: 'chat', revisionAtStart: 2, currentRevision: 2 }), true);
+    assert.equal(shouldRestoreGeneratedChat({ route: 'chat', revisionAtStart: 2, currentRevision: 3 }), false);
+    assert.equal(shouldRestoreGeneratedChat({ route: 'qq', revisionAtStart: 2, currentRevision: 2 }), false);
+});
+
+test('清单关闭自动更新并升级到 1.1.1', () => {
     const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
     assert.equal(manifest.auto_update, false);
-    assert.equal(manifest.version, '1.1.0');
+    assert.equal(manifest.version, '1.1.1');
 });

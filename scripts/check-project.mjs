@@ -61,7 +61,7 @@ try {
     const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'));
     if (manifest.js !== 'index.js') fail('manifest.json 的 js 入口应为 index.js');
     if (manifest.hooks?.activate !== 'init') fail('manifest.json 缺少 hooks.activate = init');
-    if (manifest.version !== '1.1.0') fail('manifest.json 版本应为 1.1.0');
+    if (manifest.version !== '1.1.1') fail('manifest.json 版本应为 1.1.1');
     if (manifest.auto_update !== false) fail('manifest.json 必须关闭 auto_update');
     ok(`manifest 合法：${manifest.display_name} v${manifest.version}，自动更新已关闭`);
 } catch (error) {

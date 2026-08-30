@@ -16,6 +16,7 @@ import { initBodyTtsRuntime } from './body-tts.js';
 import { buildVoiceContacts, validateCallParticipants } from '../ui/mobile/contacts.js';
 import { batchDeleteMessages } from '../ui/mobile/qq-data.js';
 import { resolveSticker } from '../ui/mobile/stickers.js';
+import { normalizeChatTranslation } from '../ui/mobile/chat-response.js';
 
 const SETTINGS_KEY = 'gpt_sovits_frontend_voice_tools';
 const MAX_HISTORY = 24;
@@ -1798,13 +1799,9 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
                 const description = String(item?.description || (type === 'image' ? text : '')).trim().slice(0, 12000);
                 const amount = String(item?.amount || '').trim().slice(0, 80);
                 const note = String(item?.note || '').trim().slice(0, 500);
-                let translation = String(item?.translation || '').trim().slice(0, 12000);
                 const readable = type === 'image' ? description : text || note;
+                const translation = normalizeChatTranslation(readable, item?.translation);
                 if (!readable && !amount) return null;
-                if (isLikelyChinese(readable)) translation = readable;
-                else if (['text', 'voice', 'image'].includes(type) && !isLikelyChinese(translation)) {
-                    throw new Error('角色回复缺少自然中文译文。');
-                }
                 return {
                     type,
                     emotion: String(item?.emotion || '自然').trim().slice(0, 80) || '自然',
@@ -1857,7 +1854,14 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
     thread.messages.push(...assistantMessages);
     thread.messages = thread.messages.slice(-240);
     thread.updatedAt = new Date().toISOString();
-    persist('phone-chat-message', { threadId: thread.id, messageIds: assistantMessages.map(message => message.id), sender: 'character', proactive: Boolean(proactive) });
+    persist('phone-chat-message', {
+        threadId: thread.id,
+        contactName: thread.charName,
+        thread: clone(thread),
+        messageIds: assistantMessages.map(message => message.id),
+        sender: 'character',
+        proactive: Boolean(proactive),
+    });
     return {
         assistantMessage: clone(assistantMessages[0]),
         assistantMessages: clone(assistantMessages),
@@ -2190,11 +2194,9 @@ async function generateGroupChatReply(groupId, { preferVoice = false } = {}) {
                 const description = String(item?.description || (type === 'image' ? text : '')).trim().slice(0, 12000);
                 const amount = String(item?.amount || '').trim().slice(0, 80);
                 const note = String(item?.note || '').trim().slice(0, 500);
-                let translation = String(item?.translation || '').trim().slice(0, 12000);
                 const readable = type === 'image' ? description : text || note;
+                const translation = normalizeChatTranslation(readable, item?.translation);
                 if (!readable && !amount) return null;
-                if (isLikelyChinese(readable)) translation = readable;
-                else if (['text', 'voice', 'image'].includes(type) && !isLikelyChinese(translation)) throw new Error('群聊回复缺少自然中文译文。');
                 return {
                     speaker: resolveGroupSpeaker(item?.speaker, group.memberNames),
                     type,

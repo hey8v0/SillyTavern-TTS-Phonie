@@ -103,6 +103,7 @@ export function renderQqApp({
                             <span class="voice-qq-copy"><strong>${safe(friend.name)}</strong><small>${friend.addedAt ? `添加于 ${formatToolTime(friend.addedAt)}` : '好友'}</small></span>
                             ${icon('chevronRight', 15)}
                         </button>
+                        ${state.qqFriendSelectionMode ? '' : `<button type="button" class="voice-qq-row-action" data-qq-remove-friend="${safe(friend.name)}" aria-label="删除好友 ${safe(friend.name)}">${icon('trash', 14)}</button>`}
                     </div>`).join('')}
                 </div>
                 ${state.qqAddFriendOpen ? `

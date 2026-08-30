@@ -4,6 +4,7 @@ import { FrontendVoiceTools } from '../../dialogue/voice-tools.js';
 import { icon } from '../mobile-icons.js';
 import { createPhoneMotionRuntime } from '../motion.js';
 import { renderContactsApp as renderContactsView } from './contacts.js';
+import { shouldRestoreGeneratedChat } from './chat-response.js';
 import { batchDeleteMessages, removeQqFriends } from './qq-data.js';
 import { renderQqApp as renderQqView } from './qq.js';
 import { NOVELAI_MODELS, requestNovelAiImage } from './drawing.js';
@@ -124,6 +125,7 @@ const state = {
     chatAudioElement: null,
     chatVoiceExpanded: new Set(),
     chatScrollToBottom: false,
+    chatContactRevision: 0,
     activeGroupId: '',
     groupQuoteId: '',
     groupActionId: '',
@@ -194,7 +196,7 @@ function persistVoiceNotifications() {
     }
 }
 
-function addVoiceNotification({ level = 'info', title, body = '', route = '', dedupeKey = '' } = {}) {
+function addVoiceNotification({ level = 'info', title, body = '', route = '', contactName = '', dedupeKey = '' } = {}) {
     const notificationTitle = String(title || '').trim();
     if (!notificationTitle) return null;
     if (dedupeKey && state.notifications.some(item => item.dedupeKey === dedupeKey)) return null;
@@ -204,6 +206,7 @@ function addVoiceNotification({ level = 'info', title, body = '', route = '', de
         title: notificationTitle.slice(0, 100),
         body: String(body || '').trim().slice(0, 500),
         route: String(route || '').trim(),
+        contactName: String(contactName || '').trim().slice(0, 120),
         dedupeKey: String(dedupeKey || '').trim(),
         read: false,
         createdAt: new Date().toISOString(),
@@ -262,12 +265,16 @@ function syncFrontendToolNotification(detail = {}) {
     }
     if (detail.type === 'phone-chat-message' && detail.sender === 'character' && state.route !== 'chat') {
         const chat = detail.snapshot?.phoneChat;
-        const message = [...(chat?.thread?.messages || [])].reverse().find(item => item.sender === 'character');
+        const deliveredThread = detail.thread || chat?.thread;
+        const messageIds = new Set(Array.isArray(detail.messageIds) ? detail.messageIds : []);
+        const message = [...(deliveredThread?.messages || [])].reverse()
+            .find(item => item.sender === 'character' && (!messageIds.size || messageIds.has(item.id)));
         addVoiceNotification({
             level: 'info',
-            title: `${chat?.thread?.charName || '角色'}发来新消息`,
+            title: `${detail.contactName || deliveredThread?.charName || '角色'}发来新消息`,
             body: message?.translation || message?.content || '打开聊天查看消息。',
             route: 'chat',
+            contactName: detail.contactName || deliveredThread?.charName || '',
             dedupeKey: `chat:${message?.id || detail.messageIds?.join('-') || Date.now()}`,
         });
     }
@@ -3873,11 +3880,31 @@ async function generatePendingPhoneChatReply() {
     state.chatActionId = '';
     updateView();
     let proactiveCall = null;
+    const revisionAtStart = state.chatContactRevision;
     try {
         const result = await FrontendVoiceTools.generatePhoneChatReply();
-        state.chatScrollToBottom = true;
+        const restoreGeneratedThread = shouldRestoreGeneratedChat({
+            route: state.route,
+            revisionAtStart,
+            currentRevision: state.chatContactRevision,
+        });
+        if (restoreGeneratedThread) {
+            FrontendVoiceTools.selectPhoneChatContact(result.thread?.charName || '');
+            state.chatScrollToBottom = true;
+        } else if (result.thread?.charName) {
+            const latest = result.assistantMessages[result.assistantMessages.length - 1];
+            addVoiceNotification({
+                level: 'info',
+                title: `${result.thread.charName} 的回复已送达`,
+                body: latest?.translation || latest?.content || '打开聊天查看消息。',
+                route: 'chat',
+                contactName: result.thread.charName,
+                dedupeKey: `chat-result:${latest?.id || result.thread.id}`,
+            });
+        }
         const voiceCount = result.assistantMessages.filter(message => message.type === 'voice').length;
-        announce(`${result.assistantMessages.length} 条角色消息已送达${voiceCount ? `，其中 ${voiceCount} 条语音` : ''}`);
+        const recipient = result.thread?.charName ? `到 ${result.thread.charName} 的会话` : '';
+        announce(`${result.assistantMessages.length} 条角色消息已送达${recipient}${voiceCount ? `，其中 ${voiceCount} 条语音` : ''}`);
         proactiveCall = result.proactiveCall || null;
     } catch (error) {
         announce(error.message || '手机聊天回复生成失败');
@@ -4536,6 +4563,7 @@ function bindEvents(eventRoot) {
         const contactChat = event.target.closest('[data-contact-open-chat]')?.dataset.contactOpenChat;
         if (contactChat) {
             FrontendVoiceTools.selectPhoneChatContact(contactChat);
+            state.chatContactRevision += 1;
             state.route = 'chat';
             updateView();
             return;
@@ -4645,6 +4673,22 @@ function bindEvents(eventRoot) {
             state.qqAddFriendOpen = false;
             announce(`已添加好友 ${qqPickFriend}`);
             updateView();
+            return;
+        }
+        const qqRemoveFriend = event.target.closest('[data-qq-remove-friend]')?.dataset.qqRemoveFriend;
+        if (qqRemoveFriend) {
+            const qq = TTS_ProviderRegistry.getQqState();
+            const canonicalGroups = FrontendVoiceTools.getGroupChatSnapshot().groups
+                .map(group => ({ id: group.id, members: group.memberNames }));
+            const preview = removeQqFriends({ friends: qq.friends, groups: canonicalGroups }, [qqRemoveFriend]);
+            const dissolveNote = preview.dissolvedGroupIds.length
+                ? `\n其中 ${preview.dissolvedGroupIds.length} 个群会因不足两人而解散。`
+                : '';
+            if (!window.confirm(`确定移除 QQ 好友“${qqRemoveFriend}”吗？私聊历史、通讯录和声线路由都会保留。${dissolveNote}`)) return;
+            TTS_ProviderRegistry.updateQqState({ friends: preview.friends });
+            FrontendVoiceTools.removeFriendsFromGroupChats([qqRemoveFriend]);
+            updateView();
+            announce(`已移除好友 ${qqRemoveFriend}`);
             return;
         }
         if (event.target.closest('[data-qq-toggle-friend-select]')) {
@@ -4784,6 +4828,7 @@ function bindEvents(eventRoot) {
         const qqOpenFriend = event.target.closest('[data-qq-open-friend]')?.dataset.qqOpenFriend;
         if (qqOpenFriend) {
             FrontendVoiceTools.selectPhoneChatContact(qqOpenFriend);
+            state.chatContactRevision += 1;
             state.route = 'chat';
             updateView();
             return;
@@ -4888,6 +4933,10 @@ function bindEvents(eventRoot) {
         if (openNotification) {
             const item = markVoiceNotificationRead(openNotification.dataset.openNotification);
             if (item?.route) {
+                if (item.route === 'chat' && item.contactName) {
+                    FrontendVoiceTools.selectPhoneChatContact(item.contactName);
+                    state.chatContactRevision += 1;
+                }
                 state.route = item.route;
                 state.providerId = null;
             }
@@ -5003,7 +5052,10 @@ function bindEvents(eventRoot) {
                 return;
             }
             if (route === 'library') state.routeCharacter = null;
-            if (route === 'chat') FrontendVoiceTools.selectPhoneChatContact(FrontendVoiceTools.getContextSnapshot().charName);
+            if (route === 'chat') {
+                FrontendVoiceTools.selectPhoneChatContact(FrontendVoiceTools.getContextSnapshot().charName);
+                state.chatContactRevision += 1;
+            }
             state.route = route;
             state.providerId = null;
             if (route === 'drawing') loadDrawingGallery();

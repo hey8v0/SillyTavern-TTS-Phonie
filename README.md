@@ -1,10 +1,10 @@
-# Phonie 手机 1.1.0
+# Phonie 手机 1.1.1
 
-Phonie 是 SillyTavern 的手机式 TTS、电话、QQ 与 NovelAI 绘图扩展。1.1.0 只保留一套手机运行时，入口统一指向 `src/ui/mobile/index.js`，不会在手机端回退到旧 UI。
+Phonie 是 SillyTavern 的手机式 TTS、电话、QQ 与 NovelAI 绘图扩展。1.1.1 只保留一套手机运行时，入口统一指向 `src/ui/mobile/index.js`，不会在手机端回退到旧 UI。
 
 ## 安装与更新
 
-扩展清单已设置 `auto_update: false`。酒馆不会自动检查或安装 Phonie 更新；扩展管理页的手动“检查更新 / 更新”仍然可用。首次取得 1.1.0 需要手动更新一次。
+扩展清单已设置 `auto_update: false`。酒馆不会自动检查或安装 Phonie 更新；扩展管理页的手动“检查更新 / 更新”仍然可用。首次取得 1.1.1 需要手动更新一次。
 
 两个入口都使用酒馆原生结构：
 
@@ -13,7 +13,7 @@ Phonie 是 SillyTavern 的手机式 TTS、电话、QQ 与 NovelAI 绘图扩展�
 
 设置中可选择悬浮球、扩展菜单或两者都显示，三者都只打开当前新版手机。
 
-## 1.1.0 重点
+## 1.1.1 重点
 
 - 通讯录只显示手动添加与正文有效 `[TTS:角色:情绪:文本]` 标签中真正发声的角色，角色卡、当前角色和声线路由不会自动污染名单。
 - 电话严格使用勾选结果：1 人单人通话，2–6 人多人通话；无效角色会报错，不会暗中换人。
@@ -26,7 +26,7 @@ Phonie 是 SillyTavern 的手机式 TTS、电话、QQ 与 NovelAI 绘图扩展�
 
 ## 数据与迁移
 
-1.1.0 会原地、可重复地迁移联系人来源、QQ 统一线程、`stickerId` 与 API 预设 `responseMode`。不会清空扩展设置、电话/QQ 聊天记录或 `phonie-v2-assets` IndexedDB 缓存。
+1.1.1 会原地、可重复地迁移联系人来源、QQ 统一线程、`stickerId` 与 API 预设 `responseMode`。不会清空扩展设置、电话/QQ 聊天记录或 `phonie-v2-assets` IndexedDB 缓存。
 
 联系人被移除后进入隐藏名单；已配置的声线路由保留。QQ 好友被移除后，私聊历史仍保留；对应群成员会同步移除，不足两人的群会在确认后解散。
 
