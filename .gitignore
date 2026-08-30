@@ -1,6 +1,2 @@
 node_modules/
-coverage/
-*.log
-.DS_Store
-Thumbs.db
-*_ORIGINAL_HANDOFF_*/
+PHOEN_ORIGINAL_HANDOFF_2026-08-25/

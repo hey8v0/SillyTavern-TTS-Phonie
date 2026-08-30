@@ -13,6 +13,9 @@ import { extension_settings } from '/scripts/extensions.js';
 import { getWorldInfoPrompt, world_info_include_names } from '/scripts/world-info.js';
 import { LLM_Client } from './llm_client.js';
 import { initBodyTtsRuntime } from './body-tts.js';
+import { buildVoiceContacts, validateCallParticipants } from '../ui/mobile/contacts.js';
+import { batchDeleteMessages } from '../ui/mobile/qq-data.js';
+import { resolveSticker } from '../ui/mobile/stickers.js';
 
 const SETTINGS_KEY = 'gpt_sovits_frontend_voice_tools';
 const MAX_HISTORY = 24;
@@ -139,6 +142,37 @@ const DEFAULT_CHAT_FORMAT_PROMPT = `## 多消息与富消息输出协议
 proactiveCall 每轮必须返回。没有来电意图：shouldCall=false。需要来电：shouldCall=true，并填写 caller、reason、tone。
 当 shouldCall=true 时，messages 仍然只是拨打电话前的聊天消息。禁止在聊天 messages 中生成真正的电话内容。
 {{输出格式}}`;
+const DEFAULT_GROUP_CHAT_PROMPT = `## QQ 群聊导演
+你正在模拟一个真实的 QQ 群聊，不是单人私聊、多人电话、小说正文或轮流朗读。
+群成员：{{可用声线}}
+用户：{{用户}}
+消息语言：{{语言}}
+
+### 角色与知识边界
+每一条消息都必须由群成员中的某一个具体角色发送。严格保持每个人各自的角色卡、世界书、说话习惯、知识边界、当前情绪，以及他们彼此和 {{用户}} 的关系。禁止把所有角色写成同一种语气，禁止让角色突然知道其不应知道的信息，禁止生成 {{用户}} 的消息、动作或心理。
+
+### 真实群聊节奏
+优先理解本轮全部待回复消息以及群内最近的上下文。角色可以接 {{用户}} 的话，也可以回复、附和、质疑、打断或延续另一个群成员刚发的内容。不要机械按成员名单轮流发言，不要让每个人都重复回答同一个问题，也不要强制所有人每轮都出现。群成员可以保持沉默；谁出场、发几条、先后顺序都应由性格、关系与当前话题自然决定。
+
+同一个角色可以连续发送多条短消息，两名角色也可以快速互相接话。消息数量由当前交流需要决定，不要为凑热闹堆“哈哈”“嗯嗯”“我也觉得”等无信息短句。群里关系紧张时可以自然产生分歧，关系亲近时也可以有默契和玩笑，但不要为了戏剧效果强行吵架或强行和谐。
+
+### 手机消息边界
+只输出角色真正发到群里的消息。禁止小说旁白、动作描写、心理描写、镜头说明、舞台提示和“某某说：”前缀。文字、语音、图片、转账和表情包都是真实可执行的消息类型；只有在符合角色动机与上下文时才使用。群聊不会触发主动来电，也不要生成 proactiveCall 或电话 segments。
+
+### 回复目标
+让结果看起来像这些人物真的在同一个 QQ 群里看到新消息后，自然地决定是否参与、怎样接话以及何时暂时停下，而不是让一个模型替多人依次作答。`;
+const DEFAULT_GROUP_CHAT_FORMAT_PROMPT = `## QQ 群聊输出协议
+{{输出格式}}
+只返回严格 JSON，不要输出 Markdown、解释或结构外文字。
+messages 必须有 1～12 条，每条都包含 speaker、type、emotion、text、translation、description、amount、note、duration。
+- speaker 必须逐字使用群成员之一：{{可用声线}}；绝不能使用 {{用户}}。
+- type 只能是 text、voice、image、transfer、sticker。
+- text：角色实际发出的文字；voice 时也是交给 TTS 的真实台词。
+- translation：text 非中文时填写自然中文译文；中文消息可与 text 一致。
+- image：用 description 写可实际绘制的明确画面，每批最多一张，不写 URL、Tag、模型参数或 Base64。
+- transfer：填写 amount 与 note。
+- sticker：text 必须逐字使用已导入表情包名称之一；可用名称：{{可用表情包}}。
+不需要让所有群成员都发言。不要生成 proactiveCall。`;
 const DEFAULT_CHAT_EXECUTION_PROMPT = `## 手机行为执行原则
 当前聊天系统拥有可以真正执行的手机功能。如果 {{用户}} 请求了当前系统能够实际完成的行为，不要只用文字假装已经执行，应真正使用对应结构。
 - 文字：type:"text"。
@@ -238,6 +272,7 @@ const PROMPT_WORKFLOW_LABELS = Object.freeze({
     single_call: '单人通话',
     group_call: '多人通话',
     chat: '手机聊天',
+    group_chat: 'QQ 群聊',
     image: '生图 Tag',
 });
 
@@ -269,16 +304,23 @@ const DEFAULT_PROMPT_WORKFLOWS = Object.freeze({
         Object.freeze({ id: 'chat-format', name: '多消息与富消息输出协议', role: 'system', enabled: true, content: DEFAULT_CHAT_FORMAT_PROMPT }),
         Object.freeze({ id: 'chat-context', name: '聊天记录与待回复消息', role: 'user', enabled: true, content: '{{任务上下文}}' }),
     ]),
+    group_chat: Object.freeze([
+        Object.freeze({ id: 'group_chat-director', name: 'QQ群聊导演', role: 'system', enabled: true, content: DEFAULT_GROUP_CHAT_PROMPT }),
+        Object.freeze({ id: 'group_chat-minimax-adaptation', name: 'MiniMax 适配', role: 'system', enabled: true, content: DEFAULT_MINIMAX_ADAPTATION_PROMPT }),
+        Object.freeze({ id: 'group_chat-format', name: 'QQ群聊输出协议', role: 'system', enabled: true, content: DEFAULT_GROUP_CHAT_FORMAT_PROMPT }),
+        Object.freeze({ id: 'group_chat-context', name: '群聊记录与待回复消息', role: 'user', enabled: true, content: '{{任务上下文}}' }),
+    ]),
     image: Object.freeze([
         Object.freeze({ id: 'image-tag-only', name: '动态 Tag 生成', role: 'system', enabled: true, content: '只返回 JSON：{"dynamicPositiveTags":""}。其中 dynamicPositiveTags 是当前场景适合追加的逗号分隔英文 tags。' }),
     ]),
 });
 const DEFAULT_PLANNER = Object.freeze({
-    schemaVersion: 12,
+    schemaVersion: 18,
     mode: 'sillytavern',
     apiUrl: '',
     apiKey: '',
     model: '',
+    responseMode: 'nonstream',
     temperature: 0.72,
     maxTokens: 8192,
     contextLimit: 100,
@@ -499,6 +541,7 @@ const GROUP_CHAT_SCHEMA = Object.freeze({
 
 const listeners = new Set();
 let initialized = false;
+let selectedPhoneChatContact = '';
 let injectedBodyPromptKeys = [];
 let lastLoreStatus = { cardIncluded: false, worldInfoSections: 0, error: '' };
 
@@ -639,7 +682,7 @@ function ensureStore() {
         if (/对话连续性编辑[\s\S]*建议回复/.test(String(store.planner.trackPrompt || ''))) store.planner.trackPrompt = DEFAULT_TRACK_PROMPT;
         if (/凡是角色真正说出口[\s\S]*请使用 \{\{格式\}\}/.test(String(store.planner.bodyPrompt || ''))) store.planner.bodyPrompt = DEFAULT_BODY_TTS_PROMPT;
     }
-    store.planner.schemaVersion = 11;
+    store.planner.schemaVersion = 18;
     store.planner.mode = store.planner.mode === 'custom' ? 'custom' : 'sillytavern';
     const temperature = Number(store.planner.temperature);
     const maxTokens = Number(store.planner.maxTokens);
@@ -666,6 +709,7 @@ function ensureStore() {
     store.planner.bodyPrompt = String(store.planner.bodyPrompt || '').trim() || DEFAULT_BODY_TTS_PROMPT;
     store.planner.activePromptPresetId = String(store.planner.activePromptPresetId || '').trim();
     store.planner.activeApiPresetId = String(store.planner.activeApiPresetId || '').trim();
+    store.planner.responseMode = store.planner.responseMode === 'stream' ? 'stream' : 'nonstream';
     store.favorites = Array.isArray(store.favorites) ? store.favorites.slice(0, 120) : [];
     store.calls = Array.isArray(store.calls) ? store.calls.slice(0, MAX_HISTORY).map(item => ({
         ...clone(item),
@@ -692,6 +736,7 @@ function ensureStore() {
             apiUrl: String(item.apiUrl || '').trim(),
             apiKey: String(item.apiKey || '').trim(),
             model: String(item.model || '').trim(),
+            responseMode: item.responseMode === 'stream' ? 'stream' : 'nonstream',
             temperature: Math.min(1.5, Math.max(0, Number(item.temperature) || DEFAULT_PLANNER.temperature)),
             maxTokens: Math.min(65536, Math.max(200, Math.round(Number(item.maxTokens) || DEFAULT_PLANNER.maxTokens))),
             updatedAt: item.updatedAt || new Date().toISOString(),
@@ -741,6 +786,7 @@ function ensureStore() {
         single_call: createPromptWorkflow('single_call', singleCallSource, store.planner.phonePrompt, store.promptPresets),
         group_call: createPromptWorkflow('group_call', groupCallSource, store.planner.trackPrompt, store.promptPresets),
         chat: createPromptWorkflow('chat', storedWorkflows.chat, store.phoneChat.settings.prompt, store.phoneChat.presets),
+        group_chat: createPromptWorkflow('group_chat', storedWorkflows.group_chat, '', []),
         image: createPromptWorkflow('image', imageSource, '', []),
     };
     const storedRevisions = store.promptRevisions && typeof store.promptRevisions === 'object'
@@ -843,7 +889,7 @@ function ensureStore() {
     } catch (error) {
         console.warn('[Phonie] 提示词工作流迁移失败，已跳过并保留现有数据。', error);
     }
-    store.planner.schemaVersion = 16;
+    store.planner.schemaVersion = 18;
     if (!store.phoneChat.presets.some(item => item.id === store.phoneChat.settings.activePresetId)) {
         store.phoneChat.settings.activePresetId = '';
     }
@@ -872,9 +918,11 @@ function ensureStore() {
                 amount: String(message?.amount || '').slice(0, 80),
                 note: String(message?.note || '').slice(0, 500),
                 stickerName: String(message?.stickerName || message?.note || '').slice(0, 80),
+                stickerId: String(message?.stickerId || ''),
                 stickerUrl: String(message?.stickerUrl || ''),
                 duration: Math.min(600, Math.max(0, Number(message?.duration) || 0)),
                 replyToId: String(message?.replyToId || ''),
+                replyPreview: String(message?.replyPreview || '').slice(0, 500),
                 originalType: String(message?.originalType || ''),
                 originalContent: String(message?.originalContent || '').slice(0, 12000),
                 createdAt: message?.createdAt || new Date().toISOString(),
@@ -884,6 +932,30 @@ function ensureStore() {
             updatedAt: value.updatedAt || new Date().toISOString(),
         });
     }
+    // 旧版以“酒馆聊天 ID + 角色”分线程，导致同一 QQ 好友出现多套数据。
+    // 升级后按联系人统一，重复运行迁移不会继续复制消息。
+    const unifiedThreads = {};
+    for (const thread of Object.values(store.phoneChat.threads)) {
+        const charName = String(thread?.charName || '').trim();
+        if (!charName) continue;
+        const key = `contact::${charName}`;
+        const existing = unifiedThreads[key];
+        if (!existing) {
+            unifiedThreads[key] = { ...thread, key };
+            continue;
+        }
+        const byId = new Map([...existing.messages, ...thread.messages].map(message => [message.id, message]));
+        existing.messages = [...byId.values()]
+            .sort((left, right) => String(left.createdAt).localeCompare(String(right.createdAt)))
+            .slice(-240);
+        if (String(thread.updatedAt || '') > String(existing.updatedAt || '')) {
+            existing.id = thread.id;
+            existing.chatId = thread.chatId;
+            existing.avatarUrl = thread.avatarUrl || existing.avatarUrl;
+            existing.updatedAt = thread.updatedAt;
+        }
+    }
+    store.phoneChat.threads = unifiedThreads;
     for (const [key, value] of Object.entries(store.phoneChat.groups)) {
         if (!value || typeof value !== 'object') {
             delete store.phoneChat.groups[key];
@@ -912,8 +984,12 @@ function ensureStore() {
                 description: String(message?.description || '').slice(0, 12000),
                 amount: String(message?.amount || '').slice(0, 80),
                 note: String(message?.note || '').slice(0, 500),
+                stickerName: String(message?.stickerName || message?.note || '').slice(0, 80),
+                stickerId: String(message?.stickerId || ''),
+                stickerUrl: String(message?.stickerUrl || ''),
                 duration: Math.min(600, Math.max(0, Number(message?.duration) || 0)),
                 replyToId: String(message?.replyToId || ''),
+                replyPreview: String(message?.replyPreview || '').slice(0, 500),
                 originalType: String(message?.originalType || ''),
                 originalContent: String(message?.originalContent || '').slice(0, 12000),
                 createdAt: message?.createdAt || new Date().toISOString(),
@@ -957,6 +1033,7 @@ function updatePlannerSettings(updates = {}) {
         ...(updates.apiUrl !== undefined ? { apiUrl: String(updates.apiUrl || '').trim() } : {}),
         ...(updates.apiKey !== undefined ? { apiKey: String(updates.apiKey || '').trim() } : {}),
         ...(updates.model !== undefined ? { model: String(updates.model || '').trim() } : {}),
+        ...(updates.responseMode !== undefined ? { responseMode: updates.responseMode === 'stream' ? 'stream' : 'nonstream' } : {}),
         ...(updates.temperature !== undefined ? { temperature: Number(updates.temperature) } : {}),
         ...(updates.maxTokens !== undefined ? { maxTokens: Number(updates.maxTokens) } : {}),
         ...(updates.contextLimit !== undefined ? { contextLimit: Number(updates.contextLimit) } : {}),
@@ -1057,9 +1134,32 @@ function getContextSnapshot(limit = getPlannerSettings().contextLimit) {
 }
 
 function phoneChatThreadKey(context = getContextSnapshot()) {
-    const chatId = String(context.chatId || '').trim();
     const charName = String(context.charName || '').trim();
-    return `${chatId || 'current-chat'}::${charName || 'current-character'}`;
+    return `contact::${charName || 'current-character'}`;
+}
+
+function getPhoneChatContext(store = ensureStore()) {
+    const current = getContextSnapshot(store.planner.contextLimit);
+    const selected = String(selectedPhoneChatContact || '').trim();
+    if (!selected || selected === current.charName) return { ...current, canGenerate: current.available };
+    const thread = store.phoneChat.threads[`contact::${selected}`];
+    return {
+        ...current,
+        available: true,
+        canGenerate: false,
+        charName: selected,
+        avatarUrl: String(thread?.avatarUrl || ''),
+        chatId: `contact:${selected}`,
+        messages: [],
+        floorCount: 0,
+        includedFloorCount: 0,
+        messageCount: 0,
+    };
+}
+
+function selectPhoneChatContact(characterName = '') {
+    selectedPhoneChatContact = String(characterName || '').trim();
+    return getPhoneChatSnapshot();
 }
 
 function ensurePhoneChatThread(store = ensureStore(), context = getContextSnapshot()) {
@@ -1089,7 +1189,7 @@ function ensurePhoneChatThread(store = ensureStore(), context = getContextSnapsh
 
 function getPhoneChatSnapshot() {
     const store = ensureStore();
-    const context = getContextSnapshot(store.planner.contextLimit);
+    const context = getPhoneChatContext(store);
     const thread = ensurePhoneChatThread(store, context);
     return {
         settings: clone(store.phoneChat.settings),
@@ -1302,7 +1402,7 @@ function importPromptPresetData(payload, preferredKind = '') {
         syncLegacyWorkflowPrompt(store, kind);
         imported.push(kind);
     }
-    if (!imported.length) throw new Error('文件中没有可导入的正文、来电、追踪或聊天预设。');
+    if (!imported.length) throw new Error('文件中没有可导入的正文、电话、私聊、群聊或生图预设。');
     applyBodyPromptInjection();
     persist('prompt-workflow-import', { kinds: imported });
     return getPromptWorkflows();
@@ -1321,24 +1421,43 @@ function getPromptLabValues(kind) {
     const pending = getPendingPhoneChatMessages(thread)
         .map(message => formatPhoneChatMessage(message, thread))
         .join('\n');
+    const group = store.phoneChat.groups[store.phoneChat.activeGroupId]
+        || Object.values(store.phoneChat.groups)[0]
+        || null;
+    const groupHistory = group?.messages?.slice(-store.phoneChat.settings.maxHistory)
+        .map(message => formatGroupChatMessage(message, group))
+        .join('\n') || '';
+    const groupPending = group ? groupChatPendingMessages(group)
+        .map(message => formatGroupChatMessage(message, group))
+        .join('\n') : '';
+    const stickerNames = (window.TTS_ProviderRegistry?.getQqState?.().stickers || [])
+        .map(sticker => String(sticker?.name || '').trim()).filter(Boolean).slice(0, 200);
     const recentContext = formatContext(context);
     const outputFormats = {
         body: getBodyPromptFormatExample(),
         phone: '{"caller":"","title":"","reason":"","tone":"","segments":[{"speaker":"","emotion":"","text":"","translation":""}]}',
+        single_call: '{"caller":"","title":"","reason":"","tone":"","segments":[{"speaker":"","emotion":"","text":"","translation":""}]}',
         track: '{"sceneDescription":"","summary":"","mood":"","scene":"","speakers":[""],"threads":[""],"segments":[{"speaker":"","emotion":"","text":"","translation":""}]}',
+        group_call: '{"sceneDescription":"","summary":"","speakers":[""],"threads":[""],"segments":[{"speaker":"","emotion":"","text":"","translation":""}]}',
         chat: '{"messages":[{"type":"text","emotion":"自然","text":"","translation":"","description":"","amount":"","note":"","duration":0}]}',
+        group_chat: '{"messages":[{"speaker":"群成员姓名","type":"text","emotion":"自然","text":"","translation":"","description":"","amount":"","note":"","duration":0}]}',
+        image: '{"dynamicPositiveTags":""}',
     };
-    const lengths = { body: '正文自然长度', phone: '7 到 10 句', track: '15 到 28 段', chat: '1 到 8 条消息' };
+    const lengths = { body: '正文自然长度', phone: '7 到 10 句', single_call: '7 到 10 句', track: '15 到 28 段', group_call: '15 到 28 段', chat: '1 到 8 条消息', group_chat: '1 到 12 条消息', image: '一组动态 Tag' };
+    const isGroupChat = kind === 'group_chat';
     return {
-        角色: context.charName || '当前角色',
-        用户: context.userName || '用户',
+        角色: isGroupChat ? (group?.memberNames?.join('、') || '群成员甲、群成员乙') : (context.charName || '当前角色'),
+        用户: isGroupChat ? (group?.userName || context.userName || '用户') : (context.userName || '用户'),
         长度: lengths[kind],
         语言: language.instruction,
         格式: kind === 'body' ? getBodyPromptFormatExample() : outputFormats[kind],
-        可用声线: availableCharacters.map(item => item.name).join('、') || '尚未配置',
+        可用声线: isGroupChat
+            ? (group?.memberNames?.join('、') || '群成员甲、群成员乙')
+            : (availableCharacters.map(item => item.name).join('、') || '尚未配置'),
+        可用表情包: stickerNames.join('、') || '暂无可用表情包，本轮不要生成 sticker',
         角色卡与世界书: '运行正式任务时读取当前角色卡与已激活世界书',
-        聊天记录: history || '暂无手机聊天记录',
-        待回复消息: pending || '暂无待回复消息',
+        聊天记录: isGroupChat ? (groupHistory || '暂无群聊记录') : (history || '暂无手机聊天记录'),
+        待回复消息: isGroupChat ? (groupPending || '暂无群聊待回复消息') : (pending || '暂无待回复消息'),
         任务上下文: recentContext || '暂无正文上下文',
         输出格式: outputFormats[kind],
     };
@@ -1397,10 +1516,10 @@ async function testPromptWorkflow(kind) {
     const compiled = compilePromptWorkflow(kind);
     const blocking = compiled.issues.find(issue => issue.severity === 'error');
     if (blocking) throw new Error(blocking.message);
-    const schemas = { phone: PHONE_SCHEMA, single_call: PHONE_SCHEMA, group_call: GROUP_CALL_PHONE_SCHEMA, chat: CHAT_SCHEMA };
+    const schemas = { phone: PHONE_SCHEMA, single_call: PHONE_SCHEMA, group_call: GROUP_CALL_PHONE_SCHEMA, chat: CHAT_SCHEMA, group_chat: GROUP_CHAT_SCHEMA };
     const raw = await callPlanner('', '', schemas[kind], compiled.messages.map(({ role, content }) => ({ role, content })));
     let output = raw;
-    if (kind !== 'body') output = extractStructuredResult(raw, kind);
+    if (kind !== 'body') output = extractStructuredResult(raw, kind === 'group_chat' ? 'chat' : kind);
     const text = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
     if (!String(text || '').trim()) throw new Error('试运行没有返回内容。');
     return {
@@ -1555,9 +1674,9 @@ function getPendingPhoneChatMessages(thread) {
     return thread.messages.slice(lastCharacterIndex + 1).filter(message => message.sender === 'user' && message.type !== 'recalled');
 }
 
-function appendPhoneChatMessage({ text = '', type = 'text', replyToId = '', description = '', amount = '', note = '', stickerName = '', stickerUrl = '', duration = 0 } = {}) {
+function appendPhoneChatMessage({ text = '', type = 'text', replyToId = '', description = '', amount = '', note = '', stickerName = '', stickerId = '', stickerUrl = '', duration = 0 } = {}) {
     const store = ensureStore();
-    const context = getContextSnapshot(store.planner.contextLimit);
+    const context = getPhoneChatContext(store);
     if (!context.available) throw new Error('请先打开一个角色对话。');
     const thread = ensurePhoneChatThread(store, context);
     const quoted = replyToId ? findPhoneChatMessage(thread, replyToId) : null;
@@ -1567,7 +1686,12 @@ function appendPhoneChatMessage({ text = '', type = 'text', replyToId = '', desc
     const money = String(amount || '').trim().slice(0, 80);
     const memo = String(note || '').trim().slice(0, 500);
     const stickerLabel = String(stickerName || '').trim().slice(0, 80);
-    const stickerLink = String(stickerUrl || '').trim();
+    const sticker = resolveSticker(window.TTS_ProviderRegistry?.getQqState?.().stickers || [], {
+        stickerId,
+        stickerName: stickerLabel,
+        stickerUrl,
+    });
+    const stickerLink = String(sticker?.url || stickerUrl || '').trim();
     if (normalizedType === 'image' && !imageDescription) throw new Error('请填写图片里有什么。');
     if (normalizedType === 'sticker' && !stickerLabel) throw new Error('请选择一个表情包。');
     if (normalizedType === 'transfer' && !money) throw new Error('请填写金额。');
@@ -1587,6 +1711,7 @@ function appendPhoneChatMessage({ text = '', type = 'text', replyToId = '', desc
         amount: normalizedType === 'transfer' ? money : '',
         note: normalizedType === 'transfer' ? memo : '',
         stickerName: normalizedType === 'sticker' ? stickerLabel : '',
+        stickerId: normalizedType === 'sticker' ? String(sticker?.id || stickerId || '') : '',
         stickerUrl: normalizedType === 'sticker' ? stickerLink : '',
         duration: normalizedType === 'voice' ? Math.min(600, Math.max(1, Math.round(Number(duration) || Math.max(1, content.length / 5)))) : 0,
         replyToId: quoted?.id || '',
@@ -1604,8 +1729,9 @@ function appendPhoneChatMessage({ text = '', type = 'text', replyToId = '', desc
 
 async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = '' } = {}) {
     const store = ensureStore();
-    const context = getContextSnapshot(store.planner.contextLimit);
+    const context = getPhoneChatContext(store);
     if (!context.available) throw new Error('请先打开一个角色对话。');
+    if (!context.canGenerate) throw new Error(`请先在酒馆打开角色卡“${context.charName}”，再让该角色回复。聊天记录不会丢失。`);
     const thread = ensurePhoneChatThread(store, context);
     const settings = store.phoneChat.settings;
     const pendingMessages = getPendingPhoneChatMessages(thread);
@@ -1687,7 +1813,7 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
                     description,
                     amount,
                     note,
-                    stickerName: String(item?.stickerName || item?.note || '').slice(0, 80),
+                    stickerName: String(item?.stickerName || item?.note || (type === 'sticker' ? text : '')).slice(0, 80),
                     duration: type === 'voice' ? Math.min(600, Math.max(1, Math.round(Number(item?.duration) || Math.max(1, text.length / 5)))) : 0,
                 };
             }).filter(Boolean);
@@ -1700,7 +1826,10 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
     }
     if (!result) throw lastError || new Error('角色回复生成失败。');
 
-    const assistantMessages = result.map((item, index) => ({
+    const stickerLibrary = window.TTS_ProviderRegistry?.getQqState?.().stickers || [];
+    const assistantMessages = result.map((item, index) => {
+        const sticker = item.type === 'sticker' ? resolveSticker(stickerLibrary, { name: item.stickerName }) : null;
+        return ({
         id: createId('chat-message'),
         sender: 'character',
         type: item.type,
@@ -1715,14 +1844,16 @@ async function generatePhoneChatReply({ preferVoice = false, proactiveBrief = ''
         amount: item.amount,
         note: item.note,
         stickerName: item.stickerName,
-        stickerUrl: '',
+        stickerId: sticker?.id || '',
+        stickerUrl: sticker?.url || '',
         duration: item.duration,
         replyToId: '',
         originalType: '',
         originalContent: '',
         createdAt: new Date(Date.now() + index).toISOString(),
         recalledAt: '',
-    }));
+        });
+    });
     thread.messages.push(...assistantMessages);
     thread.messages = thread.messages.slice(-240);
     thread.updatedAt = new Date().toISOString();
@@ -1750,7 +1881,7 @@ async function sendPhoneChatMessage({ text = '', replyToId = '', preferVoice = f
 
 function recallPhoneChatMessage(messageId) {
     const store = ensureStore();
-    const thread = ensurePhoneChatThread(store, getContextSnapshot(store.planner.contextLimit));
+    const thread = ensurePhoneChatThread(store, getPhoneChatContext(store));
     const message = findPhoneChatMessage(thread, messageId);
     if (!message || message.type === 'recalled') return false;
     message.originalType = message.type;
@@ -1766,11 +1897,60 @@ function recallPhoneChatMessage(messageId) {
 
 function clearPhoneChatThread() {
     const store = ensureStore();
-    const thread = ensurePhoneChatThread(store, getContextSnapshot(store.planner.contextLimit));
+    const thread = ensurePhoneChatThread(store, getPhoneChatContext(store));
     thread.messages = [];
     thread.updatedAt = new Date().toISOString();
     persist('phone-chat-message', { threadId: thread.id, action: 'clear' });
     return true;
+}
+
+function deletePhoneChatMessages(messageIds = []) {
+    const store = ensureStore();
+    const thread = ensurePhoneChatThread(store, getPhoneChatContext(store));
+    thread.messages = batchDeleteMessages(thread.messages, messageIds);
+    thread.updatedAt = new Date().toISOString();
+    persist('phone-chat-message', { threadId: thread.id, messageIds, action: 'batch-delete' });
+    return clone(thread);
+}
+
+function removeFriendsFromGroupChats(friendNames = []) {
+    const store = ensureStore();
+    const removed = new Set(friendNames.map(name => String(name || '').trim()).filter(Boolean));
+    const dissolvedGroupIds = [];
+    for (const [id, group] of Object.entries(store.phoneChat.groups)) {
+        group.memberNames = group.memberNames.filter(name => !removed.has(name));
+        if (group.memberNames.length < 2) {
+            delete store.phoneChat.groups[id];
+            dissolvedGroupIds.push(id);
+        }
+    }
+    if (dissolvedGroupIds.includes(store.phoneChat.activeGroupId)) store.phoneChat.activeGroupId = '';
+    persist('group-chat-change', { action: 'friends-removed', friendNames: [...removed], dissolvedGroupIds });
+    return { groups: clone(Object.values(store.phoneChat.groups)), dissolvedGroupIds };
+}
+
+function migrateLegacyQqGroups(groups = []) {
+    const store = ensureStore();
+    let changed = false;
+    for (const source of groups || []) {
+        const memberNames = [...new Set((source?.memberNames || source?.members || [])
+            .map(name => String(name || '').trim()).filter(Boolean))].slice(0, 8);
+        if (memberNames.length < 2) continue;
+        const id = String(source?.id || createId('group-chat'));
+        if (store.phoneChat.groups[id]) continue;
+        store.phoneChat.groups[id] = {
+            id,
+            name: String(source?.name || memberNames.join('、')).trim().slice(0, 80) || memberNames.join('、'),
+            memberNames,
+            userName: getContextSnapshot(store.planner.contextLimit).userName || '用户',
+            messages: Array.isArray(source?.messages) ? clone(source.messages) : [],
+            createdAt: source?.createdAt || new Date().toISOString(),
+            updatedAt: source?.updatedAt || source?.createdAt || new Date().toISOString(),
+        };
+        changed = true;
+    }
+    if (changed) persist('group-chat-change', { action: 'legacy-migration' });
+    return getGroupChatSnapshot();
 }
 
 function groupChatPendingMessages(group) {
@@ -1968,6 +2148,8 @@ async function generateGroupChatReply(groupId, { preferVoice = false } = {}) {
     const profiles = formatGroupCharacterProfiles(group.memberNames);
     const history = group.messages.slice(-settings.maxHistory)
         .map(message => formatGroupChatMessage(message, group)).join('\n');
+    const stickerNames = (window.TTS_ProviderRegistry?.getQqState?.().stickers || [])
+        .map(sticker => String(sticker?.name || '').trim()).filter(Boolean).slice(0, 200);
     const taskContext = [
         formatLorePrompt(lore),
         `群聊角色资料：\n${profiles}`,
@@ -1977,12 +2159,14 @@ async function generateGroupChatReply(groupId, { preferVoice = false } = {}) {
         `请让群成员根据各自人设自然决定谁先回复、谁补充、谁保持沉默；允许同一角色连续发送多条，也允许多名角色交替发送。`,
     ].filter(Boolean).join('\n\n');
     const outputFormat = `只返回严格 JSON，不要输出 Markdown、思考过程或额外说明：{"messages":[{"speaker":"${group.memberNames[0]}","type":"text","emotion":"自然","text":"角色实际发送的原语言内容","translation":"自然中文译文","description":"","amount":"","note":"","duration":0}]}。messages 必须有 1 到 12 条；speaker 必须逐字使用以下群成员之一：${group.memberNames.join('、')}。type 只能是 text、voice、image、transfer、sticker。${preferVoice || settings.autoVoice ? '这次普通文字消息必须改为 voice。' : ''}`;
-    const messages = buildPromptWorkflowMessages('chat', {
+    const messages = buildPromptWorkflowMessages('group_chat', {
         角色: group.memberNames.join('、'),
         用户: group.userName,
         长度: '1 到 12 条消息',
         语言: language.instruction,
         格式: '',
+        可用声线: group.memberNames.join('、'),
+        可用表情包: stickerNames.join('、') || '暂无可用表情包，本轮不要生成 sticker',
         角色卡与世界书: [formatLorePrompt(lore), profiles].filter(Boolean).join('\n\n'),
         聊天记录: history,
         待回复消息: pendingMessages.map(message => formatGroupChatMessage(message, group)).join('\n'),
@@ -2020,6 +2204,7 @@ async function generateGroupChatReply(groupId, { preferVoice = false } = {}) {
                     description,
                     amount,
                     note,
+                    stickerName: String(item?.stickerName || item?.note || (type === 'sticker' ? text : '')).trim().slice(0, 80),
                     duration: type === 'voice' ? Math.min(600, Math.max(1, Math.round(Number(item?.duration) || Math.max(1, text.length / 5)))) : 0,
                 };
             }).filter(Boolean);
@@ -2031,24 +2216,31 @@ async function generateGroupChatReply(groupId, { preferVoice = false } = {}) {
         }
     }
     if (!generated) throw lastError || new Error('群聊回复生成失败。');
-    const assistantMessages = generated.map((item, index) => ({
-        id: createId('group-message'),
-        sender: 'character',
-        speaker: item.speaker,
-        type: item.type,
-        content: item.type === 'image' ? item.description : item.text || item.note,
-        translation: item.translation,
-        emotion: item.emotion,
-        description: item.description,
-        amount: item.amount,
-        note: item.note,
-        duration: item.duration,
-        replyToId: '',
-        originalType: '',
-        originalContent: '',
-        createdAt: new Date(Date.now() + index).toISOString(),
-        recalledAt: '',
-    }));
+    const stickerLibrary = window.TTS_ProviderRegistry?.getQqState?.().stickers || [];
+    const assistantMessages = generated.map((item, index) => {
+        const sticker = item.type === 'sticker' ? resolveSticker(stickerLibrary, { name: item.stickerName }) : null;
+        return {
+            id: createId('group-message'),
+            sender: 'character',
+            speaker: item.speaker,
+            type: item.type,
+            content: item.type === 'image' ? item.description : item.type === 'sticker' ? item.stickerName : item.text || item.note,
+            translation: item.translation,
+            emotion: item.emotion,
+            description: item.description,
+            amount: item.amount,
+            note: item.note,
+            stickerName: item.stickerName,
+            stickerId: sticker?.id || '',
+            stickerUrl: sticker?.url || '',
+            duration: item.duration,
+            replyToId: '',
+            originalType: '',
+            originalContent: '',
+            createdAt: new Date(Date.now() + index).toISOString(),
+            recalledAt: '',
+        };
+    });
     group.messages.push(...assistantMessages);
     group.messages = group.messages.slice(-400);
     group.updatedAt = new Date().toISOString();
@@ -2083,13 +2275,27 @@ function clearGroupChat(groupId) {
     return true;
 }
 
+function deleteGroupChatMessages(groupId, messageIds = []) {
+    const store = ensureStore();
+    const group = store.phoneChat.groups[String(groupId || '')];
+    if (!group) throw new Error('这个群聊不存在。');
+    group.messages = batchDeleteMessages(group.messages, messageIds);
+    group.updatedAt = new Date().toISOString();
+    persist('group-chat-message', { groupId: group.id, messageIds, action: 'batch-delete' });
+    return clone(group);
+}
+
 function getAvailableVoiceCharacters() {
     const context = window.SillyTavern?.getContext?.() || {};
     const registry = window.TTS_ProviderRegistry?.getSnapshot?.() || {};
     const routes = registry.characterRoutes || {};
     const current = getContextSnapshot();
-    const names = new Set(Object.keys(routes));
-    if (current.charName) names.add(current.charName);
+    const names = buildVoiceContacts({
+        manualCharacters: registry.manualCharacters,
+        bodySpeakers: registry.bodySpeakers,
+        hiddenCharacters: registry.hiddenCharacters,
+        userName: current.userName,
+    }).map(contact => contact.name);
     const characters = Array.isArray(context.characters) ? context.characters : [];
     return [...names]
         .map(name => {
@@ -2111,10 +2317,10 @@ function getAvailableVoiceCharacters() {
                 providerId: route?.providerId || registry.activeProvider || '',
                 providerName: provider?.name || '默认声线',
                 voice: String(route?.voice || '').trim(),
-                configured: Boolean(route || name === current.charName),
+                configured: Boolean(route),
             };
         })
-        .filter(item => item.name && item.configured)
+        .filter(item => item.name)
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 }
 
@@ -2144,20 +2350,19 @@ function getVoiceContacts() {
     const registry = window.TTS_ProviderRegistry?.getSnapshot?.() || {};
     const routes = registry.characterRoutes || {};
     const manualCharacters = Array.isArray(registry.manualCharacters) ? registry.manualCharacters : [];
-    const hiddenCharacters = new Set(Array.isArray(registry.hiddenCharacters) ? registry.hiddenCharacters : []);
+    const bodySpeakers = Array.isArray(registry.bodySpeakers) ? registry.bodySpeakers : [];
     const characters = Array.isArray(context.characters) ? context.characters : [];
     const threads = Object.values(store.phoneChat.threads || {}).filter(thread => thread && typeof thread === 'object');
-    const names = new Set([
-        // 只收录已经配置声线路由 / 手动添加 / 手机聊天出现过的角色；旧版 GPT-SoVITS 缓存映射不再注入。
-        ...Object.keys(routes),
-        ...manualCharacters.map(name => String(name || '').trim()).filter(Boolean),
-        ...threads.map(thread => String(thread.charName || '').trim()).filter(Boolean),
-    ]);
-    if (current.charName) names.add(current.charName);
-    names.delete(current.userName);
+    const contactRecords = buildVoiceContacts({
+        manualCharacters,
+        bodySpeakers,
+        hiddenCharacters: registry.hiddenCharacters,
+        userName: current.userName,
+    });
     const providers = new Map((registry.providers || []).map(provider => [provider.id, provider.name]));
 
-    return [...names].map(name => {
+    return contactRecords.map(contactRecord => {
+        const name = contactRecord.name;
         const card = characters.find(item => String(item?.name || '').trim() === name);
         const contactThreads = threads.filter(thread => String(thread.charName || '').trim() === name);
         const latestThread = [...contactThreads].sort((a, b) => {
@@ -2188,6 +2393,7 @@ function getVoiceContacts() {
             avatarUrl,
             current: name === current.charName,
             manual: manualCharacters.includes(name),
+            sources: contactRecord.sources,
             configured: Boolean(savedRoute),
             providerId,
             providerName: providers.get(providerId) || (providerId === 'gpt_sovits' ? 'GPT-SoVITS' : '默认声线'),
@@ -2199,9 +2405,6 @@ function getVoiceContacts() {
             lastMessage: lastMessagePreview.slice(0, 160),
             lastActivityAt: lastMessage?.createdAt || latestThread?.updatedAt || '',
         };
-    }).sort((a, b) => {
-        if (a.current !== b.current) return a.current ? -1 : 1;
-        return a.name.localeCompare(b.name, 'zh-CN');
     });
 }
 
@@ -2515,6 +2718,7 @@ async function callPlanner(systemPrompt, prompt, jsonSchema, orderedMessages = n
             model: planner.model,
             temperature: planner.temperature,
             max_tokens: planner.maxTokens,
+            responseMode: planner.responseMode,
             messages,
         });
     }
@@ -2618,10 +2822,10 @@ async function generatePhonePlan({ brief = '', duration = 'short', caller = 'aut
     if (!context.messages.length) throw new Error('当前对话还没有可用于规划的上下文。');
     const availableCharacters = getAvailableVoiceCharacters();
     if (!availableCharacters.length) throw new Error('还没有可用于通话的角色声线，请先配置角色路由。');
-    const requestedParticipants = [...new Set((Array.isArray(participants) && participants.length
-        ? participants
-        : [caller]).map(name => String(name || '').trim()).filter(name => availableCharacters.some(item => item.name === name)))];
-    if (!requestedParticipants.length) requestedParticipants.push(availableCharacters[0].name);
+    const rawParticipants = Array.isArray(participants) && participants.length ? participants : [caller];
+    const requestedParticipants = validateCallParticipants(rawParticipants);
+    const unavailable = requestedParticipants.filter(name => !availableCharacters.some(item => item.name === name));
+    if (unavailable.length) throw new Error(`以下联系人没有可用声线路由：${unavailable.join('、')}`);
     const requestedCaller = requestedParticipants[0];
     const callerLabel = requestedParticipants.length === 1
         ? requestedCaller
@@ -2967,6 +3171,7 @@ function savePlannerApiPreset(name) {
         apiUrl: planner.apiUrl,
         apiKey: planner.apiKey,
         model: planner.model,
+        responseMode: planner.responseMode,
         temperature: planner.temperature,
         maxTokens: planner.maxTokens,
         updatedAt: new Date().toISOString(),
@@ -2991,6 +3196,7 @@ function applyPlannerApiPreset(id) {
         apiUrl: preset.apiUrl,
         apiKey: preset.apiKey,
         model: preset.model,
+        responseMode: preset.responseMode,
         temperature: preset.temperature,
         maxTokens: preset.maxTokens,
         activeApiPresetId: preset.id,
@@ -3081,7 +3287,8 @@ function applyBodyPromptInjection() {
 function getSnapshot() {
     const store = ensureStore();
     const context = getContextSnapshot(store.planner.contextLimit);
-    const phoneChatThread = ensurePhoneChatThread(store, context);
+    const phoneChatContext = getPhoneChatContext(store);
+    const phoneChatThread = ensurePhoneChatThread(store, phoneChatContext);
     const groupChat = getGroupChatSnapshot();
     const calls = clone(store.calls);
     return {
@@ -3097,6 +3304,7 @@ function getSnapshot() {
             presets: clone(store.phoneChat.presets),
             thread: clone(phoneChatThread),
             pendingCount: getPendingPhoneChatMessages(phoneChatThread).length,
+            context: clone(phoneChatContext),
         },
         groupChat,
         contacts: getVoiceContacts(),
@@ -3190,6 +3398,7 @@ export const FrontendVoiceTools = {
     getPlannerSettings,
     updatePlannerSettings,
     getPhoneChatSnapshot,
+    selectPhoneChatContact,
     updatePhoneChatSettings,
     getPhoneChatPromptPresets,
     savePhoneChatPromptPreset,
@@ -3201,7 +3410,10 @@ export const FrontendVoiceTools = {
     generateProactivePhoneChatMessage,
     sendPhoneChatMessage,
     recallPhoneChatMessage,
+    deletePhoneChatMessages,
     clearPhoneChatThread,
+    removeFriendsFromGroupChats,
+    migrateLegacyQqGroups,
     getGroupChatSnapshot,
     selectGroupChat,
     createGroupChat,
@@ -3210,6 +3422,7 @@ export const FrontendVoiceTools = {
     appendGroupChatMessage,
     generateGroupChatReply,
     recallGroupChatMessage,
+    deleteGroupChatMessages,
     clearGroupChat,
     resetPlannerPrompts,
     getPromptWorkflows,

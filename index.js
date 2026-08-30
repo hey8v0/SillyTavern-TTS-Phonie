@@ -1,4 +1,4 @@
-import { TTS_Mobile } from './src/ui/mobile-ui-v3.js';
+import { TTS_Mobile } from './src/ui/mobile/index.js';
 
 let initPromise = null;
 

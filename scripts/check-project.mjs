@@ -9,14 +9,30 @@ const REQUIRED_FILES = [
     'index.js',
     'manifest.json',
     'style.css',
-    'src/app.js',
-    'src/core/constants.js',
-    'src/core/store.js',
-    'src/core/icons.js',
-    'src/device/device-status.js',
-    'src/integrations/sillytavern.js',
-    'src/ui/dom.js',
+    'styles/voice-console.css',
+    'src/dialogue/body-speech.js',
+    'src/dialogue/body-tts.js',
+    'src/dialogue/llm_client.js',
+    'src/dialogue/voice-tools.js',
+    'src/tts/cache.js',
+    'src/tts/provider-registry.js',
+    'src/ui/mobile/index.js',
+    'src/ui/mobile/shell.js',
+    'src/ui/mobile/contacts.js',
+    'src/ui/mobile/phone.js',
+    'src/ui/mobile/qq.js',
+    'src/ui/mobile/qq-data.js',
+    'src/ui/mobile/stickers.js',
+    'src/ui/mobile/drawing.js',
+    'src/ui/mobile/settings.js',
+    'server-plugins/phonie-novelai-v5/index.mjs',
+    'server-plugins/tts-minimax-resources/index.mjs',
+];
+
+const FORBIDDEN_RUNTIME_FILES = [
+    'src/ui/mobile-ui-v3.js',
     'src/ui/phone-view.js',
+    'src/app.js',
 ];
 
 function fail(message) {
@@ -45,15 +61,29 @@ try {
     const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'));
     if (manifest.js !== 'index.js') fail('manifest.json 的 js 入口应为 index.js');
     if (manifest.hooks?.activate !== 'init') fail('manifest.json 缺少 hooks.activate = init');
-    ok(`manifest 合法：${manifest.display_name} v${manifest.version}`);
+    if (manifest.version !== '1.1.0') fail('manifest.json 版本应为 1.1.0');
+    if (manifest.auto_update !== false) fail('manifest.json 必须关闭 auto_update');
+    ok(`manifest 合法：${manifest.display_name} v${manifest.version}，自动更新已关闭`);
 } catch (error) {
     fail(`manifest.json 解析失败：${error.message}`);
 }
 
-// 3. 递归收集 JS 文件并做语法检查（跳过 node_modules）。
+// 3. 当前入口必须只加载无版本号手机，旧运行时不可复活。
+const entrySource = readFileSync(join(ROOT, 'index.js'), 'utf8');
+if (!entrySource.includes('./src/ui/mobile/index.js')) fail('index.js 未加载当前无版本号手机入口');
+if (/mobile-ui-v\d|phone-view|src\/app/u.test(entrySource)) fail('index.js 仍引用旧手机入口');
+for (const file of FORBIDDEN_RUNTIME_FILES) {
+    if (existsSync(join(ROOT, file))) fail(`旧运行时仍存在：${file}`);
+}
+const rootCss = readFileSync(join(ROOT, 'style.css'), 'utf8');
+if (!rootCss.includes('./styles/voice-console.css')) fail('style.css 未收口到统一手机样式');
+if (/\.phonie-/u.test(readFileSync(join(ROOT, 'styles/voice-console.css'), 'utf8'))) fail('统一样式中仍有 .phonie-* 旧选择器');
+ok('当前入口无旧版回退，样式加载已合并');
+
+// 4. 递归收集 JS 文件并做语法检查（跳过 node_modules 与历史交接文档）。
 function collectJs(dir, out = []) {
     for (const entry of readdirSync(dir)) {
-        if (entry === 'node_modules' || entry === '.git') continue;
+        if (entry === 'node_modules' || entry === '.git' || entry === 'PHOEN_ORIGINAL_HANDOFF_2026-08-25') continue;
         const path = join(dir, entry);
         const stat = statSync(path);
         if (stat.isDirectory()) collectJs(path, out);

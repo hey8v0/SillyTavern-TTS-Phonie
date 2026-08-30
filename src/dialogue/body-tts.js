@@ -72,7 +72,7 @@ function decorateExistingTextNodes(textElement) {
                 const parent = node.parentElement;
                 if (
                     !parent
-                    || parent.closest('.phonie-body-speech, script, style, textarea, code, pre')
+                    || parent.closest('.voice-body-speech, script, style, textarea, code, pre')
                 ) {
                     return NodeFilter.FILTER_REJECT;
                 }
@@ -110,11 +110,12 @@ function processRenderedMessages() {
             if (element.dataset.phonieSig) delete element.dataset.phonieSig;
             return;
         }
+        speeches.forEach(segment => TTS_ProviderRegistry.addBodySpeaker?.(segment.speaker));
         if (!flags.enabled) return; // 总开关关闭：不解析、不装饰、不生成。
         const signature = speechSignature(speeches);
         // 酒馆的小铅笔会保留 .mes 元素但重建 .mes_text，因此“签名相同”不代表 DOM 仍已装饰，
         // 必须同时确认正文里还有我们的播放按钮，否则重新扫描替换。
-        const alreadyDecorated = Boolean(textElement.querySelector('.phonie-body-speech'));
+        const alreadyDecorated = Boolean(textElement.querySelector('.voice-body-speech'));
         if (element.dataset.phonieSig === signature && alreadyDecorated) {
             if (flags.autoRender) prerenderBodyAudio(speeches);
             return;
@@ -249,7 +250,7 @@ async function playBodySpeech(button) {
 }
 
 function onDocumentClick(event) {
-    const button = event.target.closest?.('.phonie-body-speech');
+    const button = event.target.closest?.('.voice-body-speech');
     if (!button) return;
     event.preventDefault();
     event.stopPropagation();

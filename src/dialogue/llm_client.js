@@ -86,7 +86,7 @@ async function callLLM(config) {
         model: config.model,
         messages,
         temperature: Number.isFinite(Number(config.temperature)) ? Number(config.temperature) : 0.8,
-        stream: false
+        stream: config.responseMode === 'stream' || config.streaming === true
     };
 
     if (config.max_tokens) {
@@ -125,8 +125,7 @@ async function callLLM(config) {
                 throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
             }
 
-            const data = await response.json();
-            return parseResponse(data);
+            return readOpenAICompatibleResponse(response, { streaming: requestBody.stream });
 
         } catch (error) {
             lastError = error;
@@ -162,6 +161,80 @@ async function callLLM(config) {
 
     // 理论上不会到这里,但以防万一
     throw lastError;
+}
+
+function extractStreamText(data) {
+    if (!data || typeof data !== 'object') return '';
+    const value = data.choices?.[0]?.delta?.content
+        ?? data.choices?.[0]?.message?.content
+        ?? data.choices?.[0]?.text
+        ?? data.delta?.text
+        ?? data.output_text
+        ?? (data.type === 'response.output_text.delta' ? data.delta : '');
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+        return value.map(item => item?.text ?? item?.content ?? '').filter(Boolean).join('');
+    }
+    return '';
+}
+
+export async function readOpenAICompatibleResponse(response, { streaming = false } = {}) {
+    const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
+    if (!streaming || !response.body || !contentType.includes('text/event-stream')) {
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            if (text.trim()) return text.trim();
+            throw new Error('OpenAI 兼容接口返回了空响应');
+        }
+        return parseResponse(data);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let output = '';
+    let done = false;
+
+    const consumeEvent = block => {
+        const lines = block.split(/\r?\n/u);
+        const eventName = lines.find(line => line.startsWith('event:'))?.slice(6).trim() || '';
+        const payload = lines
+            .filter(line => line.startsWith('data:'))
+            .map(line => line.slice(5).trimStart())
+            .join('\n')
+            .trim();
+        if (!payload) return;
+        if (payload === '[DONE]') {
+            done = true;
+            return;
+        }
+        let data;
+        try {
+            data = JSON.parse(payload);
+        } catch (error) {
+            throw new Error(`流式响应包含无效 JSON：${error.message}`);
+        }
+        if (eventName === 'error' || data.error) {
+            const message = data.error?.message || data.message || 'OpenAI 兼容接口返回流式错误';
+            throw new Error(message);
+        }
+        output += extractStreamText(data);
+    };
+
+    while (!done) {
+        const chunk = await reader.read();
+        buffer += decoder.decode(chunk.value || new Uint8Array(), { stream: !chunk.done });
+        const blocks = buffer.split(/\r?\n\r?\n/u);
+        buffer = blocks.pop() || '';
+        blocks.forEach(consumeEvent);
+        if (chunk.done) break;
+    }
+    if (buffer.trim() && !done) consumeEvent(buffer);
+    if (!output) throw new Error('OpenAI 兼容接口的流式响应没有文本内容');
+    return output;
 }
 
 function parseResponse(data) {
@@ -237,5 +310,6 @@ function parseResponse(data) {
 export const LLM_Client = {
     fetchModels,
     callLLM,
-    parseResponse
+    parseResponse,
+    readOpenAICompatibleResponse,
 };

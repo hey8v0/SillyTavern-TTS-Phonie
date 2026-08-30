@@ -310,6 +310,8 @@ function ensureStore() {
             providers: {},
             characterRoutes: {},
             manualCharacters: [],
+            bodySpeakers: [],
+            contactSources: {},
             hiddenCharacters: [],
             providerCatalogs: {
                 elevenlabs: {
@@ -388,6 +390,20 @@ function ensureStore() {
     };
     store.characterRoutes ??= {};
     store.manualCharacters = [...new Set((store.manualCharacters || []).map(name => String(name).trim()).filter(Boolean))];
+    store.bodySpeakers = [...new Set((store.bodySpeakers || []).map(name => String(name).trim()).filter(Boolean))];
+    store.contactSources = store.contactSources && typeof store.contactSources === 'object'
+        ? store.contactSources
+        : {};
+    for (const name of store.manualCharacters) {
+        const sources = new Set(Array.isArray(store.contactSources[name]) ? store.contactSources[name] : []);
+        sources.add('manual');
+        store.contactSources[name] = [...sources];
+    }
+    for (const name of store.bodySpeakers) {
+        const sources = new Set(Array.isArray(store.contactSources[name]) ? store.contactSources[name] : []);
+        sources.add('body');
+        store.contactSources[name] = [...sources];
+    }
     store.hiddenCharacters = [...new Set((store.hiddenCharacters || []).map(name => String(name).trim()).filter(Boolean))];
     if (!PROVIDERS.some(provider => provider.id === store.activeProvider)) {
         store.activeProvider = 'gpt_sovits';
@@ -1139,6 +1155,9 @@ function addCharacter(characterName) {
     if (!name) throw new Error('角色名称不能为空。');
     const store = ensureStore();
     if (!store.manualCharacters.includes(name)) store.manualCharacters.push(name);
+    const sources = new Set(Array.isArray(store.contactSources[name]) ? store.contactSources[name] : []);
+    sources.add('manual');
+    store.contactSources[name] = [...sources];
     store.hiddenCharacters = store.hiddenCharacters.filter(item => item !== name);
     saveSettingsDebounced();
     emitChange('characters', null);
@@ -1154,7 +1173,11 @@ function addBodySpeaker(characterName) {
     if (!name) return;
     const store = ensureStore();
     if (store.hiddenCharacters.includes(name)) return;
-    if (!store.manualCharacters.includes(name)) store.manualCharacters.push(name);
+    if (store.bodySpeakers.includes(name)) return;
+    if (!store.bodySpeakers.includes(name)) store.bodySpeakers.push(name);
+    const sources = new Set(Array.isArray(store.contactSources[name]) ? store.contactSources[name] : []);
+    sources.add('body');
+    store.contactSources[name] = [...sources];
     saveSettingsDebounced();
     emitChange('characters', null);
 }
@@ -1163,8 +1186,9 @@ function deleteCharacter(characterName) {
     const name = String(characterName || '').trim();
     if (!name) return;
     const store = ensureStore();
-    delete store.characterRoutes[name];
     store.manualCharacters = store.manualCharacters.filter(item => item !== name);
+    store.bodySpeakers = store.bodySpeakers.filter(item => item !== name);
+    delete store.contactSources[name];
     if (!store.hiddenCharacters.includes(name)) store.hiddenCharacters.push(name);
     saveSettingsDebounced();
     emitChange('characters', null);
@@ -1792,6 +1816,8 @@ function getSnapshot() {
         features: getFeatureSettings(),
         characterRoutes: clone(store.characterRoutes),
         manualCharacters: clone(store.manualCharacters),
+        bodySpeakers: clone(store.bodySpeakers),
+        contactSources: clone(store.contactSources),
         hiddenCharacters: clone(store.hiddenCharacters),
         providers: PROVIDERS.map(provider => {
             let fields = provider.fields;

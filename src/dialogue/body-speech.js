@@ -60,7 +60,7 @@ export function decorateBodyText(text, { enabled = true } = {}) {
     const pattern = new RegExp(BODY_TAG_PATTERN_SOURCE, 'g');
     const html = source.replace(pattern, (whole, speaker, emotion, sourceText) => {
         const label = escapeAttr(speaker || '角色');
-        return `<button type="button" class="phonie-body-speech" data-speaker="${escapeAttr(speaker)}" data-emotion="${escapeAttr(emotion)}" data-text="${escapeAttr(sourceText)}" title="播放 ${label} 的语音" aria-label="播放 ${label} 的语音">${PLAY_ICON}${PAUSE_ICON}<span>${label}</span></button>`;
+        return `<button type="button" class="voice-body-speech" data-speaker="${escapeAttr(speaker)}" data-emotion="${escapeAttr(emotion)}" data-text="${escapeAttr(sourceText)}" title="播放 ${label} 的语音" aria-label="播放 ${label} 的语音">${PLAY_ICON}${PAUSE_ICON}<span>${label}</span></button>`;
     });
     return html;
 }
@@ -84,7 +84,7 @@ export function decorateTextNodeFragment(source) {
         const label = speaker || '角色';
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'phonie-body-speech';
+        button.className = 'voice-body-speech';
         button.dataset.speaker = speaker;
         button.dataset.emotion = emotion;
         button.dataset.text = sourceText;

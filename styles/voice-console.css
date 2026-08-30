@@ -3365,3 +3365,111 @@
 .voice-prompt-depth-row label { display: grid; grid-template-columns: auto 64px minmax(0, 1fr); align-items: center; gap: 8px; color: var(--voice-muted); font-size: 9px; }
 .voice-prompt-depth-row input { width: 64px; min-height: 32px; padding: 0 8px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 9px; background: var(--voice-bg); font-size: 11px; text-align: center; }
 .voice-prompt-depth-row small { color: var(--voice-muted); font-size: 8px; line-height: 1.5; }
+
+/* v1.1：限高列表、QQ 批量管理与酒馆原生入口 */
+.voice-speaker-picker { max-height: min(38dvh, 280px); overflow-y: auto; overscroll-behavior: contain; }
+.voice-sticker-grid { max-height: min(48dvh, 420px); overflow-y: auto; overscroll-behavior: contain; padding-right: 3px; }
+.voice-sticker-item figcaption > span { min-width: 0; display: grid; gap: 2px; }
+.voice-sticker-item figcaption small { color: var(--voice-muted); font-size: 6px; font-weight: 500; }
+.voice-sticker-item.state-failed { border-color: color-mix(in srgb, var(--voice-danger) 55%, var(--voice-line)); }
+.voice-sticker-item.state-failed img { opacity: .28; }
+
+.voice-chat-app:has(.voice-chat-bulk-toolbar) { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.voice-chat-contact { grid-template-columns: 38px minmax(0, 1fr) auto; }
+.voice-chat-contact > .voice-chat-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.voice-chat-header-actions > button { position: relative; width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 44px; padding: 0; overflow: hidden; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 14px; background: var(--voice-panel-2); cursor: pointer; }
+.voice-chat-header-actions > .voice-chat-call-button { color: var(--voice-cyan); }
+.voice-chat-header-actions > button:disabled { opacity: .42; cursor: not-allowed; }
+.voice-chat-bulk-toolbar,
+.voice-qq-bulk-toolbar { min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; color: var(--voice-muted); border-bottom: 1px solid var(--voice-line); background: var(--voice-panel-2); font-size: 8px; }
+.voice-chat-bulk-toolbar label,
+.voice-qq-bulk-toolbar label { display: inline-flex; align-items: center; gap: 5px; }
+.voice-chat-bulk-toolbar span,
+.voice-qq-bulk-toolbar span { flex: 1; }
+.voice-chat-bulk-toolbar button,
+.voice-qq-bulk-toolbar button { min-height: 30px; display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; color: var(--voice-danger); border: 1px solid color-mix(in srgb, var(--voice-danger) 38%, var(--voice-line)); border-radius: 9px; background: color-mix(in srgb, var(--voice-danger) 9%, transparent); font: 650 8px/1 inherit; }
+.voice-chat-select { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 24px; }
+.voice-chat-select input { position: absolute; opacity: 0; }
+.voice-chat-select i,
+.voice-qq-select i { width: 16px; height: 16px; display: block; border: 1.5px solid var(--voice-muted); border-radius: 5px; background: var(--voice-panel); }
+.voice-chat-select input:checked + i,
+.voice-qq-select input:checked + i { border-color: var(--voice-cyan); background: var(--voice-cyan); box-shadow: inset 0 0 0 3px var(--voice-panel); }
+.voice-chat-quote-card.is-missing { cursor: default; }
+.voice-chat-rich-card.is-sticker { min-width: 72px; padding: 0; }
+.voice-chat-rich-card.is-sticker .voice-chat-sticker-image { width: min(36vw, 132px); height: auto; max-height: 160px; object-fit: contain; border-radius: 12px; }
+.voice-chat-sticker-error { padding: 8px; color: var(--voice-danger); font-size: 8px; }
+
+.voice-qq-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.voice-qq-section > header .voice-qq-header-actions button { min-width: 44px; min-height: 44px; justify-content: center; padding: 0 8px; }
+.voice-qq-list > .voice-qq-row:not(.is-current) { display: flex; align-items: center; gap: 7px; padding: 8px; }
+.voice-qq-list > .voice-qq-row:not(.is-current) > .voice-qq-open { padding: 0; }
+.voice-qq-select { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 24px; cursor: pointer; }
+.voice-qq-select input { position: absolute; opacity: 0; }
+.voice-qq-row.is-selected { border-color: var(--voice-cyan); background: var(--voice-cyan-soft); }
+
+/* QQ 群聊：消息、批量操作与成员信息共用一份规范化数据。 */
+.voice-qq-group-detail > header { grid-template-columns: 44px minmax(0, 1fr) 44px; margin-bottom: 2px; }
+.voice-qq-group-detail > header button { width: 44px; height: 44px; }
+.voice-qq-group-summary { margin: 0 0 8px; color: var(--voice-muted); font-size: 8px; text-align: center; }
+.voice-qq-group-thread {
+    max-height: min(42dvh, 360px);
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 2px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+}
+.voice-qq-group-message { min-width: 0; display: flex; align-items: center; gap: 6px; }
+.voice-qq-group-message > article { min-width: 0; width: min(82%, 320px); display: grid; gap: 3px; }
+.voice-qq-group-message.is-user { justify-content: flex-end; }
+.voice-qq-group-message.is-user > article { order: -1; }
+.voice-qq-group-message > article > header { display: flex; align-items: center; gap: 5px; color: var(--voice-muted); font-size: 7px; }
+.voice-qq-group-message.is-user > article > header { justify-content: flex-end; }
+.voice-qq-group-message > article > header strong { color: var(--voice-text); font-size: 8px; }
+.voice-qq-group-message blockquote { margin: 0; padding: 5px 7px; overflow: hidden; color: var(--voice-muted); border-left: 2px solid var(--voice-line); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.voice-qq-group-message blockquote.is-missing { color: var(--voice-danger); }
+.voice-qq-group-bubble { width: fit-content; max-width: 100%; padding: 8px 10px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 4px 13px 13px 13px; background: var(--voice-panel-2); overflow-wrap: anywhere; }
+.voice-qq-group-message.is-user .voice-qq-group-bubble { margin-left: auto; border-radius: 13px 4px 13px 13px; background: var(--voice-cyan-soft); }
+.voice-qq-group-bubble p { margin: 0; font-size: 9px; line-height: 1.5; }
+.voice-qq-group-kind { display: block; margin-bottom: 3px; color: var(--voice-muted); font-size: 7px; }
+.voice-qq-group-recalled { color: var(--voice-muted); font-style: italic; }
+.voice-qq-group-sticker { display: block; width: min(34vw, 120px); height: auto; max-height: 150px; object-fit: contain; border-radius: 11px; }
+.voice-qq-group-empty { padding: 22px 8px; color: var(--voice-muted); font-size: 9px; text-align: center; }
+.voice-qq-group-detail form.voice-qq-group-composer { grid-template-columns: minmax(0, 1fr) 44px auto; margin-top: 8px; }
+.voice-qq-group-composer input { min-width: 0; min-height: 44px; padding: 0 11px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-bg); font-size: 10px; font-weight: 500; line-height: 1.2; }
+.voice-qq-group-composer button { min-width: 44px; min-height: 44px; padding: 0 10px; color: var(--voice-text); border: 1px solid var(--voice-line); border-radius: 12px; background: var(--voice-panel-2); font: 650 8px/1 inherit; }
+.voice-qq-group-members { margin-top: 9px; color: var(--voice-muted); font-size: 9px; }
+.voice-qq-group-members summary { min-height: 38px; display: flex; align-items: center; cursor: pointer; }
+.voice-qq-group-members[open] summary { margin-bottom: 5px; }
+
+@media (max-width: 380px) {
+    .voice-qq-group-detail { padding-inline: 8px; }
+    .voice-qq-group-detail form.voice-qq-group-composer { grid-template-columns: minmax(0, 1fr) 44px; }
+    .voice-qq-group-composer [data-qq-group-reply] { grid-column: 1 / -1; }
+}
+
+.voice-body-speech { display: inline-flex; align-items: center; gap: 5px; margin: 0 3px; padding: 2px 9px 2px 6px; vertical-align: middle; color: hsl(30 69% 64%); border: 1px solid hsl(32 62% 56% / .35); border-radius: 999px; background: hsl(32 62% 56% / .10); font: inherit; font-size: .82em; line-height: 1.35; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
+.voice-body-speech:hover { background: hsl(32 62% 56% / .18); }
+.voice-body-speech svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.voice-body-speech svg.is-pause { display: none; }
+.voice-body-speech span { max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-body-speech.is-loading { opacity: .6; cursor: wait; }
+.voice-body-speech.is-loading svg.is-play { animation: voice-body-spin 1s linear infinite; }
+.voice-body-speech.is-playing { color: hsl(225 24% 8%); border-color: hsl(35 78% 72%); background: hsl(35 78% 72%); }
+.voice-body-speech.is-playing svg.is-play { display: none; }
+.voice-body-speech.is-playing svg.is-pause { display: block; }
+@keyframes voice-body-spin { to { transform: rotate(360deg); } }
+
+.voice-wand-menu-item { cursor: pointer; }
+.voice-settings-launcher .inline-drawer-header b { display: inline-flex; align-items: center; gap: 7px; }
+.voice-settings-launcher .inline-drawer-content { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.voice-settings-launcher .inline-drawer-content label { margin: 0; font-size: 13px; }
+.voice-settings-launcher .inline-drawer-content select { max-width: 180px; }
+.voice-settings-launcher .inline-drawer-content button { min-height: 44px; margin: 0; }
+
+@media (max-width: 430px) {
+    .voice-chat-header-actions > button { width: 42px; height: 42px; flex-basis: 42px; }
+    .voice-chat-contact { gap: 5px; padding-inline: 8px; }
+}
