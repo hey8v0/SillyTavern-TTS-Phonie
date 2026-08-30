@@ -8,6 +8,9 @@ import {
 } from '../src/ui/mobile/contacts.js';
 import {
     batchDeleteMessages,
+    buildAllowedGroupMemberNames,
+    buildQqMemberCandidates,
+    partitionQqFriendSelection,
     removeQqFriends,
 } from '../src/ui/mobile/qq-data.js';
 import {
@@ -69,6 +72,29 @@ test('QQ 批量删除好友同步群成员，并解散不足两人的群', () =>
     assert.deepEqual(result.groups.map(item => item.id), ['g1']);
     assert.deepEqual(result.groups[0].members, ['乙', '丙']);
     assert.deepEqual(result.dissolvedGroupIds, ['g2']);
+});
+
+test('QQ 群聊候选包含当前角色，并对重复好友去重', () => {
+    assert.deepEqual(buildQqMemberCandidates({
+        currentName: '夏尔',
+        friends: [{ name: 'Mary' }, { name: '夏尔' }, { name: 'Mary' }],
+    }).map(item => item.name), ['夏尔', 'Mary']);
+    assert.deepEqual(buildQqMemberCandidates({
+        currentName: '夏尔',
+        hiddenCurrent: true,
+        friends: [{ name: 'Mary' }],
+    }).map(item => item.name), ['Mary']);
+});
+
+test('群聊服务层允许当前角色，即使它尚未进入通讯录来源名单', () => {
+    assert.deepEqual(buildAllowedGroupMemberNames([{ name: 'Mary' }], '夏尔'), ['Mary', '夏尔']);
+});
+
+test('QQ 管理删除会把当前角色与普通好友拆开处理', () => {
+    assert.deepEqual(partitionQqFriendSelection(['夏尔', 'Mary'], '夏尔'), {
+        hideCurrent: true,
+        friendNames: ['Mary'],
+    });
 });
 
 test('表情包导入兼容名称紧接 URL、逗号与末尾逗号', () => {
@@ -155,8 +181,8 @@ test('生成期间没有手动切换会话时恢复原目标线程，手动切�
     assert.equal(shouldRestoreGeneratedChat({ route: 'qq', revisionAtStart: 2, currentRevision: 2 }), false);
 });
 
-test('清单关闭自动更新并升级到 1.1.1', () => {
+test('清单关闭自动更新并升级到 1.1.2', () => {
     const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
     assert.equal(manifest.auto_update, false);
-    assert.equal(manifest.version, '1.1.1');
+    assert.equal(manifest.version, '1.1.2');
 });

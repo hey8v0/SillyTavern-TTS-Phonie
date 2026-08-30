@@ -32,7 +32,7 @@ test('QQ 和表情 UI 提供批量操作、图片状态与图片纯气泡', () =
     const mobile = `${read('src/ui/mobile/index.js')}\n${read('src/ui/mobile/qq.js')}`;
     for (const token of [
         'data-qq-delete-friends',
-        'data-qq-remove-friend',
+        'data-qq-select-current',
         'data-chat-delete-selected',
         'data-chat-select-all',
         'data-group-delete-selected',
@@ -42,6 +42,7 @@ test('QQ 和表情 UI 提供批量操作、图片状态与图片纯气泡', () =
         'data-sticker-retry',
         '图床不可达',
     ]) assert.ok(mobile.includes(token), `缺少 ${token}`);
+    assert.doesNotMatch(mobile, /data-qq-(?:remove-friend|hide-current)/);
     assert.doesNotMatch(mobile, /<small>表情包<\/small><strong>/);
 });
 

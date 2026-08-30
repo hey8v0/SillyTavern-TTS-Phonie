@@ -1,4 +1,5 @@
 import { resolveSticker } from './stickers.js';
+import { buildQqMemberCandidates } from './qq-data.js';
 
 /**
  * Render the QQ surface. Runtime services and small shared formatters are
@@ -61,10 +62,12 @@ export function renderQqApp({
         && !friends.some(friend => friend.name === contact.name)).slice(0, 40);
     const openGroup = state.qqOpenGroup ? groups.find(group => group.id === state.qqOpenGroup) : null;
     const draft = state.qqGroupDraft || { name: '', members: [] };
-    const memberCandidates = friends.filter(friend => friend.name && friend.name !== currentName);
     const hiddenCurrent = TTS_ProviderRegistry.getUiSettings().hiddenCurrentCharName === currentName;
+    const memberCandidates = buildQqMemberCandidates({ currentName, friends, hiddenCurrent });
     const selectedFriends = new Set(state.qqSelectedFriends || []);
-    const allFriendsSelected = friends.length > 0 && friends.every(friend => selectedFriends.has(friend.name));
+    const manageableFriends = buildQqMemberCandidates({ currentName, friends, hiddenCurrent });
+    const allFriendsSelected = manageableFriends.length > 0
+        && manageableFriends.every(friend => selectedFriends.has(friend.name));
     const selectedGroupMessages = new Set(state.groupSelectedMessages || []);
     const groupMessages = Array.isArray(openGroup?.messages) ? openGroup.messages : [];
     const allGroupMessagesSelected = groupMessages.length > 0 && groupMessages.every(message => selectedGroupMessages.has(message.id));
@@ -80,7 +83,7 @@ export function renderQqApp({
             </section>
             <section class="voice-qq-section" aria-label="好友">
                 <header><strong>好友</strong><span>${friends.length + 1} 位</span><div class="voice-qq-header-actions"><button type="button" data-qq-toggle-friend-select aria-pressed="${state.qqFriendSelectionMode}">${icon('check', 15)} ${state.qqFriendSelectionMode ? '完成' : '管理'}</button><button type="button" data-qq-add-friend aria-pressed="${state.qqAddFriendOpen}">${icon('plus', 15)} 添加好友</button></div></header>
-                ${state.qqFriendSelectionMode ? `<div class="voice-qq-bulk-toolbar"><label><input type="checkbox" data-qq-select-all-friends ${allFriendsSelected ? 'checked' : ''}> 全选</label><span>已选 ${selectedFriends.size}/${friends.length}</span><button type="button" data-qq-delete-friends ${selectedFriends.size ? '' : 'disabled'}>${icon('trash', 14)} 删除</button></div>` : ''}
+                ${state.qqFriendSelectionMode ? `<div class="voice-qq-bulk-toolbar"><label><input type="checkbox" data-qq-select-all-friends ${allFriendsSelected ? 'checked' : ''}> 全选</label><span>已选 ${selectedFriends.size}/${manageableFriends.length}</span><button type="button" data-qq-delete-friends ${selectedFriends.size ? '' : 'disabled'}>${icon('trash', 14)} 删除</button></div>` : ''}
                 <div class="voice-qq-list">
                     ${hiddenCurrent ? `
                     <div class="voice-qq-row is-current is-hidden">
@@ -88,13 +91,13 @@ export function renderQqApp({
                         <span class="voice-qq-copy"><strong>${safe(currentName)}</strong><small>已删除 · 切换角色卡或新开聊天后自动恢复</small></span>
                         <button type="button" data-qq-restore-current>${icon('undo', 14)} 恢复</button>
                     </div>` : `
-                    <div class="voice-qq-row is-current">
-                        <button type="button" class="voice-qq-open" data-route="chat">
+                    <div class="voice-qq-row is-current ${selectedFriends.has(currentName) ? 'is-selected' : ''}">
+                        ${state.qqFriendSelectionMode ? `<label class="voice-qq-select"><input type="checkbox" data-qq-select-current data-qq-select-friend="${safe(currentName)}" ${selectedFriends.has(currentName) ? 'checked' : ''}><i></i></label>` : ''}
+                        <button type="button" class="voice-qq-open" data-route="chat" ${state.qqFriendSelectionMode ? 'disabled' : ''}>
                             ${qqFriendAvatar({ name: currentName })}
                             <span class="voice-qq-copy"><strong>${safe(currentName)}</strong><small>当前角色卡 · 私聊</small></span>
                             <i>当前</i>
                         </button>
-                        <button type="button" class="voice-qq-row-action" data-qq-hide-current aria-label="删除好友 ${safe(currentName)}">${icon('trash', 14)}</button>
                     </div>`}
                     ${friends.map(friend => `<div class="voice-qq-row ${selectedFriends.has(friend.name) ? 'is-selected' : ''}">
                         ${state.qqFriendSelectionMode ? `<label class="voice-qq-select"><input type="checkbox" data-qq-select-friend="${safe(friend.name)}" ${selectedFriends.has(friend.name) ? 'checked' : ''}><i></i></label>` : ''}
@@ -103,7 +106,6 @@ export function renderQqApp({
                             <span class="voice-qq-copy"><strong>${safe(friend.name)}</strong><small>${friend.addedAt ? `添加于 ${formatToolTime(friend.addedAt)}` : '好友'}</small></span>
                             ${icon('chevronRight', 15)}
                         </button>
-                        ${state.qqFriendSelectionMode ? '' : `<button type="button" class="voice-qq-row-action" data-qq-remove-friend="${safe(friend.name)}" aria-label="删除好友 ${safe(friend.name)}">${icon('trash', 14)}</button>`}
                     </div>`).join('')}
                 </div>
                 ${state.qqAddFriendOpen ? `
@@ -134,7 +136,7 @@ export function renderQqApp({
                     <div class="voice-qq-list">
                         ${memberCandidates.length ? memberCandidates.map(friend => `<label class="voice-qq-row">
                             ${qqFriendAvatar(friend)}
-                            <span class="voice-qq-copy"><strong>${safe(friend.name)}</strong><small>好友</small></span>
+                            <span class="voice-qq-copy"><strong>${safe(friend.name)}</strong><small>${friend.current ? '当前角色卡' : '好友'}</small></span>
                             <input type="checkbox" name="member" value="${safe(friend.name)}" ${draft.members.includes(friend.name) ? 'checked' : ''}><i></i>
                         </label>`).join('') : '<p class="voice-qq-picker-empty">先添加好友，才能创建群聊。</p>'}
                     </div>

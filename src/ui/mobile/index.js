@@ -5,7 +5,12 @@ import { icon } from '../mobile-icons.js';
 import { createPhoneMotionRuntime } from '../motion.js';
 import { renderContactsApp as renderContactsView } from './contacts.js';
 import { shouldRestoreGeneratedChat } from './chat-response.js';
-import { batchDeleteMessages, removeQqFriends } from './qq-data.js';
+import {
+    batchDeleteMessages,
+    buildQqMemberCandidates,
+    partitionQqFriendSelection,
+    removeQqFriends,
+} from './qq-data.js';
 import { renderQqApp as renderQqView } from './qq.js';
 import { NOVELAI_MODELS, requestNovelAiImage } from './drawing.js';
 import { readSelectedParticipants, renderIncomingPanel as renderIncomingView } from './phone.js';
@@ -4675,22 +4680,6 @@ function bindEvents(eventRoot) {
             updateView();
             return;
         }
-        const qqRemoveFriend = event.target.closest('[data-qq-remove-friend]')?.dataset.qqRemoveFriend;
-        if (qqRemoveFriend) {
-            const qq = TTS_ProviderRegistry.getQqState();
-            const canonicalGroups = FrontendVoiceTools.getGroupChatSnapshot().groups
-                .map(group => ({ id: group.id, members: group.memberNames }));
-            const preview = removeQqFriends({ friends: qq.friends, groups: canonicalGroups }, [qqRemoveFriend]);
-            const dissolveNote = preview.dissolvedGroupIds.length
-                ? `\n其中 ${preview.dissolvedGroupIds.length} 个群会因不足两人而解散。`
-                : '';
-            if (!window.confirm(`确定移除 QQ 好友“${qqRemoveFriend}”吗？私聊历史、通讯录和声线路由都会保留。${dissolveNote}`)) return;
-            TTS_ProviderRegistry.updateQqState({ friends: preview.friends });
-            FrontendVoiceTools.removeFriendsFromGroupChats([qqRemoveFriend]);
-            updateView();
-            announce(`已移除好友 ${qqRemoveFriend}`);
-            return;
-        }
         if (event.target.closest('[data-qq-toggle-friend-select]')) {
             state.qqFriendSelectionMode = !state.qqFriendSelectionMode;
             if (!state.qqFriendSelectionMode) state.qqSelectedFriends = [];
@@ -4708,8 +4697,11 @@ function bindEvents(eventRoot) {
         }
         const qqSelectAllFriends = event.target.closest('input[data-qq-select-all-friends]');
         if (qqSelectAllFriends) {
-            const friends = TTS_ProviderRegistry.getQqState().friends || [];
-            state.qqSelectedFriends = qqSelectAllFriends.checked ? friends.map(friend => friend.name) : [];
+            const qq = TTS_ProviderRegistry.getQqState();
+            const currentName = FrontendVoiceTools.getContextSnapshot().charName || '当前角色';
+            const hiddenCurrent = TTS_ProviderRegistry.getUiSettings().hiddenCurrentCharName === currentName;
+            const manageableFriends = buildQqMemberCandidates({ currentName, friends: qq.friends, hiddenCurrent });
+            state.qqSelectedFriends = qqSelectAllFriends.checked ? manageableFriends.map(friend => friend.name) : [];
             updateView();
             return;
         }
@@ -4717,12 +4709,15 @@ function bindEvents(eventRoot) {
             const selected = [...new Set(state.qqSelectedFriends || [])];
             if (!selected.length) return;
             const qq = TTS_ProviderRegistry.getQqState();
+            const currentName = FrontendVoiceTools.getContextSnapshot().charName || '当前角色';
+            const selection = partitionQqFriendSelection(selected, currentName);
             const canonicalGroups = FrontendVoiceTools.getGroupChatSnapshot().groups.map(group => ({ id: group.id, members: group.memberNames }));
-            const preview = removeQqFriends({ friends: qq.friends, groups: canonicalGroups }, selected);
+            const preview = removeQqFriends({ friends: qq.friends, groups: canonicalGroups }, selection.friendNames);
             const dissolveNote = preview.dissolvedGroupIds.length ? `\n其中 ${preview.dissolvedGroupIds.length} 个群会因不足两人而解散。` : '';
             if (!window.confirm(`确定移除 ${selected.length} 位 QQ 好友吗？私聊历史、通讯录和声线路由都会保留。${dissolveNote}`)) return;
             TTS_ProviderRegistry.updateQqState({ friends: preview.friends });
-            FrontendVoiceTools.removeFriendsFromGroupChats(selected);
+            if (selection.hideCurrent) TTS_ProviderRegistry.updateUiSettings({ hiddenCurrentCharName: currentName });
+            if (selection.friendNames.length) FrontendVoiceTools.removeFriendsFromGroupChats(selection.friendNames);
             state.qqSelectedFriends = [];
             state.qqFriendSelectionMode = false;
             updateView();
@@ -4733,13 +4728,6 @@ function bindEvents(eventRoot) {
             state.qqAddFriendOpen = !state.qqAddFriendOpen;
             state.qqGroupFormOpen = false;
             updateView();
-            return;
-        }
-        if (event.target.closest('[data-qq-hide-current]')) {
-            const currentName = FrontendVoiceTools.getContextSnapshot().charName || '当前角色';
-            TTS_ProviderRegistry.updateUiSettings({ hiddenCurrentCharName: currentName });
-            updateView();
-            announce(`已删除好友 ${currentName}，切换角色卡或新开聊天后恢复`);
             return;
         }
         if (event.target.closest('[data-qq-restore-current]')) {

@@ -14,7 +14,7 @@ import { getWorldInfoPrompt, world_info_include_names } from '/scripts/world-inf
 import { LLM_Client } from './llm_client.js';
 import { initBodyTtsRuntime } from './body-tts.js';
 import { buildVoiceContacts, validateCallParticipants } from '../ui/mobile/contacts.js';
-import { batchDeleteMessages } from '../ui/mobile/qq-data.js';
+import { batchDeleteMessages, buildAllowedGroupMemberNames } from '../ui/mobile/qq-data.js';
 import { resolveSticker } from '../ui/mobile/stickers.js';
 import { normalizeChatTranslation } from '../ui/mobile/chat-response.js';
 
@@ -1998,18 +1998,18 @@ function selectGroupChat(groupId) {
 
 function createGroupChat({ name = '', memberNames = [] } = {}) {
     const store = ensureStore();
-    const available = new Set(getAvailableVoiceCharacters().map(character => character.name));
+    const current = getContextSnapshot(store.planner.contextLimit);
+    const available = new Set(buildAllowedGroupMemberNames(getAvailableVoiceCharacters(), current.charName));
     const members = [...new Set((Array.isArray(memberNames) ? memberNames : [])
         .map(value => String(value || '').trim()).filter(value => value && available.has(value)))].slice(0, 8);
-    if (members.length < 2) throw new Error('群聊至少需要选择两位已有声线路由的角色。');
+    if (members.length < 2) throw new Error('群聊至少需要选择两位可用角色。');
     const id = createId('group-chat');
     const now = new Date().toISOString();
-    const context = getContextSnapshot(store.planner.contextLimit);
     const group = {
         id,
         name: String(name || members.join('、')).trim().slice(0, 80) || members.join('、'),
         memberNames: members,
-        userName: context.userName || '用户',
+        userName: current.userName || '用户',
         messages: [],
         createdAt: now,
         updatedAt: now,
@@ -2025,7 +2025,8 @@ function updateGroupChat(groupId, updates = {}) {
     const group = store.phoneChat.groups[String(groupId || '')];
     if (!group) throw new Error('这个群聊不存在。');
     if (updates.memberNames !== undefined) {
-        const available = new Set(getAvailableVoiceCharacters().map(character => character.name));
+        const current = getContextSnapshot(store.planner.contextLimit);
+        const available = new Set(buildAllowedGroupMemberNames(getAvailableVoiceCharacters(), current.charName));
         const members = [...new Set((Array.isArray(updates.memberNames) ? updates.memberNames : [])
             .map(value => String(value || '').trim()).filter(value => value && available.has(value)))].slice(0, 8);
         if (members.length < 2) throw new Error('群聊至少需要保留两位角色。');

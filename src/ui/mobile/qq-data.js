@@ -6,6 +6,37 @@ function friendKey(friend) {
     return cleanId(friend?.id || friend?.name || friend);
 }
 
+export function buildQqMemberCandidates({ currentName = '', friends = [], hiddenCurrent = false } = {}) {
+    const current = cleanId(currentName);
+    const candidates = [
+        ...(!hiddenCurrent && current ? [{ name: current, current: true }] : []),
+        ...(Array.isArray(friends) ? friends : []),
+    ];
+    const unique = new Map();
+    for (const candidate of candidates) {
+        const name = friendKey(candidate);
+        if (!name || unique.has(name)) continue;
+        unique.set(name, { ...(candidate && typeof candidate === 'object' ? candidate : {}), name });
+    }
+    return [...unique.values()];
+}
+
+export function partitionQqFriendSelection(selectedNames = [], currentName = '') {
+    const current = cleanId(currentName);
+    const selected = [...new Set(selectedNames.map(cleanId).filter(Boolean))];
+    return {
+        hideCurrent: Boolean(current && selected.includes(current)),
+        friendNames: selected.filter(name => name !== current),
+    };
+}
+
+export function buildAllowedGroupMemberNames(availableCharacters = [], currentName = '') {
+    return [...new Set([
+        ...(Array.isArray(availableCharacters) ? availableCharacters : []).map(friendKey),
+        cleanId(currentName),
+    ].filter(Boolean))];
+}
+
 export function batchDeleteMessages(messages = [], selectedIds = []) {
     const deleted = new Set(selectedIds.map(cleanId).filter(Boolean));
     return messages
